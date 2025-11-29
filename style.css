@@ -135,12 +135,16 @@ body {
 /* ---------------------------------- */
 /* DROPDOWNS (Von Kollegen)           */
 /* ---------------------------------- */
-.dropdown {
+.dropdownDatei, 
+.dropdownEdit, 
+.dropdownImport, 
+.dropdownHelp, 
+.dropdownSelektor {
     position: relative;
     display: inline-block;
 }
 
-/* Alle Dropdown-Klassen der Kollegen */
+/* Alle Dropdown-Klassen für den Inhalt */
 .dropdownDateiClass,
 .dropdownEditClass,
 .dropdownImportClass,
@@ -150,7 +154,7 @@ body {
     position: absolute;
     min-width: 160px;
     background-color: grey; 
-    z-index: 1000; /* Hoch genug für CodeMirror */
+    z-index: 2000; /* Erhöht, damit es sicher über dem Editor liegt */
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); 
     top: 100%;
     left: 0;
