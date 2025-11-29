@@ -66,57 +66,152 @@ const SearchModule = {
         const form = document.querySelector("#search-form");
         const input = document.querySelector("#input1");
         
-        if(form) {
+        if(form && input) {
+            // Live-Suche: Leitet die Eingabe an das SidebarModule weiter
+            input.addEventListener("input", (e) => {
+                SidebarModule.setSearchTerm(e.target.value);
+            });
+
+            // Enter-Taste: Springt zum ersten sichtbaren Eintrag
             form.addEventListener("submit", (event) => {
                 event.preventDefault();
-                console.log("Suche nach:", input.value);
+                const firstMatch = SidebarModule.getFirstVisibleKey();
+                if (firstMatch) {
+                    EditorModule.jumpToKey(firstMatch);
+                }
             });
         }
     }
 };
 
-// --- 4. SIDEBAR-MODUL ---
+// --- 4. SIDEBAR-MODUL (Mit Filter & Sortierung) ---
 const SidebarModule = {
     citationListUl: document.querySelector("#citation-list"),
+    sortSelect: document.querySelector("#selektor"),
+    
+    // WICHTIG: Wir speichern jetzt Objekte: { key: "beispiel", type: "article" }
+    allEntries: [], 
+    currentSearch: "",
+    currentSort: "original",
 
     init() { 
-        if (!this.citationListUl) console.warn("Sidebar Liste nicht gefunden");
-    },
-
-    // Extrahiert BibTeX Keys (z.B. @article{meinKey,)
-    // Regex der Kollegen übernommen und leicht robuster gemacht
-    parseBibtexKeys(text) {
-        const keys = new Set();
-        // Sucht nach @typ{key,
-        const regex = /@\w+\s*\{\s*([^,]+),/g;
-        let match;
-        while ((match = regex.exec(text)) !== null) {
-            keys.add(match[1].trim());
+        if (!this.citationListUl) return;
+        if (this.sortSelect) {
+            this.sortSelect.addEventListener("change", (e) => {
+                this.setSortMode(e.target.value);
+            });
         }
-        return keys;
     },
 
-    updateList(keys) {
+    parseAndRefresh(text) {
+        this.allEntries = this.parseBibtexEntries(text);
+        this.updateView();
+    },
+
+    // NEU: Erweiterter Regex, der Typ UND Key fängt
+    parseBibtexEntries(text) {
+        const entries = [];
+        // Gruppe 1: (\w+) fängt den Typ (z.B. article)
+        // Gruppe 2: ([^,]+) fängt den Key
+        const regex = /@(\w+)\s*\{\s*([^,]+),/g;
+        let match;
+        
+        while ((match = regex.exec(text)) !== null) {
+            entries.push({
+                type: match[1].toLowerCase(), // z.B. "article"
+                key: match[2].trim()          // z.B. "beispiel"
+            });
+        }
+        return entries;
+    },
+
+    setSearchTerm(term) {
+        this.currentSearch = term.toLowerCase();
+        this.updateView();
+    },
+
+    setSortMode(mode) {
+        this.currentSort = mode;
+        this.updateView();
+    },
+
+    updateView() {
+        // 1. Filtern (Wir suchen im Key)
+        let processed = this.allEntries.filter(entry => 
+            entry.key.toLowerCase().includes(this.currentSearch)
+        );
+
+        // 2. Sortieren
+        if (this.currentSort === 'asc') {
+            processed.sort((a, b) => a.key.localeCompare(b.key));
+        } 
+        else if (this.currentSort === 'desc') {
+            processed.sort((a, b) => b.key.localeCompare(a.key));
+        } 
+        else if (this.currentSort === 'type') {
+            // NEU: Sortieren nach Typ, und innerhalb des Typs alphabetisch
+            processed.sort((a, b) => {
+                const typeCompare = a.type.localeCompare(b.type);
+                if (typeCompare !== 0) return typeCompare; // Wenn Typen unterschiedlich, nimm Typ
+                return a.key.localeCompare(b.key);         // Wenn Typ gleich, sortiere nach Key
+            });
+        }
+        // bei 'original' passiert nichts
+
+        // 3. Anzeigen
+        this.renderList(processed);
+    },
+
+    renderList(entriesArray) {
         if (!this.citationListUl) return;
         this.citationListUl.innerHTML = "";
         
-        keys.forEach(key => {
+        if (entriesArray.length === 0) {
+            this.citationListUl.innerHTML = "<li style='padding:5px; color:#aaa;'>Keine Treffer</li>";
+            return;
+        }
+
+        entriesArray.forEach(entry => {
             const li = document.createElement("li");
-            li.textContent = key;
-            li.style.cursor = "pointer";
-            li.style.padding = "5px";
-            li.style.borderBottom = "1px solid #444";
-            li.style.color = "white"; // Passend zum dunklen Sidebar-Thema
             
-            // Klick auf Key springt zur Zeile im Editor
-            li.onclick = () => EditorModule.jumpToKey(key); 
+            // OPTISCHE AUFWERTUNG: Zeige den Typ klein neben dem Key an
+            li.innerHTML = `
+                <span style="font-weight:bold;">${entry.key}</span>
+                <span style="font-size: 0.8em; color: #888; float:right;">${entry.type}</span>
+            `;
+
+            li.style.cursor = "pointer";
+            li.style.padding = "5px 10px";
+            li.style.borderBottom = "1px solid #444";
+            li.style.color = "#eee";
+            li.style.display = "flex";               // Für schönes Layout
+            li.style.justifyContent = "space-between"; // Key links, Typ rechts
+            li.style.alignItems = "center";
+
+            // Klick springt zum Key
+            li.onclick = () => EditorModule.jumpToKey(entry.key); 
             
             this.citationListUl.appendChild(li);
         });
+    },
+
+    getFirstVisibleKey() {
+        // Da wir jetzt HTML im LI haben, müssen wir den Key wieder rausfischen
+        const firstLi = this.citationListUl.querySelector("li span"); // Das erste Span ist der Key
+        return firstLi ? firstLi.textContent : null;
     }
 };
 
-// --- 5. EDITOR-MODUL (CodeMirror 5 + LocalStorage) ---
+// --- EDITOR-MODUL UPDATE (Nur eine kleine Änderung nötig) ---
+// Ersetze in EditorModule.init() und beim "change" Event den Aufruf:
+/* ALT: 
+   const keys = SidebarModule.parseBibtexKeys(text);
+   SidebarModule.updateList(keys);
+
+   NEU:
+   SidebarModule.parseAndRefresh(text);
+*/
+
 const EditorModule = {
     editorInstance: null,
 
@@ -124,46 +219,28 @@ const EditorModule = {
         const textarea = document.getElementById("editor-textarea");
         if (!textarea) return;
 
-        // 1. CodeMirror initialisieren
         this.editorInstance = CodeMirror.fromTextArea(textarea, {
-            lineNumbers: true,
-            mode: "stex",      // LaTeX Modus
-            theme: "default",
-            lineWrapping: true
+            lineNumbers: true, mode: "stex", theme: "default", lineWrapping: true
         });
 
-        // 2. LocalStorage Feature der Kollegen integrieren
-        // Prüfen, ob gespeicherter Text existiert
         const savedText = localStorage.getItem("editorContent");
         if (savedText) {
             this.editorInstance.setValue(savedText);
-            // Sidebar direkt aktualisieren
-            const keys = SidebarModule.parseBibtexKeys(savedText);
-            SidebarModule.updateList(keys);
+            SidebarModule.parseAndRefresh(savedText); // <--- NEU
         } else {
-            // Falls nichts gespeichert ist, Initial-Scan des Default-Textes
             const initialText = this.editorInstance.getValue();
-            SidebarModule.updateList(SidebarModule.parseBibtexKeys(initialText));
+            SidebarModule.parseAndRefresh(initialText); // <--- NEU
         }
 
-        // 3. Event-Listener
         this.editorInstance.on("change", (cm) => {
             const currentText = cm.getValue();
-            
-            // Speichern im LocalStorage (Feature der Kollegen)
             localStorage.setItem("editorContent", currentText);
-            
-            // Sidebar updaten
-            const keys = SidebarModule.parseBibtexKeys(currentText);
-            SidebarModule.updateList(keys);
+            SidebarModule.parseAndRefresh(currentText); // <--- NEU
         });
     },
 
-    // Helfer: Zum Key springen
     jumpToKey(keyName) {
         if(!this.editorInstance) return;
-        
-        // Suche nach dem Key im Text
         const cursor = this.editorInstance.getSearchCursor(keyName);
         if (cursor.findNext()) {
             this.editorInstance.setSelection(cursor.from(), cursor.to());
