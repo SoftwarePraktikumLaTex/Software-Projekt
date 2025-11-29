@@ -32,12 +32,11 @@ body {
        Simples Padding für den Innenabstand. */
     padding: 20px;
     
-    /* HINZUGEFÜGT: Erlaubt der Sidebar, zu scrollen, wenn sie voll wird. */
-    overflow-y: auto;
-    box-sizing: border-box; /* Stellt sicher, dass Padding die Breite nicht sprengt */
+   
 }
 
 .editor-container {
+    margin-left: 200px;
     grid-area: editor;
     display: flex; /* Gut, um die <form> zu strecken */
     
@@ -56,7 +55,7 @@ body {
     
     /* KORREKTUR: Unnötiges Margin entfernt. */
     margin: 0; 
-    padding-left: 250px;
+    
 }
 
 #editor-textarea {
@@ -107,30 +106,35 @@ body {
 
 .sidebar li form {
     display: flex;
-    gap: 1px;
-    /* KORREKTUR: Unnötiges Margin entfernt. 
-       Der Abstand wird durch das Padding der Sidebar kontrolliert. */
+    gap: 8px; /* KORREKTUR: Setze hier den Abstand, den du willst (z.B. 8px) */
     margin-left: 0; 
+    width: 100%;
+    align-items: center; /* HINZUGEFÜGT: Zentriert Input und Button vertikal */
 }
-.sidebar ul {list-style-type: none;
-padding-left: 0;
-    margin: 0; /* Setzt auch den Außenabstand zurück, sicher ist sicher */}
-
-
-
+.sidebar ul {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+}
 
 
 #selektor {
-    
-   
-
+    /* KORREKTUR: "padding: 100px;" entfernt. */
+    border:none;
+    width: 100px;
+    border-radius: 3%;
+    color:white;
+    background-color: #7c7c7c;
+    /* HINZUGEFÜGT: Sinnvolles Padding und eine fixe Höhe */
+    height: 29px; 
+    padding: 0 10px; /* 0px Abstand oben/unten, 10px links/rechts */
+    box-sizing: border-box; /* Stellt sicher, dass Padding die Höhe nicht sprengt */
 }
 
 #input1 {
-    width: 200px;
+    flex: 1; 
     height: 25px;
 }
-
 /* ---------------------------------- */
 /* Dropdown-CSS VEREINFACHT      */
 /* ---------------------------------- */
@@ -144,7 +148,8 @@ padding-left: 0;
 .dropdownDateiClass,
 .dropdownEditClass,
 .dropdownImportClass,
-.dropdownHelpClass {
+.dropdownHelpClass,
+.dropdownSelektorClass {
     display: none;
     position: absolute;
     min-width: 160px;
@@ -157,7 +162,8 @@ padding-left: 0;
 .dropdownDateiClass a,
 .dropdownEditClass a,
 .dropdownImportClass a,
-.dropdownHelpClass a {
+.dropdownHelpClass a,
+.dropdownSelektorClass a{
     color: black;
     padding: 12px 16px;
     text-decoration: none;
@@ -168,11 +174,14 @@ padding-left: 0;
 .dropdownDateiClass a:hover,
 .dropdownEditClass a:hover,
 .dropdownImportClass a:hover,
-.dropdownHelpClass a:hover {
+.dropdownHelpClass a:hover,
+.dropdownSelektorClass a:hover{
     background-color: rgb(255, 255, 255);
 }
+
 
 /* Diese Klasse (vermutlich von JS genutzt) bleibt gleich */
 .show {
     display: block;
 }
+

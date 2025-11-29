@@ -96,12 +96,15 @@ editorTextarea.addEventListener("input", () => {
  */
 function parseBibtexKeys(text) {
     const keys = new Set();
-    // Eine einfache RegEx, um alle Vorkommen von @gefolgt_von_wort zu finden
-    const regex = /@(\w+)/g;
+    
+    // KORREKTUR: Diese RegEx sucht jetzt nach dem Muster "@typ{schlüssel,"
+    const regex = /@\w+\{([^,]+),/g;
+    
     let match;
 
     while ((match = regex.exec(text)) !== null) {
-        // match[1] ist die "Capturing Group" (der Teil in der Klammer), also der Key
+        // match[1] ist die "Capturing Group" (der Teil in der Klammer),
+        // also der eigentliche Schlüssel (z.B. "Bi:2016")
         keys.add(match[1]);
     }
     return keys;
@@ -128,3 +131,29 @@ function updateSidebarList(keys) {
         citationListUl.appendChild(li);
     });
 }
+
+window.addEventListener("DOMContentLoaded", () => {
+    const savedText = localStorage.getItem("editorContent");
+    
+    if (savedText) {
+        // 1. Setze den Text wieder in die Textarea
+        editorTextarea.value = savedText;
+        
+        // 2. Rufe deine Parser-Funktionen manuell auf,
+        //    um die Sidebar-Liste sofort zu füllen
+        const keys = parseBibtexKeys(savedText);
+        updateSidebarList(keys);
+    }
+});
+
+editorTextarea.addEventListener("input", () => {
+    const currentText = editorTextarea.value;
+    
+   
+    localStorage.setItem("editorContent", currentText);
+    
+  
+    const keys = parseBibtexKeys(currentText);
+    updateSidebarList(keys);
+});
+
