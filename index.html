@@ -6,11 +6,8 @@
     <title>Mein Editor</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/stex/stex.min.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
     
     <link href="style.css" rel="stylesheet">
@@ -73,10 +70,13 @@
                 <li>
                     <form id="search-form">
                         <input placeholder="Suchen..." id="input1">
-                        <div class="dropownSelektor">
-                            <button id="selektor" class="selektor-btn">A->Z</button>
-                            <div id="dropdownSelektorContent" class="dropdownHelp">
-                                </div>
+                        <div class="dropdownSelektor">
+                            <select id="selektor" class="selektor-btn">
+                                <option value="a-z">A-Z</option>
+                                <option value="option">Option1</option>
+                                <option value="option2">Option2</option>
+                                <option value="option3">Option3</option>
+                            </select>
                         </div>
                     </form>
                 </li>
@@ -85,7 +85,7 @@
         
         <div class="citations-container">
             <ul id="citation-list">
-            </ul>
+                </ul>
         </div>
     </aside>
 
