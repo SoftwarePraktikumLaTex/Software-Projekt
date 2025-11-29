@@ -4,8 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mein Editor</title>
-    <script src="script.js" type="module" defer></script>
-    <link href="style.css" rel="stylesheet"> </head>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/stex/stex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+    
+    <link href="style.css" rel="stylesheet">
+    
+    <script src="script.js" defer></script>
+</head>
 <body>
 
     <header class="top-nav">
@@ -14,7 +22,6 @@
                 <li>
                     <div class="dropdownDatei">
                         <button id="datei" class="datei-btn">File</button>
-
                         <div id="dropdownDateiContent" class="dropdownDateiClass">
                             <a href="#link1">Link 1</a>
                             <a href="#link2">Link 2</a>
@@ -25,7 +32,6 @@
                 <li>
                     <div class="dropdownEdit">
                         <button id="edit" class="edit-btn">Edit</button>
-
                         <div id="dropdownEditContent" class="dropdownEditClass">
                             <a href="#link1">Undo</a>
                             <a href="#link2">Redo</a>
@@ -38,7 +44,6 @@
                 <li>
                     <div class="dropdownImport">
                         <button id="import" class="import-btn">Import</button>
-
                         <div id="dropdownImportContent" class="dropdownImportClass">
                             <a href="#link1">Link 1</a>
                             <a href="#link2">Link 2</a>
@@ -49,7 +54,6 @@
                 <li>
                     <div class="dropdownHelp">
                         <button id="help" class="help-btn">Help</button>
-
                         <div id="dropdownHelpContent" class="dropdownHelpClass">
                             <a href="#link1">Keyboard shortcuts</a>
                             <a href="#link2">Contact us</a>
@@ -61,35 +65,38 @@
     </header>
     
     <aside class="sidebar">
-    <nav>
-        <ul>
-            <li>
-                <form id="search-form">
-                    <input placeholder="Suchen..." id="input1">
-                    <div class="dropdownSelektor">
-                        <select id="selektor" class="selektor-btn">
-                            <option value="a-z">A-Z</option>
-			                <option value="option">Option1</option>
-			                <option value="option2">Option2</option>
-			                <option value="option3">Option3</option>
-                        </select>
+        <nav>
+            <ul>
+                <li>
+                    <form id="search-form">
+                        <input placeholder="Suchen..." id="input1">
+                        <div class="dropdownSelektor">
+                            <select id="selektor" class="selektor-btn">
+                                <option value="a-z">A-Z</option>
+                                <option value="option">Option1</option>
+                                <option value="option2">Option2</option>
+                                <option value="option3">Option3</option>
+                            </select>
                         </div>
-                    </div>
-                </form>
-            </li>
-        </ul>
-    </nav>
-    
-    <div class="citations-container">
-        <ul id="citation-list">
+                    </form>
+                </li>
             </ul>
-    </div>
-</aside>
+        </nav>
+        
+        <div class="citations-container">
+            <ul id="citation-list">
+                </ul>
+        </div>
+    </aside>
 
     <main class="editor-container"> 
-        <form id="form">
-            <textarea id="editor-textarea" placeholder="Schreibe hier ..."></textarea>
-        </form>
+        <textarea id="editor-textarea">
+@article{beispiel,
+  author  = "Autor, A.",
+  title   = "Ein Titel",
+  year    = 2025
+}
+        </textarea>
     </main>
 
 </body>

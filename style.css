@@ -1,9 +1,12 @@
+/* ---------------------------------- */
+/* GRUNDLAYOUT & RESET (Von Kollegen) */
+/* ---------------------------------- */
 html, body {
     margin: 0;
     padding: 0;
     height: 100vh; 
     font-family: Arial, sans-serif;
-    /* overflow: hidden; */ /* <-- ENTFERNT: Dies verhindert das Scrollen der Sidebar */
+    /* overflow: hidden; */ /* Von Kollegen auskommentiert gelassen */
     background-color: #5e5e5e;
 }
 
@@ -15,70 +18,17 @@ body {
     
     grid-template-rows: auto 1fr; 
     
-    /* ÄNDERUNG: Die Sidebar ist jetzt 250px breit */
+    /* Sidebar 250px breit (Wunsch der Kollegen) */
     grid-template-columns: 250px 1fr;
 }
 
+/* ---------------------------------- */
+/* HEADER / TOP-NAV (Von Kollegen)    */
+/* ---------------------------------- */
 .top-nav {
     grid-area: header;
     background-color: #eee; 
 }
-
-.sidebar {
-    grid-area: sidebar;
-    background-color: #5e5e5e; 
-    
-    /* KORREKTUR: Riesen-Padding entfernt. 
-       Simples Padding für den Innenabstand. */
-    padding: 20px;
-    
-   
-}
-
-.editor-container {
-    margin-left: 200px;
-    grid-area: editor;
-    display: flex; /* Gut, um die <form> zu strecken */
-    
-    /* KORREKTUR: Layout-brechendes Padding und Margin entfernt.
-       Einfaches Padding für den Innenabstand. */
-    padding: 20px;
-    
-    /* HINZUGEFÜGT: Erlaubt dem Editor-Bereich zu scrollen (falls nötig) */
-    overflow-y: auto;
-    box-sizing: border-box;
-}
-
-.editor-container form {
-    display: flex;
-    flex-grow: 1; 
-    
-    /* KORREKTUR: Unnötiges Margin entfernt. */
-    margin: 0; 
-    
-}
-
-#editor-textarea {
-    flex-grow: 1;
-    width: 100%; /* Stellt sicher, dass es die Form ausfüllt */
-    border-color: rgb(0, 0, 0);
-    border: solid;          
-    outline: none;          
-    padding: 20px;          
-    margin: 0;
-    font-size: 16px;          
-    line-height: 1.5;
-    resize: none; 
-    box-sizing: border-box; /* Wichtig für Padding */
-    
-}
-
-/* ---------------------------------- */
-/* Listen-Styling KORRIGIERT     */
-/* ---------------------------------- */
-
-/* KORREKTUR: Globale 'ul'-Regel entfernt. 
-   Styling wird jetzt gezielt angewendet. */
 
 #headbarNav {
     list-style-type: none;
@@ -90,61 +40,107 @@ body {
     color: white;
 }
 
-/* HINZUGEFÜGT: Styling für deine Zitationsliste */
-#citation-list {
-    list-style-type: none; /* Entfernt Aufzählungszeichen */
-    padding: 0;
-    margin: 20px 0 0 0; /* Etwas Abstand nach oben */
-}
-
 #headbarNav li button {
     background-color: grey;
     color: white;
     border: none;
     font-size: 20px;
+    cursor: pointer;
 }
 
-.sidebar li form {
-    display: flex;
-    gap: 8px; /* KORREKTUR: Setze hier den Abstand, den du willst (z.B. 8px) */
-    margin-left: 0; 
-    width: 100%;
-    align-items: center; /* HINZUGEFÜGT: Zentriert Input und Button vertikal */
+/* ---------------------------------- */
+/* SIDEBAR (Von Kollegen)             */
+/* ---------------------------------- */
+.sidebar {
+    grid-area: sidebar;
+    background-color: #5e5e5e; 
+    
+    /* Kollegen-Padding */
+    padding: 20px;
 }
+
 .sidebar ul {
     list-style-type: none;
     padding-left: 0;
     margin: 0;
 }
 
+.sidebar li form {
+    display: flex;
+    gap: 8px; /* Kollegen-Abstand */
+    margin-left: 0; 
+    width: 100%;
+    align-items: center; 
+}
 
+/* Spezifische Inputs der Kollegen */
 #selektor {
-    /* KORREKTUR: "padding: 100px;" entfernt. */
-    border:none;
+    border: none;
     width: 100px;
     border-radius: 3%;
-    color:white;
+    color: white;
     background-color: #7c7c7c;
-    /* HINZUGEFÜGT: Sinnvolles Padding und eine fixe Höhe */
     height: 29px; 
-    padding: 0 10px; /* 0px Abstand oben/unten, 10px links/rechts */
-    box-sizing: border-box; /* Stellt sicher, dass Padding die Höhe nicht sprengt */
+    padding: 0 10px; 
+    box-sizing: border-box; 
 }
 
 #input1 {
     flex: 1; 
     height: 25px;
 }
-/* ---------------------------------- */
-/* Dropdown-CSS VEREINFACHT      */
-/* ---------------------------------- */
 
+/* Styling für die Zitationsliste (Von Kollegen) */
+#citation-list {
+    list-style-type: none; 
+    padding: 0;
+    margin: 20px 0 0 0; 
+}
+
+/* ---------------------------------- */
+/* EDITOR BEREICH (CodeMirror 5 - Von Ihnen) */
+/* ---------------------------------- */
+/* Dieser Teil ist entscheidend für CodeMirror! */
+
+.editor-container {
+    grid-area: editor;
+    
+    /* Wir überschreiben hier das Padding/Margin der Kollegen, 
+       damit der Editor den Platz randlos und sauber ausfüllt */
+    margin: 0;
+    padding: 0; 
+    
+    /* Volle Höhe/Breite der Grid-Zelle */
+    height: 100%;
+    width: 100%;
+    
+    background-color: white; 
+    overflow: hidden; /* CodeMirror scrollt intern */
+}
+
+/* Das eigentliche CodeMirror Element */
+.CodeMirror {
+    height: 100% !important; /* Erzwingt volle Höhe */
+    width: 100%;
+    font-size: 16px;
+    font-family: 'Courier New', Courier, monospace;
+    border-left: 1px solid #ddd;
+}
+
+/* Falls noch Reste vom alten Textarea da sind, verstecken wir sie */
+#editor-textarea {
+    display: none;
+}
+
+/* ---------------------------------- */
+/* DROPDOWNS (Von Kollegen)           */
+/* ---------------------------------- */
 .dropdown {
     position: relative;
     display: inline-block;
 }
 
-/* VEREINFACHT: 1 Regel für ALLE Dropdown-Container */
+/* Alle Dropdown-Klassen der Kollegen */
 .dropdownDateiClass,
 .dropdownEditClass,
 .dropdownImportClass,
@@ -153,34 +149,33 @@ body {
     display: none;
     position: absolute;
     min-width: 160px;
-    background-color: grey; /* Hintergrund auf den Container verschoben */
-    z-index: 10; /* Stellt sicher, dass es über dem Inhalt liegt */
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); /* Kleiner Schatten */
+    background-color: grey; 
+    z-index: 1000; /* Hoch genug für CodeMirror */
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); 
+    top: 100%;
+    left: 0;
 }
 
-/* VEREINFACHT: 1 Regel für ALLE Dropdown-Links */
 .dropdownDateiClass a,
 .dropdownEditClass a,
 .dropdownImportClass a,
 .dropdownHelpClass a,
-.dropdownSelektorClass a{
+.dropdownSelektorClass a {
     color: black;
     padding: 12px 16px;
     text-decoration: none;
     display: block;
 }
 
-/* VEREINFACHT: 1 Regel für ALLEN Hover-Effekt */
 .dropdownDateiClass a:hover,
 .dropdownEditClass a:hover,
 .dropdownImportClass a:hover,
 .dropdownHelpClass a:hover,
-.dropdownSelektorClass a:hover{
+.dropdownSelektorClass a:hover {
     background-color: rgb(255, 255, 255);
 }
 
-
-/* Diese Klasse (vermutlich von JS genutzt) bleibt gleich */
+/* Klasse zum Einblenden */
 .show {
     display: block;
 }

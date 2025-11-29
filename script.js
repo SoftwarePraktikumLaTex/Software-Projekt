@@ -1,159 +1,179 @@
-// --- Selektoren ---
-const dateiButton = document.querySelector("#datei");
-const editButton = document.querySelector("#edit");
-const importButton = document.querySelector("#import");
-const helpButton = document.querySelector("#help");
+// --- 1. HAUPT-APP ---
+const App = {
+    init() {
+        DropdownModule.init();
+        SearchModule.init();
+        SidebarModule.init();
+        EditorModule.init(); 
+        console.log("Anwendung (CM5 + Features der Kollegen) initialisiert.");
+    }
+};
 
-const dateiDropown = document.querySelector("#dropdownDateiContent");
-const editDropown = document.querySelector("#dropdownEditContent");
-const importDropown = document.querySelector("#dropdownImportContent");
-const helpDropown = document.querySelector("#dropdownHelpContent");
+const DropdownModule = {
+    init() {
+        this.setupListeners();
+    },
+    setupListeners() {
+        const ids = ["#datei", "#edit", "#import", "#help"];
+        const contents = ["#dropdownDateiContent", "#dropdownEditContent", "#dropdownImportContent", "#dropdownHelpContent"];
+        
+        // Buttons: Klick öffnet/schließt
+        ids.forEach((id, index) => {
+            const btn = document.querySelector(id);
+            const content = document.querySelector(contents[index]);
+            
+            if(btn && content) {
+                btn.addEventListener("click", (e) => {
+                    e.stopPropagation(); // WICHTIG: Verhindert, dass der Klick sofort an "window" weitergegeben wird
+                    
+                    // Alle ANDEREN schließen
+                    contents.forEach((c, cIndex) => {
+                        if(cIndex !== index) {
+                            const el = document.querySelector(c);
+                            if(el) el.classList.remove('show');
+                        }
+                    });
+                    
+                    // Das AKTUELLE umschalten
+                    content.classList.toggle("show");
+                });
+            }
+        });
+        
+        // Window: Klick außerhalb schließt alles
+        window.addEventListener("click", (e) => {
+            // Prüfen: War der Klick auf einem Button?
+            const isButton = e.target.matches('.datei-btn, .edit-btn, .import-btn, .help-btn');
+            
+            // Prüfen: War der Klick INNERHALB eines offenen Menüs?
+            // (Das fehlte vorher, weshalb es sich sofort geschlossen hat)
+            const isInsideMenu = e.target.closest('.dropdownDateiClass, .dropdownEditClass, .dropdownImportClass, .dropdownHelpClass');
 
-// KORREKTUR: Die ID im HTML lautet "#search-form", nicht "#form-search"
-const formsearch = document.querySelector("#search-form");
-const inputsearch = document.querySelector("#input1");
+            // Nur schließen, wenn man WEDER auf Button NOCH ins Menü geklickt hat
+            if (!isButton && !isInsideMenu) {
+                contents.forEach(c => {
+                    const el = document.querySelector(c);
+                    if(el) el.classList.remove('show');
+                });
+            }
+        });
+    }
+};
 
-const editorTextarea = document.querySelector("#editor-textarea");
-const citationListUl = document.querySelector("#citation-list");
-
-// HINZUGEFÜGT: Ein Array mit allen Dropdowns für eine einfachere Verwaltung
-const allDropdowns = [dateiDropown, editDropown, importDropown, helpDropown];
-
-// --- Dropdown-Logik (VERBESSERT) ---
-
-/**
- * HINZUGEFÜGT: Eine Helferfunktion, die ein Dropdown umschaltet
- * und sicherstellt, dass alle anderen geschlossen werden.
- * @param {HTMLElement} targetDropdown - Das Dropdown, das umgeschaltet werden soll.
- */
-function toggleDropdown(targetDropdown) {
-    allDropdowns.forEach(dropdown => {
-        if (dropdown === targetDropdown) {
-            // Das angeklickte Dropdown umschalten
-            dropdown.classList.toggle("show");
-        } else {
-            // Alle anderen Dropdowns schließen
-            dropdown.classList.remove("show");
+// --- 3. SUCH-MODUL ---
+const SearchModule = {
+    init() {
+        const form = document.querySelector("#search-form");
+        const input = document.querySelector("#input1");
+        
+        if(form) {
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+                console.log("Suche nach:", input.value);
+            });
         }
-    });
-}
-
-// KORREKTUR: Jeder Button schaltet jetzt sein EIGENES Dropdown um
-dateiButton.addEventListener("click", () => {
-    toggleDropdown(dateiDropown);
-});
-
-editButton.addEventListener("click", () => {
-    toggleDropdown(editDropown);
-});
-
-importButton.addEventListener("click", () => {
-    toggleDropdown(importDropown);
-});
-
-helpButton.addEventListener("click", () => {
-    toggleDropdown(helpDropown);
-});
-
-
-// KORREKTUR: "Click-Away"-Logik (stark verbessert)
-window.addEventListener("click", function(event) {
-    // Prüfen, ob der Klick *nicht* auf einen der Dropdown-Buttons war
-    const isDropdownButton = event.target.matches(".datei-btn, .edit-btn, .import-btn, .help-btn");
-    
-    // Prüfen, ob der Klick *nicht* IN einem der Dropdown-Inhalte war
-    // .closest() findet den nächsten übergeordneten Container
-    const isInsideDropdown = event.target.closest(".dropdownDateiClass, .dropdownEditClass, .dropdownImportClass, .dropdownHelpClass");
-
-    if (!isDropdownButton && !isInsideDropdown) {
-        // Wenn der Klick "draußen" war, schließe alle Dropdowns
-        allDropdowns.forEach(dropdown => dropdown.classList.remove("show"));
     }
-});
+};
 
+// --- 4. SIDEBAR-MODUL ---
+const SidebarModule = {
+    citationListUl: document.querySelector("#citation-list"),
 
-// --- Such-Logik ---
-formsearch.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const inputtext = inputsearch.value;
-    console.log("Suche nach:", inputtext); // HINZUGEFÜGT: Feedback
-});
+    init() { 
+        if (!this.citationListUl) console.warn("Sidebar Liste nicht gefunden");
+    },
 
+    // Extrahiert BibTeX Keys (z.B. @article{meinKey,)
+    // Regex der Kollegen übernommen und leicht robuster gemacht
+    parseBibtexKeys(text) {
+        const keys = new Set();
+        // Sucht nach @typ{key,
+        const regex = /@\w+\s*\{\s*([^,]+),/g;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            keys.add(match[1].trim());
+        }
+        return keys;
+    },
 
-// --- Editor-Logik ---
-editorTextarea.addEventListener("input", () => {
-    const currentText = editorTextarea.value;
-    // Diese Funktion hat vorher gefehlt (siehe unten)
-    const keys = parseBibtexKeys(currentText);
-    updateSidebarList(keys);
-});
-
-/**
- * HINZUGEFÜGT: Diese Funktion hat gefehlt und verursachte einen Absturz.
- * Sie extrahiert alle BibTeX-Keys (z.B. @key123) aus einem Text.
- * @param {string} text - Der Text aus der Textarea.
- * @returns {Set<string>} - Ein Set mit einzigartigen Keys.
- */
-function parseBibtexKeys(text) {
-    const keys = new Set();
-    
-    // KORREKTUR: Diese RegEx sucht jetzt nach dem Muster "@typ{schlüssel,"
-    const regex = /@\w+\{([^,]+),/g;
-    
-    let match;
-
-    while ((match = regex.exec(text)) !== null) {
-        // match[1] ist die "Capturing Group" (der Teil in der Klammer),
-        // also der eigentliche Schlüssel (z.B. "Bi:2016")
-        keys.add(match[1]);
+    updateList(keys) {
+        if (!this.citationListUl) return;
+        this.citationListUl.innerHTML = "";
+        
+        keys.forEach(key => {
+            const li = document.createElement("li");
+            li.textContent = key;
+            li.style.cursor = "pointer";
+            li.style.padding = "5px";
+            li.style.borderBottom = "1px solid #444";
+            li.style.color = "white"; // Passend zum dunklen Sidebar-Thema
+            
+            // Klick auf Key springt zur Zeile im Editor
+            li.onclick = () => EditorModule.jumpToKey(key); 
+            
+            this.citationListUl.appendChild(li);
+        });
     }
-    return keys;
-}
+};
 
-/**
- * Nimmt die Liste der Keys und baut die <li> Elemente in der Sidebar.
- * (Diese Funktion war bereits korrekt)
- * @param {Set<string>} keys - Das Set der gefundenen Keys.
- */
-function updateSidebarList(keys) {
-    citationListUl.innerHTML = "";
-    
-    keys.forEach(key => {
-        const li = document.createElement("li");
-        li.textContent = key;
-        
-        li.style.cursor = "pointer";
-        li.style.padding = "5px";
-        li.onclick = () => {
-             console.log("Springe zu:", key);
-        };
-        
-        citationListUl.appendChild(li);
-    });
-}
+// --- 5. EDITOR-MODUL (CodeMirror 5 + LocalStorage) ---
+const EditorModule = {
+    editorInstance: null,
 
-window.addEventListener("DOMContentLoaded", () => {
-    const savedText = localStorage.getItem("editorContent");
-    
-    if (savedText) {
-        // 1. Setze den Text wieder in die Textarea
-        editorTextarea.value = savedText;
+    init() {
+        const textarea = document.getElementById("editor-textarea");
+        if (!textarea) return;
+
+        // 1. CodeMirror initialisieren
+        this.editorInstance = CodeMirror.fromTextArea(textarea, {
+            lineNumbers: true,
+            mode: "stex",      // LaTeX Modus
+            theme: "default",
+            lineWrapping: true
+        });
+
+        // 2. LocalStorage Feature der Kollegen integrieren
+        // Prüfen, ob gespeicherter Text existiert
+        const savedText = localStorage.getItem("editorContent");
+        if (savedText) {
+            this.editorInstance.setValue(savedText);
+            // Sidebar direkt aktualisieren
+            const keys = SidebarModule.parseBibtexKeys(savedText);
+            SidebarModule.updateList(keys);
+        } else {
+            // Falls nichts gespeichert ist, Initial-Scan des Default-Textes
+            const initialText = this.editorInstance.getValue();
+            SidebarModule.updateList(SidebarModule.parseBibtexKeys(initialText));
+        }
+
+        // 3. Event-Listener
+        this.editorInstance.on("change", (cm) => {
+            const currentText = cm.getValue();
+            
+            // Speichern im LocalStorage (Feature der Kollegen)
+            localStorage.setItem("editorContent", currentText);
+            
+            // Sidebar updaten
+            const keys = SidebarModule.parseBibtexKeys(currentText);
+            SidebarModule.updateList(keys);
+        });
+    },
+
+    // Helfer: Zum Key springen
+    jumpToKey(keyName) {
+        if(!this.editorInstance) return;
         
-        // 2. Rufe deine Parser-Funktionen manuell auf,
-        //    um die Sidebar-Liste sofort zu füllen
-        const keys = parseBibtexKeys(savedText);
-        updateSidebarList(keys);
+        // Suche nach dem Key im Text
+        const cursor = this.editorInstance.getSearchCursor(keyName);
+        if (cursor.findNext()) {
+            this.editorInstance.setSelection(cursor.from(), cursor.to());
+            this.editorInstance.scrollIntoView(cursor.from(), 200);
+            this.editorInstance.focus();
+        }
     }
-});
+};
 
-editorTextarea.addEventListener("input", () => {
-    const currentText = editorTextarea.value;
-    
-   
-    localStorage.setItem("editorContent", currentText);
-    
-  
-    const keys = parseBibtexKeys(currentText);
-    updateSidebarList(keys);
+// Starten
+document.addEventListener("DOMContentLoaded", () => {
+    App.init();
 });
-
