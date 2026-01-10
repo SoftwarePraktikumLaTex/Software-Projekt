@@ -5,6 +5,7 @@ const App = {
         SearchModule.init();
         SidebarModule.init();
         EditorModule.init(); 
+        ResizerModule.init();
         console.log("Anwendung (CM5 + Features der Kollegen) initialisiert.");
     }
 };
@@ -202,15 +203,6 @@ const SidebarModule = {
     }
 };
 
-// --- EDITOR-MODUL UPDATE (Nur eine kleine Änderung nötig) ---
-// Ersetze in EditorModule.init() und beim "change" Event den Aufruf:
-/* ALT: 
-   const keys = SidebarModule.parseBibtexKeys(text);
-   SidebarModule.updateList(keys);
-
-   NEU:
-   SidebarModule.parseAndRefresh(text);
-*/
 
 const EditorModule = {
     editorInstance: null,
@@ -250,7 +242,48 @@ const EditorModule = {
     }
 };
 
+const ResizerModule = {
+    init() {
+        const resizer = document.getElementById("resizer");
+        const body = document.body;
+        let isResizing = false;
+
+        if (!resizer) return;
+
+        resizer.addEventListener("mousedown", (e) => {
+            isResizing = true;
+            body.style.cursor = "row-resize";
+            // Verhindert Textmarkierungen während des Ziehens
+            body.style.userSelect = "none"; 
+        });
+
+        window.addEventListener("mousemove", (e) => {
+            if (!isResizing) return;
+
+            // Berechne die neue Höhe der Sidebar
+            // Wir nehmen die Mausposition minus die Höhe des Headers
+            const headerHeight = document.querySelector(".top-nav").offsetHeight;
+            let newSidebarHeight = e.clientY - headerHeight;
+
+            // Grenzen setzen (min 50px, max 80% des Fensters)
+            if (newSidebarHeight < 50) newSidebarHeight = 50;
+            if (newSidebarHeight > window.innerHeight * 0.8) newSidebarHeight = window.innerHeight * 0.8;
+
+            // Update das Grid-Layout
+            body.style.gridTemplateRows = `auto ${newSidebarHeight}px 5px 1fr`;
+        });
+
+        window.addEventListener("mouseup", () => {
+            isResizing = false;
+            body.style.cursor = "default";
+            body.style.userSelect = "auto";
+        });
+    }
+};
+
 // Starten
 document.addEventListener("DOMContentLoaded", () => {
     App.init();
 });
+
+
