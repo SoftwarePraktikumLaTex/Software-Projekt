@@ -1,9 +1,11 @@
+/* ---------------------------------- */
+/* GRUNDLAYOUT & RESET */
+/* ---------------------------------- */
 html, body {
     margin: 0;
     padding: 0;
     height: 100vh; 
     font-family: Arial, sans-serif;
-    /* overflow: hidden; */ /* Von Kollegen auskommentiert gelassen */
     background-color: #5e5e5e;
 }
 
@@ -14,32 +16,168 @@ body {
         "sidebar"
         "resizer"
         "editor";
-    grid-template-rows: auto 200px 5px 1fr;
-    grid-template-columns: 1fr; /* Nur noch eine Spalte */
+    /* Header (50px fix) - TopBar/Liste (200px start) - Resizer - Editor */
+    grid-template-rows: 50px 200px 5px 1fr; 
+    grid-template-columns: 1fr; 
     height: 100vh;
 }
 
-.top-nav { grid-area: header; }
+/* ---------------------------------- */
+/* HEADER / TOP-NAV (FIXED) */
+/* ---------------------------------- */
+.top-nav {
+    grid-area: header;
+    background-color: grey;
+    
+    /* WICHTIG: overflow: hidden ENTFERNT, damit Dropdowns sichtbar sind! */
+    /* overflow: hidden; <--- Das war der Fehler */
+    
+    position: relative; /* Damit z-index greift */
+    z-index: 1000;      /* Muss höher sein als Sidebar/Editor */
+}
 
+/* Layout-Container: Links Menü, Rechts Tabs */
+.header-layout {
+    display: flex;
+    align-items: flex-end; /* Drückt alles an den unteren Rand */
+    height: 100%;
+    width: 100%;
+}
+
+/* Das Menü (File, Edit...) */
 #headbarNav {
     list-style-type: none;
     display: flex;
-    gap: 50px;
+    gap: 15px; 
     margin: 0;
-    padding: 15px 0 15px 25px;
-    background-color: grey;
-    color: white;
+    padding: 0 20px; 
+    height: 100%;
+    align-items: center; /* Buttons vertikal mittig im Header */
+    flex-shrink: 0; /* Verhindert, dass das Menü zusammengedrückt wird */
 }
 
 #headbarNav li button {
-    background-color: grey;
+    background-color: transparent;
     color: white;
     border: none;
-    font-size: 20px;
+    font-size: 16px;
     cursor: pointer;
+    font-weight: bold;
 }
 
-/* --- SIDEBAR (Jetzt TOP-BAR) --- */
+#headbarNav li button:hover {
+    text-decoration: underline;
+}
+
+/* --- TAB LEISTE --- */
+.tab-bar {
+    flex-grow: 1; 
+    display: flex;
+    overflow-x: auto; 
+    height: 100%; 
+    align-items: flex-end; 
+    padding-left: 20px;
+    
+    /* Hintergrund leicht abgedunkelt, damit man den Bereich sieht */
+    background-color: rgba(0,0,0,0.2); 
+    border-left: 1px solid #777; /* Trennlinie zum Menü */
+    min-width: 100px; 
+    
+    /* Scrollbar ausblenden */
+    scrollbar-width: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Einzelner Tab */
+.tab {
+    height: 28px; 
+    margin-right: 4px; 
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    
+    background-color: #555; /* Inaktiv: Dunkelgrau */
+    color: #ccc;
+    
+    font-size: 12px; 
+    cursor: pointer;
+    user-select: none;
+    min-width: 100px;
+    max-width: 180px;
+    
+    /* Runde Ecken oben (Reiter-Look) */
+    border-radius: 8px 8px 0 0; 
+    border: 1px solid #444;
+    border-bottom: none;
+}
+
+.tab:hover {
+    background-color: #666;
+    color: white;
+}
+
+/* Aktiver Tab */
+.tab.active {
+    background-color: #f0f0f0; /* Hell (wie Hintergrund Editor) */
+    color: black;
+    height: 30px; /* Etwas höher, damit er optisch "vorne" steht */
+    font-weight: bold;
+    border-top: 2px solid #007bff; /* Blaue Linie oben */
+    z-index: 1001; /* Überlappt den unteren Rand */
+}
+
+/* Schließen Button (x) */
+.tab-close {
+    margin-left: 8px;
+    width: 16px;
+    height: 16px;
+    text-align: center;
+    line-height: 15px;
+    border-radius: 50%;
+    font-size: 14px;
+}
+.tab-close:hover {
+    background-color: #999;
+    color: white;
+}
+
+/* ---------------------------------- */
+/* EDITOR BEREICH */
+/* ---------------------------------- */
+.editor-container {
+    grid-area: editor;
+    height: 100%;
+    width: 100%;
+    background-color: #f0f0f0; 
+    overflow: hidden;
+}
+
+.editor-wrapper {
+    height: 100%;
+    width: 100%;
+    background-color: white;
+}
+
+/* CodeMirror Anpassung */
+.CodeMirror {
+    height: 100% !important; 
+    width: 100%;
+    font-size: 16px;
+    font-family: 'Courier New', Courier, monospace;
+    border-left: none; 
+}
+
+#editor-textarea {
+    display: none;
+}
+
+/* ---------------------------------- */
+/* SIDEBAR / LISTENANSICHT */
+/* ---------------------------------- */
 .sidebar {
     grid-area: sidebar;
     background-color: #5e5e5e; 
@@ -58,7 +196,6 @@ body {
     border-bottom: 2px solid #444; 
 }
 
-/* Das Formular im Filter-Container */
 .sidebar .filter-container form {
     display: flex;
     gap: 8px;
@@ -66,30 +203,34 @@ body {
     align-items: center;
 }
 
-/* Die Liste der Einträge */
 #citation-list {
     list-style-type: none; 
     padding: 0;
-    margin: 0; /* Keinen Margin, damit es direkt am Filter klebt */
+    margin: 0; 
 }
 
-/* --- RESIZER (Trennlinie) --- */
+/* ---------------------------------- */
+/* RESIZER (Trennlinie) */
+/* ---------------------------------- */
 .resizer {
     grid-area: resizer;
     cursor: row-resize;
     background-color: #444;
     transition: background-color 0.2s;
     height: 5px; 
+    z-index: 100; 
 }
 
 .resizer:hover {
     background-color: #007bff;
 }
 
-/* --- FORMULAR ELEMENTE --- */
+/* ---------------------------------- */
+/* FORMULAR ELEMENTE */
+/* ---------------------------------- */
 #selektor {
     border: none;
-    width: 120px; /* Etwas breiter für bessere Lesbarkeit */
+    width: 130px; 
     border-radius: 4px;
     color: white;
     background-color: #7c7c7c;
@@ -106,32 +247,76 @@ body {
     padding: 0 10px;
 }
 
-.editor-container {
-    grid-area: editor;
-    
-  
-    margin: 0;
-    padding: 0; 
-  
-    height: 100%;
-    width: 100%;
-    
-    background-color: white; 
-    overflow: hidden; 
-}
-
-.CodeMirror {
-    height: 100% !important; 
-    width: 100%;
-    font-size: 16px;
-    font-family: 'Courier New', Courier, monospace;
-    border-left: 1px solid #ddd;
-}
-
-#editor-textarea {
+/* --- MODAL (POPUP) STYLING --- */
+.modal-overlay {
     display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 3000; /* Ganz oben */
+    justify-content: center;
+    align-items: center;
 }
 
+.modal-overlay.show-modal {
+    display: flex;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 25px;
+    border-radius: 8px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    color: #333;
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; 
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.checkbox-grid label {
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.primary-btn {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.secondary-btn {
+    background-color: #ccc;
+    color: black;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.primary-btn:hover { background-color: #005f9e; }
+.secondary-btn:hover { background-color: #bbb; }
+
+/* ---------------------------------- */
+/* DROPDOWNS */
+/* ---------------------------------- */
 .dropdownDatei, 
 .dropdownEdit, 
 .dropdownImport, 
@@ -150,10 +335,12 @@ body {
     position: absolute;
     min-width: 160px;
     background-color: grey; 
+    /* Z-Index hoch genug, und KEIN overflow im Parent */
     z-index: 2000; 
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); 
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); 
     top: 100%;
     left: 0;
+    border: 1px solid #444;
 }
 
 .dropdownDateiClass a,

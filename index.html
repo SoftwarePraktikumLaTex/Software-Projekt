@@ -3,29 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mein Editor</title>
+    <title>BibTeX Editor</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/stex/stex.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/lint/lint.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/lint/lint.min.js"></script>
     
     <link href="style.css" rel="stylesheet">
-    
     <script src="script.js" defer></script>
 </head>
 <body>
 
     <header class="top-nav">
-        <nav>
+        <nav class="header-layout">
+            
             <ul id="headbarNav">
                 <li>
                     <div class="dropdownDatei">
                         <button id="datei" class="datei-btn">File</button>
                         <div id="dropdownDateiContent" class="dropdownDateiClass">
-                            <a href="#link1">Link 1</a>
-                            <a href="#link2">Link 2</a>
-                            <a href="#link3">Link 3</a>
+                            <a href="#" id="menu-new-file">Neue Datei</a>
+                            <a href="#" id="btn-import-file">Datei öffnen (.bib)</a>
+                            <a href="#" id="btn-import-folder">Ordner öffnen...</a>
+                           <hr style="margin: 5px 0; border: 0; border-top: 1px solid #555;">
+    
+                            <a href="#" id="btn-save">Speichern</a>
+                            <a href="#" id="btn-save-as">Speichern unter...</a>
                         </div>
                     </div>
                 </li>
@@ -33,11 +40,11 @@
                     <div class="dropdownEdit">
                         <button id="edit" class="edit-btn">Edit</button>
                         <div id="dropdownEditContent" class="dropdownEditClass">
+                            <a href="#" id="btn-open-settings"> Formatierung einstellen...</a>
+                            <hr style="margin: 0; border: 0; border-top: 1px solid #666;">
+                            <a href="#" id="btn-pretty-print"> Code aufräumen (Pretty Print)</a>
                             <a href="#link1">Undo</a>
                             <a href="#link2">Redo</a>
-                            <a href="#link3">Cut</a>
-                            <a href="#link4">Copy</a>
-                            <a href="#link5">Paste</a>
                         </div>
                     </div>
                 </li>
@@ -61,39 +68,78 @@
                     </div>
                 </li>
             </ul>
+
+            <div class="tab-bar" id="tab-bar">
+                </div>
+
         </nav>
     </header>
     
     <aside class="sidebar">
-    <div class="filter-container">
-        <form id="search-form">
-            <input placeholder="Suchen..." id="input1">
-            <div class="dropdownSelektor">
-                <select id="selektor" class="selektor-btn">
-                    <option value="original">Original</option>
-                    <option value="asc">A-Z (Key)</option>
-                    <option value="desc">Z-A (Key)</option>
-                    <option value="type">Nach Typ (@article, @book...)</option>
-                </select>
+        <div class="filter-container">
+            <form id="search-form">
+                <input placeholder="Suchen..." id="input1">
+                <div class="dropdownSelektor">
+                    <select id="selektor" class="selektor-btn">
+                        <option value="original">Original</option>
+                        <option value="asc">A-Z (Key)</option>
+                        <option value="desc">Z-A (Key)</option>
+                        <option value="type">Nach Typ</option>
+                        <option value="author">Nach Autor</option>
+                        <option value="year">Nach Jahr (Neu - Alt)</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+
+        <div class="citations-container">
+            <ul id="citation-list">
+                </ul>
+        </div>
+    </aside>
+
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Formatierungs-Einstellungen</h2>
+            <p>Wähle aus, welche Felder beim "Pretty Print" erhalten bleiben sollen:</p>
+        
+            <div class="checkbox-grid">
+                <label><input type="checkbox" checked data-field="author"> Author</label>
+                <label><input type="checkbox" checked data-field="title"> Title</label>
+                <label><input type="checkbox" checked data-field="journal"> Journal</label>
+             <label><input type="checkbox" checked data-field="year"> Year</label>
+             <label><input type="checkbox" checked data-field="volume"> Volume</label>
+             <label><input type="checkbox" checked data-field="number"> Number</label>
+             <label><input type="checkbox" checked data-field="pages"> Pages</label>
+             <label><input type="checkbox" checked data-field="publisher"> Publisher</label>
+             <label><input type="checkbox" checked data-field="doi"> DOI</label>
+             <label><input type="checkbox" checked data-field="url"> URL</label>
+             <label><input type="checkbox" checked data-field="isbn"> ISBN</label>
+              <label><input type="checkbox" checked data-field="abstract"> Abstract</label>
+         </div>
+
+            <div class="modal-actions">
+                <button id="btn-save-settings" class="primary-btn">Speichern & Anwenden</button>
+                <button id="btn-close-settings" class="secondary-btn">Abbrechen</button>
             </div>
-        </form>
+        </div>
     </div>
 
-    <div class="citations-container">
-        <ul id="citation-list">
-            </ul>
-    </div>
-</aside>
-<div id="resizer" class="resizer"></div>
+    <div id="resizer" class="resizer"></div>
+    
     <main class="editor-container"> 
-        <textarea id="editor-textarea">
+        <div class="editor-wrapper">
+            <textarea id="editor-textarea">
 @article{beispiel,
   author  = "Autor, A.",
   title   = "Ein Titel",
   year    = 2025
 }
-        </textarea>
+            </textarea>
+        </div>
     </main>
 
+    <input type="file" id="hidden-file-input" accept=".bib,.txt" style="display: none;" />
+    <input type="file" id="hidden-folder-input" webkitdirectory directory multiple style="display: none;" />
 </body>
 </html>
