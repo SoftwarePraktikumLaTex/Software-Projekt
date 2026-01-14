@@ -381,38 +381,92 @@ const FileModule = {
     }
 };
 
-// --- 4. EDITOR MODULE (Verantwortung: Felix) ---
+// --- 4. EDITOR-MODUL (Verantwortung: Felix) ---
 const EditorModule = {
     editorInstance: null,
     isProgrammaticUpdate: false, 
+
     init() {
         const textarea = document.getElementById("editor-textarea");
         if (!textarea) return;
-        // Felix: Konfiguration der CodeMirror-Instanz für BibTeX (stex)
+
+        // Felix: Integration von CodeMirror 5 mit stex-Modus und Linter-Anbindung
         this.editorInstance = CodeMirror.fromTextArea(textarea, {
             lineNumbers: true, 
             mode: "stex", 
             theme: "default", 
             lineWrapping: true,
-            gutters: ["CodeMirror-lint-markers"], 
-            lint: true    
+            gutters: ["CodeMirror-lint-markers"],
+            lint: true,
+            // Felix: Standard-Keymap stellt sicher, dass Ctrl+Z/Y bereits funktioniert
+            extraKeys: {
+                "Ctrl-Z": (cm) => cm.undo(),
+                "Ctrl-Y": (cm) => cm.redo(),
+                "Cmd-Z": (cm) => cm.undo(),
+                "Cmd-Shift-Z": (cm) => cm.redo()
+            }
         });
-        // Felix: Synchronisiert Änderungen im Editor mit dem FileModule
+
         this.editorInstance.on("change", (cm) => {
             if (this.isProgrammaticUpdate) return;
-            const content = cm.getValue();
-            // Hinweis: FileModule.updateActiveFileContent muss im FileModule implementiert sein
-            if(FileModule.updateActiveFileContent) FileModule.updateActiveFileContent(content);
+            FileModule.updateActiveFileContent(cm.getValue());
         });
+
+        // Felix: Event-Listener für die Menü-Buttons (Undo/Redo)
+        this.setupMenuListeners();
     },
+
+    setupMenuListeners() {
+        const undoBtn = document.querySelector("#btn-undo");
+        const redoBtn = document.querySelector("#btn-redo");
+
+        if (undoBtn) {
+            undoBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.undo();
+                // Alexandros: Dropdown nach Klick schließen
+                document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
+            });
+        }
+
+        if (redoBtn) {
+            redoBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.redo();
+                // Alexandros: Dropdown nach Klick schließen
+                document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
+            });
+        }
+    },
+
+    // Felix: Manuelles Auslösen der Rückgängig-Funktion
+    undo() {
+        if (this.editorInstance) {
+            this.editorInstance.undo();
+            this.editorInstance.focus(); // Fokus zurück in den Editor
+        }
+    },
+
+    // Felix: Manuelles Auslösen der Wiederholen-Funktion
+    redo() {
+        if (this.editorInstance) {
+            this.editorInstance.redo();
+            this.editorInstance.focus();
+        }
+    },
+
     setContent(text) {
         if(!this.editorInstance) return;
         this.isProgrammaticUpdate = true; 
         this.editorInstance.setValue(text);
+        
+        // Felix: Historie beim Laden eines neuen Tabs löschen, 
+        // damit man nicht in die Datei davor "zurück-undon" kann.
         this.editorInstance.clearHistory(); 
+        
         this.isProgrammaticUpdate = false; 
     },
-    // Felix: Navigiert den Cursor zu einem spezifischen BibTeX-Key (aus Sidebar gesteuert)
+
     jumpToKey(keyName) {
         if(!this.editorInstance) return;
         const cursor = this.editorInstance.getSearchCursor(keyName);
