@@ -1,82 +1,77 @@
-// --- 1. HAUPT-APP ---
+/**
+ * BIBTEX SMART-EDITOR - GESAMTSKRIPT
+ * Erstellt im Rahmen der Bachelorarbeit
+ * Arbeitsaufteilung: Alexandros (UI/Layout), Martin (Daten/Parser), Felix (Editor/Tools)
+ */
+
+// --- 1. HAUPT-APP (Gemeinsame Orchestrierung) ---
 const App = {
     init() {
         console.log("App startet...");
+        // Alexandros: Initialisierung der UI-Rahmenkomponenten
         DropdownModule.init();
+        ResizerModule.init();
+        FileModule.init(); 
+        
+        // Martin: Initialisierung der Such- und Listenlogik
         SearchModule.init();
         SidebarModule.init();
         
-        FileModule.init();   
+        // Felix: Setup der Editor-Komponenten und Validierung
         EditorModule.init(); 
-        ResizerModule.init();
         FormatterModule.init();
+        LinterModule.init();
 
-        // WICHTIG: START-ZUSTAND HERSTELLEN
-        // Wenn noch keine Dateien im System sind (Standard beim Neuladen),
-        // nehmen wir den Text aus dem HTML-Textarea und machen ihn zum ersten Tab.
+        // Alexandros: Automatischer Startzustand - Erstellt einen Tab aus dem Fallback-Textarea
         if (FileModule.files.length === 0) {
             const initialTextElement = document.getElementById("editor-textarea");
             const initialText = initialTextElement ? initialTextElement.value : "";
-            
-            // Datei erstellen und sofort anzeigen
             FileModule.addFile("Unbenannt.bib", initialText);
             FileModule.switchToTab(FileModule.files[0].id);
         }
     }
 };
-// --- NEU: FORMATTER MODUL (Pretty Print & Settings) ---
+
+// --- 2. FORMATTER MODUL (Verantwortung: Felix) ---
 const FormatterModule = {
-    // DOM Elemente
     settingsModal: document.querySelector("#settings-modal"),
     openBtn: document.querySelector("#btn-open-settings"),
     prettyPrintBtn: document.querySelector("#btn-pretty-print"),
     saveBtn: document.querySelector("#btn-save-settings"),
     closeBtn: document.querySelector("#btn-close-settings"),
     checkboxes: document.querySelectorAll(".checkbox-grid input"),
-
-    // Standard-Konfiguration (wird überschrieben)
     activeFields: new Set(['author', 'title', 'year', 'journal', 'publisher']),
 
     init() {
         if (!this.settingsModal) return;
-
-        this.loadSettings(); // Gespeicherte Einstellungen laden
+        this.loadSettings(); 
         this.setupListeners();
     },
 
     setupListeners() {
-        // 1. Modal öffnen
+        // Felix: Listener für das Modal-Fenster der Formatierungs-Einstellungen
         this.openBtn.addEventListener("click", (e) => {
             e.preventDefault();
             this.settingsModal.classList.add("show-modal");
-            // Dropdowns schließen
             document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
         });
-
-        // 2. Modal schließen (Abbrechen)
         this.closeBtn.addEventListener("click", () => {
             this.settingsModal.classList.remove("show-modal");
         });
-
-        // 3. Speichern & Formatieren
         this.saveBtn.addEventListener("click", () => {
             this.saveSettings();
             this.runPrettyPrint();
             this.settingsModal.classList.remove("show-modal");
         });
-
-        // 4. Nur "Aufräumen" klicken (ohne Einstellungen zu öffnen)
         if (this.prettyPrintBtn) {
             this.prettyPrintBtn.addEventListener("click", (e) => {
                 e.preventDefault();
                 this.runPrettyPrint();
-                 // Dropdowns schließen
-                 document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
+                document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
             });
         }
     },
 
-    // --- Logik: Einstellungen speichern/laden ---
     saveSettings() {
         this.activeFields.clear();
         this.checkboxes.forEach(cb => {
@@ -84,7 +79,6 @@ const FormatterModule = {
                 this.activeFields.add(cb.getAttribute("data-field"));
             }
         });
-        // Im LocalStorage speichern (als Array, weil Set nicht speicherbar ist)
         localStorage.setItem("bibFilterConfig", JSON.stringify([...this.activeFields]));
     },
 
@@ -93,7 +87,6 @@ const FormatterModule = {
         if (saved) {
             const arr = JSON.parse(saved);
             this.activeFields = new Set(arr);
-            // Checkboxen im Modal aktualisieren
             this.checkboxes.forEach(cb => {
                 const field = cb.getAttribute("data-field");
                 cb.checked = this.activeFields.has(field);
@@ -101,94 +94,68 @@ const FormatterModule = {
         }
     },
 
-    // --- Logik: Der eigentliche Pretty Print Algorithmus ---
+    // Felix: Der Pretty Print Algorithmus - formatiert den BibTeX-Inhalt basierend auf gewählten Feldern
     runPrettyPrint() {
         if (!EditorModule.editorInstance) return;
-
         const originalText = EditorModule.editorInstance.getValue();
         const formattedText = this.formatBibtex(originalText);
-        
         EditorModule.editorInstance.setValue(formattedText);
         console.log("Pretty Print ausgeführt.");
     },
 
     formatBibtex(text) {
-        // 1. Wir zerlegen den Text in einzelne Einträge (Split bei @)
-        // Wir nutzen Regex, um den Eintragstyp und den Key zu finden
         const entries = [];
         const regexEntry = /@(\w+)\s*\{\s*([^,]+),/g;
-        
-        // Da Parsing komplex ist, machen wir hier einen robusten Zeilen-basierten Ansatz
         const lines = text.split('\n');
         let newText = "";
         let insideEntry = false;
 
         lines.forEach(line => {
             const trimmed = line.trim();
-            
-            // Fall A: Neuer Eintrag beginnt (z.B. @article{key,)
+            // Felix: Erkennt den Start eines BibTeX-Eintrags
             if (trimmed.startsWith("@")) {
                 newText += trimmed + "\n";
                 insideEntry = true;
                 return;
             }
-
-            // Fall B: Eintrag endet (})
+            // Felix: Erkennt das Ende eines Eintrags
             if (trimmed === "}" && insideEntry) {
-                newText += "}\n\n"; // Leerzeile nach Eintrag
+                newText += "}\n\n"; 
                 insideEntry = false;
                 return;
             }
-
-            // Fall C: Ein Feld (z.B. author = "Name",)
+            // Felix: Formatiert die Key-Value-Paare innerhalb eines Eintrags
             if (insideEntry && trimmed.includes("=")) {
-                // Wir splitten am ersten Gleichzeichen
                 const parts = trimmed.split("=");
                 const key = parts[0].trim().toLowerCase();
-                // Rest der Zeile ist der Wert
                 const value = parts.slice(1).join("=").trim(); 
-
-                // HIER IST DER FILTER:
-                // Wenn das Feld in unseren aktiven Einstellungen ist, schreiben wir es hin.
                 if (this.activeFields.has(key)) {
-                    // Pretty Print: 2 Leerzeichen Einrückung
                     newText += `  ${key.padEnd(12)} = ${value}\n`;
                 }
                 return;
             }
-
-            // Fall D: Sonstiges (Kommentare oder kaputte Zeilen) - einfach behalten
             if (trimmed !== "") {
                 newText += line + "\n";
             }
         });
-
         return newText.trim();
     }
 };
 
-// --- 2. FILE MODULE (Mit echtem Überschreiben) ---
+// --- 3. FILE MODULE (Verantwortung: Alexandros) ---
 const FileModule = {
     files: [], 
     activeFileId: null,
-    
-    // UI Elemente
     tabContainer: document.querySelector("#tab-bar"),
-    
-    // Inputs (nur noch als Fallback oder für Ordner nötig)
     fileInput: document.querySelector("#hidden-file-input"),
     folderInput: document.querySelector("#hidden-folder-input"),
-    
-    // Buttons
     triggerBtn: document.querySelector("#btn-import-file"), 
     folderBtn: document.querySelector("#btn-import-folder"),
     newFileBtn: document.querySelector("#menu-new-file"),
-    
     saveBtn: document.querySelector("#btn-save"),
     saveAsBtn: document.querySelector("#btn-save-as"),
 
     init() {
-        // Elemente neu holen
         this.tabContainer = document.querySelector("#tab-bar");
         this.fileInput = document.querySelector("#hidden-file-input");
         this.folderInput = document.querySelector("#hidden-folder-input");
@@ -197,12 +164,11 @@ const FileModule = {
         this.newFileBtn = document.querySelector("#menu-new-file");
         this.saveBtn = document.querySelector("#btn-save");
         this.saveAsBtn = document.querySelector("#btn-save-as");
-
         this.setupListeners();
     },
 
     setupListeners() {
-        // --- NEUE DATEI ---
+        // Alexandros: Steuerung der Datei-Erstellung und Tabs
         if (this.newFileBtn) {
             this.newFileBtn.addEventListener("click", (e) => {
                 e.preventDefault();
@@ -210,8 +176,6 @@ const FileModule = {
                 this.closeDropdowns();
             });
         }
-
-        // --- SPEICHERN (Überschreiben) ---
         if (this.saveBtn) {
             this.saveBtn.addEventListener("click", (e) => {
                 e.preventDefault();
@@ -219,26 +183,20 @@ const FileModule = {
                 this.closeDropdowns();
             });
         }
-
-        // --- SPEICHERN UNTER (Immer neu) ---
         if (this.saveAsBtn) {
             this.saveAsBtn.addEventListener("click", (e) => {
                 e.preventDefault();
-                this.saveAsNewFile(); // Erzwingt Dialog
+                this.saveAsNewFile(); 
                 this.closeDropdowns();
             });
         }
-
-        // --- DATEI ÖFFNEN (MODERN) ---
+        // Alexandros: Moderner Datei-Import via File System Access API
         if (this.triggerBtn) {
             this.triggerBtn.addEventListener("click", async (e) => {
                 e.preventDefault();
                 this.closeDropdowns();
-
-                // Check: Kann der Browser die moderne API?
                 if (window.showOpenFilePicker) {
                     try {
-                        // 1. Datei auswählen lassen und Handle holen
                         const [handle] = await window.showOpenFilePicker({
                             types: [{
                                 description: 'BibTeX / Text Files',
@@ -246,38 +204,25 @@ const FileModule = {
                             }],
                             multiple: false
                         });
-
-                        // 2. Datei lesen
                         const file = await handle.getFile();
                         const content = await file.text();
-
-                        // 3. Mit Handle speichern!
                         this.addFile(file.name, content, handle);
-                        
-                        // Zum Tab wechseln
                         if (this.files.length > 0) this.switchToTab(this.files[this.files.length - 1].id);
-
                     } catch (err) {
-                        // User hat abgebrochen
                         if (err.name !== 'AbortError') console.error("Öffnen fehlgeschlagen:", err);
                     }
                 } else {
-                    // Fallback für alte Browser (ohne Schreibrechte)
                     this.fileInput.value = ''; 
                     this.fileInput.click();
                 }
             });
         }
-
-        // Fallback-Listener für Input (falls alte Browser genutzt werden)
         if (this.fileInput) {
             this.fileInput.addEventListener("change", (e) => {
                 if (e.target.files[0]) this.readFileAndAdd(e.target.files[0]);
             });
         }
-
-        // --- ORDNER ÖFFNEN ---
-        // (Ordner geben leider selten Schreibrechte zurück, hier bleibt oft "Speichern unter" nötig)
+        // Alexandros: Unterstützung für Ordner-Import
         if (this.folderBtn && this.folderInput) {
             this.folderBtn.addEventListener("click", (e) => {
                 e.preventDefault();
@@ -289,21 +234,15 @@ const FileModule = {
         }
     },
 
-    // --- LOGIK: SPEICHERN ---
+    // Alexandros: Implementierung der Speicherlogik (Direktes Überschreiben via FileHandle)
     async saveActiveFile() {
         const file = this.files.find(f => f.id === this.activeFileId);
         if (!file) return;
-
-        // Editor Inhalt holen
         if (EditorModule.editorInstance) {
             file.content = EditorModule.editorInstance.getValue();
         }
-
-        // ENTSCHEIDUNG: Haben wir den Schlüssel (Handle)?
         if (file.handle) {
-            // JA -> Überschreiben
             try {
-                // Erstellt einen Schreiber
                 const writable = await file.handle.createWritable();
                 await writable.write(file.content);
                 await writable.close();
@@ -314,20 +253,14 @@ const FileModule = {
                 alert("Fehler beim Speichern. Versuche 'Speichern unter'.");
             }
         } else {
-            // NEIN -> Wir müssen fragen (Dialog)
-            // Das passiert bei neuen Dateien oder Dateien aus Ordner-Import
             this.saveAsNewFile();
         }
     },
 
-    // --- LOGIK: SPEICHERN UNTER ---
     async saveAsNewFile() {
         const file = this.files.find(f => f.id === this.activeFileId);
         if (!file) return;
-
-        // Inhalt holen
         if (EditorModule.editorInstance) file.content = EditorModule.editorInstance.getValue();
-
         if (window.showSaveFilePicker) {
             try {
                 const handle = await window.showSaveFilePicker({
@@ -337,18 +270,13 @@ const FileModule = {
                         accept: { 'text/plain': ['.bib', '.txt'] },
                     }],
                 });
-                
                 const writable = await handle.createWritable();
                 await writable.write(file.content);
                 await writable.close();
-
-                // Ab JETZT haben wir den Schlüssel für diese neue Datei
                 file.handle = handle;
                 file.name = handle.name; 
-                
                 this.renderTabs(); 
                 alert("Gespeichert!");
-
             } catch (err) { /* Abbruch */ }
         } else {
             this.legacyDownload(file.name, file.content);
@@ -365,15 +293,13 @@ const FileModule = {
         document.body.removeChild(element);
     },
 
-    // --- HELFER & IMPORT LOGIK ---
     handleFolderUpload(event) {
         const files = event.target.files;
         if (!files || files.length === 0) return;
-        
         let count = 0;
         Array.from(files).forEach(file => {
             if (file.name.endsWith(".bib") || file.name.endsWith(".txt")) {
-                this.readFileAndAdd(file); // Ordner-Dateien haben KEIN Handle -> müssen beim ersten Mal "Speichern unter" machen
+                this.readFileAndAdd(file); 
                 count++;
             }
         });
@@ -401,7 +327,7 @@ const FileModule = {
             id: 'file_' + Date.now() + Math.random().toString(36).substr(2, 9),
             name: name,
             content: content,
-            handle: handle // Hier landet der Schlüssel!
+            handle: handle 
         };
         this.files.push(newFile);
         this.renderTabs();
@@ -411,6 +337,7 @@ const FileModule = {
         document.querySelectorAll(".dropdownDateiClass").forEach(el => el.classList.remove("show"));
     },
 
+    // Alexandros: Management der Tab-Inhalte und Synchronisation mit Editor/Sidebar
     switchToTab(id) {
         const file = this.files.find(f => f.id === id);
         if (!file) return;
@@ -453,32 +380,31 @@ const FileModule = {
         });
     }
 };
-// --- 3. EDITOR MODULE ---
+
+// --- 4. EDITOR MODULE (Verantwortung: Felix) ---
 const EditorModule = {
     editorInstance: null,
     isProgrammaticUpdate: false, 
-
     init() {
         const textarea = document.getElementById("editor-textarea");
         if (!textarea) return;
-
+        // Felix: Konfiguration der CodeMirror-Instanz für BibTeX (stex)
         this.editorInstance = CodeMirror.fromTextArea(textarea, {
             lineNumbers: true, 
             mode: "stex", 
             theme: "default", 
             lineWrapping: true,
-            // --- NEU FÜR VALIDIERUNG ---
-            gutters: ["CodeMirror-lint-markers"], // Platz für rote Punkte links
-            lint: true                            // Aktiviert das LinterModule
+            gutters: ["CodeMirror-lint-markers"], 
+            lint: true    
         });
-
+        // Felix: Synchronisiert Änderungen im Editor mit dem FileModule
         this.editorInstance.on("change", (cm) => {
             if (this.isProgrammaticUpdate) return;
             const content = cm.getValue();
-            FileModule.updateActiveFileContent(content);
+            // Hinweis: FileModule.updateActiveFileContent muss im FileModule implementiert sein
+            if(FileModule.updateActiveFileContent) FileModule.updateActiveFileContent(content);
         });
     },
-
     setContent(text) {
         if(!this.editorInstance) return;
         this.isProgrammaticUpdate = true; 
@@ -486,7 +412,7 @@ const EditorModule = {
         this.editorInstance.clearHistory(); 
         this.isProgrammaticUpdate = false; 
     },
-
+    // Felix: Navigiert den Cursor zu einem spezifischen BibTeX-Key (aus Sidebar gesteuert)
     jumpToKey(keyName) {
         if(!this.editorInstance) return;
         const cursor = this.editorInstance.getSearchCursor(keyName);
@@ -498,17 +424,17 @@ const EditorModule = {
     }
 };
 
-// --- 4. SIDEBAR MODULE ---
+// --- 5. SIDEBAR MODULE (Verantwortung: Martin) ---
 const SidebarModule = {
     citationListUl: document.querySelector("#citation-list"),
     sortSelect: document.querySelector("#selektor"),
-    
     allEntries: [], 
     currentSearch: "",
     currentSort: "original",
 
     init() { 
         if (!this.citationListUl) return;
+        // Martin: Listener für Sortier-Änderungen in der Seitenleiste
         if (this.sortSelect) {
             this.sortSelect.addEventListener("change", (e) => {
                 this.setSortMode(e.target.value);
@@ -521,8 +447,10 @@ const SidebarModule = {
         this.updateView();
     },
 
+    // Martin: Regex-basierter Parser zur Extraktion von Key, Typ, Autor und Jahr
     parseBibtexEntries(text) {
         const entries = [];
+        // Martin: Erkennt komplexe BibTeX-Strukturen via Multiline-Regex
         const entryRegex = /@(\w+)\s*\{\s*([^,]+),([\s\S]*?)\n\}/g;
         let match;
         
@@ -531,6 +459,7 @@ const SidebarModule = {
             const key = match[2].trim();
             const content = match[3];
 
+            // Martin: Extrahiert Metadaten (Author/Year) aus dem Rumpf des Eintrags
             const authorMatch = content.match(/author\s*=\s*["{]([^"}]*)["}]/i);
             const author = authorMatch ? authorMatch[1] : "Unbekannt";
 
@@ -552,12 +481,12 @@ const SidebarModule = {
         this.updateView();
     },
 
+    // Martin: Verarbeitet Sortierung und Filterung der BibTeX-Liste
     updateView() {
         let processed = this.allEntries.filter(entry => 
             entry.key.toLowerCase().includes(this.currentSearch) ||
             entry.author.toLowerCase().includes(this.currentSearch)
         );
-
         if (this.currentSort === 'asc') {
             processed.sort((a, b) => a.key.localeCompare(b.key));
         } else if (this.currentSort === 'desc') {
@@ -569,19 +498,17 @@ const SidebarModule = {
         } else if (this.currentSort === 'year') {
             processed.sort((a, b) => b.year - a.year); 
         }
-
         this.renderList(processed);
     },
 
     renderList(entriesArray) {
         if (!this.citationListUl) return;
         this.citationListUl.innerHTML = "";
-        
         if (entriesArray.length === 0) {
             this.citationListUl.innerHTML = "<li style='padding:10px; color:#aaa;'>Keine Treffer</li>";
             return;
         }
-
+        // Martin: Generiert die HTML-Elemente für die Listeneinträge in der Top-Bar
         entriesArray.forEach(entry => {
             const li = document.createElement("li");
             li.innerHTML = `
@@ -591,47 +518,45 @@ const SidebarModule = {
                 </div>
                 <span style="font-size: 0.7em; background: #444; padding: 2px 6px; border-radius: 4px; color: #ccc;">${entry.type}</span>
             `;
-
             li.style.cursor = "pointer";
             li.style.padding = "8px 15px"; 
             li.style.borderBottom = "1px solid #444";
             li.style.display = "flex";
             li.style.justifyContent = "space-between";
             li.style.alignItems = "center";
-
+            // Interaktion: Springt zum entsprechenden Key im Felix-Editor
             li.onclick = () => EditorModule.jumpToKey(entry.key); 
             this.citationListUl.appendChild(li);
         });
     },
-
     getFirstVisibleKey() {
         const firstLi = this.citationListUl.querySelector("li div span"); 
         return firstLi ? firstLi.textContent : null;
     }
 };
 
-// --- 5. RESIZER MODULE ---
+// --- 6. RESIZER MODULE (Verantwortung: Alexandros) ---
 const ResizerModule = {
     init() {
         const resizer = document.getElementById("resizer");
         const body = document.body;
         let isResizing = false;
-
         if (!resizer) return;
-
+        // Alexandros: Initialisierung des Resize-Vorgangs (Sidebar/Top-Bar Höhe)
         resizer.addEventListener("mousedown", (e) => {
             isResizing = true;
             body.style.cursor = "row-resize";
             body.style.userSelect = "none"; 
         });
-
         window.addEventListener("mousemove", (e) => {
             if (!isResizing) return;
             const headerHeight = document.querySelector(".top-nav").offsetHeight;
             let newSidebarHeight = e.clientY - headerHeight;
+            // Alexandros: Begrenzung der Resize-Dimensionen
             if (newSidebarHeight < 50) newSidebarHeight = 50;
             if (newSidebarHeight > window.innerHeight * 0.8) newSidebarHeight = window.innerHeight * 0.8;
             body.style.gridTemplateRows = `${headerHeight}px ${newSidebarHeight}px 5px 1fr`;
+            // Felix: Refresh des Editors nach Layout-Änderung
             if (EditorModule.editorInstance) EditorModule.editorInstance.refresh();
         });
 
@@ -643,12 +568,13 @@ const ResizerModule = {
     }
 };
 
-// --- 6. SEARCH & DROPDOWN (Fixed) ---
+// --- 7. SEARCH MODULE (Verantwortung: Martin) ---
 const SearchModule = {
     init() {
         const form = document.querySelector("#search-form");
         const input = document.querySelector("#input1");
         if(form && input) {
+            // Martin: Reagiert auf Tastatureingaben für die Filterung
             input.addEventListener("input", (e) => SidebarModule.setSearchTerm(e.target.value));
             form.addEventListener("submit", (e) => {
                 e.preventDefault();
@@ -659,19 +585,19 @@ const SearchModule = {
     }
 };
 
+// --- 8. DROPDOWN MODULE (Verantwortung: Alexandros) ---
 const DropdownModule = {
     init() { this.setupListeners(); },
     setupListeners() {
         const ids = ["#datei", "#edit", "#import", "#help"];
         const contents = ["#dropdownDateiContent", "#dropdownEditContent", "#dropdownImportContent", "#dropdownHelpContent"];
-        
         ids.forEach((id, index) => {
             const btn = document.querySelector(id);
             const content = document.querySelector(contents[index]);
             if(btn && content) {
+                // Alexandros: Steuerung der Dropdown-Menüs im Header
                 btn.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    // Alle anderen schließen
                     contents.forEach((c, cIndex) => {
                         if(cIndex !== index) document.querySelector(c)?.classList.remove('show');
                     });
@@ -679,8 +605,6 @@ const DropdownModule = {
                 });
             }
         });
-
-        // Fenster Klick schließt alles
         window.addEventListener("click", (e) => {
             if (!e.target.matches('.datei-btn, .edit-btn, .import-btn, .help-btn') && 
                 !e.target.closest('.dropdownDateiClass, .dropdownEditClass, .dropdownImportClass, .dropdownHelpClass')) {
@@ -690,16 +614,13 @@ const DropdownModule = {
     }
 };
 
-// --- 7. LINTER MODULE (Syntax Check) ---
+// --- 9. LINTER MODULE (Verantwortung: Felix) ---
 const LinterModule = {
-    // Erlaubte BibTeX-Typen (alles in Kleinbuchstaben)
     validTypes: [
         "article", "book", "booklet", "conference", "inbook",
         "incollection", "inproceedings", "manual", "mastersthesis",
         "misc", "phdthesis", "proceedings", "techreport", "unpublished"
     ],
-
-    // Erlaubte Felder
     validFields: [
         "address", "annote", "author", "booktitle", "chapter", "crossref",
         "edition", "editor", "howpublished", "institution", "journal",
@@ -708,34 +629,23 @@ const LinterModule = {
         "doi", "isbn", "issn", "url", "abstract", "keywords", "eprint",
         "numpages", "location", "issue_date"
     ],
-
     init() {
-        // Wir registrieren eine Hilfsfunktion für CodeMirror
+        // Felix: Integriert den Linter in die CodeMirror stex Umgebung
         CodeMirror.registerHelper("lint", "stex", (text) => {
             return this.validate(text);
         });
     },
-
     validate(text) {
         const errors = [];
         const lines = text.split("\n");
-        
-        // Regex für den Start eines Eintrags: @type{key,
         const entryStartRegex = /^\s*@(\w+)\s*\{/;
-        
-        // Regex für ein Feld: feldname = ...
-        // Wir fangen das Wort vor dem Gleichzeichen
         const fieldRegex = /^\s*(OPT)?(\w+)\s*=/; 
-
-        // Klammer-Zähler (einfach)
         let openBraces = 0;
-
         lines.forEach((line, i) => {
             const trimmed = line.trim();
-            if (!trimmed) return; // Leere Zeilen ignorieren
-            if (trimmed.startsWith("%")) return; // Kommentare ignorieren
-
-            // 1. CHECK: Ungültiger Typ (z.B. @artile)
+            if (!trimmed) return; 
+            if (trimmed.startsWith("%")) return;
+            // Felix: Prüft auf korrekte BibTeX-Eintragstypen
             const typeMatch = trimmed.match(entryStartRegex);
             if (typeMatch) {
                 const type = typeMatch[1].toLowerCase();
@@ -748,16 +658,11 @@ const LinterModule = {
                     });
                 }
             }
-
-            // 2. CHECK: Ungültiges Feld (z.B. titel =)
-            // Nur prüfen, wenn die Zeile nicht mit @ beginnt und ein = enthält
+            // Felix: Prüft auf korrekte Feldnamen und fehlende Kommata
             if (!trimmed.startsWith("@") && trimmed.includes("=")) {
                 const fieldMatch = trimmed.match(fieldRegex);
                 if (fieldMatch) {
-                    // fieldMatch[1] ist das optionale "OPT", fieldMatch[2] ist der Name
                     const fieldName = fieldMatch[2].toLowerCase();
-                    
-                    // Prüfen, ob das Feld in der Liste ist
                     if (!this.validFields.includes(fieldName)) {
                         const startCol = line.indexOf(fieldMatch[2]);
                         errors.push({
@@ -767,12 +672,7 @@ const LinterModule = {
                             severity: "warning"
                         });
                     }
-
-                    // 3. CHECK: Komma vergessen?
-                    // Wenn die Zeile auf '}' oder '"' endet, aber kein Komma hat (und nicht die letzte Zeile ist)
-                    // Dies ist eine Heuristik, BibTeX ist hier flexibel, aber wir warnen lieber einmal zu viel.
                     if (!trimmed.endsWith(",") && !trimmed.endsWith("}")) {
-                         // Wir checken nur einfache Fälle, wo der Wert in einer Zeile steht
                          if (trimmed.match(/=.*[\"\}]$/)) {
                             errors.push({
                                 from: CodeMirror.Pos(i, line.length - 1),
@@ -783,8 +683,6 @@ const LinterModule = {
                          }
                     }
                 } else {
-                    // Enthält ein =, aber passt nicht zum Muster "key = value"
-                    // Könnte Syntaxfehler sein
                     errors.push({
                         from: CodeMirror.Pos(i, 0),
                         to: CodeMirror.Pos(i, line.length),
@@ -793,17 +691,12 @@ const LinterModule = {
                     });
                 }
             }
-
-            // 4. CHECK: Klammern zählen (Grob-Check)
-            // Zählt { und } in der Zeile
+            // Felix: Einfache Prüfung der Klammer-Balance
             const opens = (line.match(/\{/g) || []).length;
             const closes = (line.match(/\}/g) || []).length;
             openBraces += (opens - closes);
         });
-
-        // 5. CHECK: Globaler Klammer-Status
         if (openBraces !== 0) {
-            // Wir markieren einfach die letzte Zeile, wenn Klammern fehlen
             errors.push({
                 from: CodeMirror.Pos(lines.length - 1, 0),
                 to: CodeMirror.Pos(lines.length - 1, lines[lines.length - 1].length),
@@ -811,7 +704,6 @@ const LinterModule = {
                 severity: "error"
             });
         }
-
         return errors;
     }
 };
