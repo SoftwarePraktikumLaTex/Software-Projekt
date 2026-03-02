@@ -588,7 +588,7 @@ const SidebarModule = {
 
             // Baut den optionalen Link-Button, falls URL/DOI vorhanden
             const linkHtml = entry.link
-                ? `<a href="${entry.link}" target="_blank" rel="noopener noreferrer" class="sidebar-link-btn" title="${entry.link}" style="font-size:0.75em; color:#7abaff; text-decoration:none; margin-left:6px; white-space:nowrap;">🔗 Link</a>`
+                ? `<a href="${entry.link}" target="_blank" rel="noopener noreferrer" class="sidebar-link-btn" title="${entry.link}" style="font-size:0.75em; color:#7abaff; text-decoration:none; margin-left:6px; white-space:nowrap;"> Link</a>`
                 : '';
 
             li.innerHTML = `
