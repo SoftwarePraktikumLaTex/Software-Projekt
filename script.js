@@ -11,14 +11,14 @@ const App = {
         // Alexandros: Initialisierung der UI-Rahmenkomponenten
         DropdownModule.init();
         ResizerModule.init();
-        FileModule.init(); 
-        
+        FileModule.init();
+
         // Martin: Initialisierung der Such- und Listenlogik
         SearchModule.init();
         SidebarModule.init();
-        
+
         // Felix: Setup der Editor-Komponenten und Validierung
-        EditorModule.init(); 
+        EditorModule.init();
         FormatterModule.init();
         LinterModule.init();
 
@@ -44,7 +44,7 @@ const FormatterModule = {
 
     init() {
         if (!this.settingsModal) return;
-        this.loadSettings(); 
+        this.loadSettings();
         this.setupListeners();
     },
 
@@ -120,7 +120,7 @@ const FormatterModule = {
             }
             // Felix: Erkennt das Ende eines Eintrags
             if (trimmed === "}" && insideEntry) {
-                newText += "}\n\n"; 
+                newText += "}\n\n";
                 insideEntry = false;
                 return;
             }
@@ -128,7 +128,7 @@ const FormatterModule = {
             if (insideEntry && trimmed.includes("=")) {
                 const parts = trimmed.split("=");
                 const key = parts[0].trim().toLowerCase();
-                const value = parts.slice(1).join("=").trim(); 
+                const value = parts.slice(1).join("=").trim();
                 if (this.activeFields.has(key)) {
                     newText += `  ${key.padEnd(12)} = ${value}\n`;
                 }
@@ -144,12 +144,12 @@ const FormatterModule = {
 
 // --- 3. FILE MODULE (Verantwortung: Alexandros) ---
 const FileModule = {
-    files: [], 
+    files: [],
     activeFileId: null,
     tabContainer: document.querySelector("#tab-bar"),
     fileInput: document.querySelector("#hidden-file-input"),
     folderInput: document.querySelector("#hidden-folder-input"),
-    triggerBtn: document.querySelector("#btn-import-file"), 
+    triggerBtn: document.querySelector("#btn-import-file"),
     folderBtn: document.querySelector("#btn-import-folder"),
     newFileBtn: document.querySelector("#menu-new-file"),
     saveBtn: document.querySelector("#btn-save"),
@@ -179,14 +179,14 @@ const FileModule = {
         if (this.saveBtn) {
             this.saveBtn.addEventListener("click", (e) => {
                 e.preventDefault();
-                this.saveActiveFile(); 
+                this.saveActiveFile();
                 this.closeDropdowns();
             });
         }
         if (this.saveAsBtn) {
             this.saveAsBtn.addEventListener("click", (e) => {
                 e.preventDefault();
-                this.saveAsNewFile(); 
+                this.saveAsNewFile();
                 this.closeDropdowns();
             });
         }
@@ -212,7 +212,7 @@ const FileModule = {
                         if (err.name !== 'AbortError') console.error("Öffnen fehlgeschlagen:", err);
                     }
                 } else {
-                    this.fileInput.value = ''; 
+                    this.fileInput.value = '';
                     this.fileInput.click();
                 }
             });
@@ -226,7 +226,7 @@ const FileModule = {
         if (this.folderBtn && this.folderInput) {
             this.folderBtn.addEventListener("click", (e) => {
                 e.preventDefault();
-                this.folderInput.value = ''; 
+                this.folderInput.value = '';
                 this.folderInput.click();
                 this.closeDropdowns();
             });
@@ -274,8 +274,8 @@ const FileModule = {
                 await writable.write(file.content);
                 await writable.close();
                 file.handle = handle;
-                file.name = handle.name; 
-                this.renderTabs(); 
+                file.name = handle.name;
+                this.renderTabs();
                 alert("Gespeichert!");
             } catch (err) { /* Abbruch */ }
         } else {
@@ -299,11 +299,11 @@ const FileModule = {
         let count = 0;
         Array.from(files).forEach(file => {
             if (file.name.endsWith(".bib") || file.name.endsWith(".txt")) {
-                this.readFileAndAdd(file); 
+                this.readFileAndAdd(file);
                 count++;
             }
         });
-        if(count === 0) alert("Keine .bib Dateien gefunden.");
+        if (count === 0) alert("Keine .bib Dateien gefunden.");
     },
 
     readFileAndAdd(fileObj) {
@@ -311,7 +311,7 @@ const FileModule = {
         reader.onload = (e) => {
             this.addFile(fileObj.name, e.target.result, null);
             if (this.files.length === 1) this.switchToTab(this.files[0].id);
-            else this.switchToTab(this.files[this.files.length-1].id);
+            else this.switchToTab(this.files[this.files.length - 1].id);
         };
         reader.readAsText(fileObj);
     },
@@ -327,7 +327,7 @@ const FileModule = {
             id: 'file_' + Date.now() + Math.random().toString(36).substr(2, 9),
             name: name,
             content: content,
-            handle: handle 
+            handle: handle
         };
         this.files.push(newFile);
         this.renderTabs();
@@ -348,7 +348,7 @@ const FileModule = {
     },
 
     closeFile(id, event) {
-        if(event) event.stopPropagation();
+        if (event) event.stopPropagation();
         this.files = this.files.filter(f => f.id !== id);
         if (this.activeFileId === id) {
             if (this.files.length > 0) this.switchToTab(this.files[this.files.length - 1].id);
@@ -368,7 +368,7 @@ const FileModule = {
             const tab = document.createElement("div");
             tab.className = `tab ${file.id === this.activeFileId ? 'active' : ''}`;
             const span = document.createElement("span");
-            span.textContent = file.name; 
+            span.textContent = file.name;
             tab.appendChild(span);
             const closeBtn = document.createElement("span");
             closeBtn.className = "tab-close";
@@ -378,13 +378,22 @@ const FileModule = {
             tab.onclick = () => this.switchToTab(file.id);
             this.tabContainer.appendChild(tab);
         });
+    },
+
+    // Aktualisiert den Inhalt der aktiven Datei und refresht die Sidebar
+    updateActiveFileContent(content) {
+        const file = this.files.find(f => f.id === this.activeFileId);
+        if (file) {
+            file.content = content;
+            SidebarModule.parseAndRefresh(content);
+        }
     }
 };
 
 // --- 4. EDITOR-MODUL (Verantwortung: Felix) ---
 const EditorModule = {
     editorInstance: null,
-    isProgrammaticUpdate: false, 
+    isProgrammaticUpdate: false,
 
     init() {
         const textarea = document.getElementById("editor-textarea");
@@ -392,9 +401,9 @@ const EditorModule = {
 
         // Felix: Integration von CodeMirror 5 mit stex-Modus und Linter-Anbindung
         this.editorInstance = CodeMirror.fromTextArea(textarea, {
-            lineNumbers: true, 
-            mode: "stex", 
-            theme: "default", 
+            lineNumbers: true,
+            mode: "stex",
+            theme: "default",
             lineWrapping: true,
             gutters: ["CodeMirror-lint-markers"],
             lint: true,
@@ -456,19 +465,19 @@ const EditorModule = {
     },
 
     setContent(text) {
-        if(!this.editorInstance) return;
-        this.isProgrammaticUpdate = true; 
+        if (!this.editorInstance) return;
+        this.isProgrammaticUpdate = true;
         this.editorInstance.setValue(text);
-        
+
         // Felix: Historie beim Laden eines neuen Tabs löschen, 
         // damit man nicht in die Datei davor "zurück-undon" kann.
-        this.editorInstance.clearHistory(); 
-        
-        this.isProgrammaticUpdate = false; 
+        this.editorInstance.clearHistory();
+
+        this.isProgrammaticUpdate = false;
     },
 
     jumpToKey(keyName) {
-        if(!this.editorInstance) return;
+        if (!this.editorInstance) return;
         const cursor = this.editorInstance.getSearchCursor(keyName);
         if (cursor.findNext()) {
             this.editorInstance.setSelection(cursor.from(), cursor.to());
@@ -482,11 +491,11 @@ const EditorModule = {
 const SidebarModule = {
     citationListUl: document.querySelector("#citation-list"),
     sortSelect: document.querySelector("#selektor"),
-    allEntries: [], 
+    allEntries: [],
     currentSearch: "",
     currentSort: "original",
 
-    init() { 
+    init() {
         if (!this.citationListUl) return;
         // Martin: Listener für Sortier-Änderungen in der Seitenleiste
         if (this.sortSelect) {
@@ -505,9 +514,9 @@ const SidebarModule = {
     parseBibtexEntries(text) {
         const entries = [];
         // Martin: Erkennt komplexe BibTeX-Strukturen via Multiline-Regex
-        const entryRegex = /@(\w+)\s*\{\s*([^,]+),([\s\S]*?)\n\}/g;
+        const entryRegex = /@(\w+)\s*\{\s*([^,]+),([\s\S]*?)\r?\n\}/g;
         let match;
-        
+
         while ((match = entryRegex.exec(text)) !== null) {
             const type = match[1].toLowerCase();
             const key = match[2].trim();
@@ -548,7 +557,7 @@ const SidebarModule = {
 
     // Martin: Verarbeitet Sortierung und Filterung der BibTeX-Liste
     updateView() {
-        let processed = this.allEntries.filter(entry => 
+        let processed = this.allEntries.filter(entry =>
             entry.key.toLowerCase().includes(this.currentSearch) ||
             entry.author.toLowerCase().includes(this.currentSearch)
         );
@@ -561,7 +570,7 @@ const SidebarModule = {
         } else if (this.currentSort === 'author') {
             processed.sort((a, b) => a.author.localeCompare(b.author));
         } else if (this.currentSort === 'year') {
-            processed.sort((a, b) => b.year - a.year); 
+            processed.sort((a, b) => b.year - a.year);
         }
         this.renderList(processed);
     },
@@ -590,7 +599,7 @@ const SidebarModule = {
                 <span style="font-size: 0.7em; background: #444; padding: 2px 6px; border-radius: 4px; color: #ccc;">${entry.type}</span>
             `;
             li.style.cursor = "pointer";
-            li.style.padding = "8px 15px"; 
+            li.style.padding = "8px 15px";
             li.style.borderBottom = "1px solid #444";
             li.style.display = "flex";
             li.style.justifyContent = "space-between";
@@ -603,12 +612,12 @@ const SidebarModule = {
             }
 
             // Interaktion: Springt zum entsprechenden Key im Felix-Editor
-            li.onclick = () => EditorModule.jumpToKey(entry.key); 
+            li.onclick = () => EditorModule.jumpToKey(entry.key);
             this.citationListUl.appendChild(li);
         });
     },
     getFirstVisibleKey() {
-        const firstLi = this.citationListUl.querySelector("li div span"); 
+        const firstLi = this.citationListUl.querySelector("li div span");
         return firstLi ? firstLi.textContent : null;
     }
 };
@@ -624,7 +633,7 @@ const ResizerModule = {
         resizer.addEventListener("mousedown", (e) => {
             isResizing = true;
             body.style.cursor = "row-resize";
-            body.style.userSelect = "none"; 
+            body.style.userSelect = "none";
         });
         window.addEventListener("mousemove", (e) => {
             if (!isResizing) return;
@@ -651,7 +660,7 @@ const SearchModule = {
     init() {
         const form = document.querySelector("#search-form");
         const input = document.querySelector("#input1");
-        if(form && input) {
+        if (form && input) {
             // Martin: Reagiert auf Tastatureingaben für die Filterung
             input.addEventListener("input", (e) => SidebarModule.setSearchTerm(e.target.value));
             form.addEventListener("submit", (e) => {
@@ -672,19 +681,19 @@ const DropdownModule = {
         ids.forEach((id, index) => {
             const btn = document.querySelector(id);
             const content = document.querySelector(contents[index]);
-            if(btn && content) {
+            if (btn && content) {
                 // Alexandros: Steuerung der Dropdown-Menüs im Header
                 btn.addEventListener("click", (e) => {
                     e.stopPropagation();
                     contents.forEach((c, cIndex) => {
-                        if(cIndex !== index) document.querySelector(c)?.classList.remove('show');
+                        if (cIndex !== index) document.querySelector(c)?.classList.remove('show');
                     });
                     content.classList.toggle("show");
                 });
             }
         });
         window.addEventListener("click", (e) => {
-            if (!e.target.matches('.datei-btn, .edit-btn, .import-btn, .help-btn') && 
+            if (!e.target.matches('.datei-btn, .edit-btn, .import-btn, .help-btn') &&
                 !e.target.closest('.dropdownDateiClass, .dropdownEditClass, .dropdownImportClass, .dropdownHelpClass')) {
                 contents.forEach(c => document.querySelector(c)?.classList.remove('show'));
             }
@@ -717,11 +726,11 @@ const LinterModule = {
         const errors = [];
         const lines = text.split("\n");
         const entryStartRegex = /^\s*@(\w+)\s*\{/;
-        const fieldRegex = /^\s*(OPT)?(\w+)\s*=/; 
+        const fieldRegex = /^\s*(OPT)?(\w+)\s*=/;
         let openBraces = 0;
         lines.forEach((line, i) => {
             const trimmed = line.trim();
-            if (!trimmed) return; 
+            if (!trimmed) return;
             if (trimmed.startsWith("%")) return;
             // Felix: Prüft auf korrekte BibTeX-Eintragstypen
             const typeMatch = trimmed.match(entryStartRegex);
@@ -751,14 +760,14 @@ const LinterModule = {
                         });
                     }
                     if (!trimmed.endsWith(",") && !trimmed.endsWith("}")) {
-                         if (trimmed.match(/=.*[\"\}]$/)) {
+                        if (trimmed.match(/=.*[\"\}]$/)) {
                             errors.push({
                                 from: CodeMirror.Pos(i, line.length - 1),
                                 to: CodeMirror.Pos(i, line.length),
                                 message: "Fehlendes Komma am Zeilenende?",
                                 severity: "warning"
                             });
-                         }
+                        }
                     }
                 } else {
                     errors.push({
