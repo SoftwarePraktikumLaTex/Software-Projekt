@@ -501,7 +501,7 @@ const SidebarModule = {
         this.updateView();
     },
 
-    // Martin: Regex-basierter Parser zur Extraktion von Key, Typ, Autor und Jahr
+    // Martin: Regex-basierter Parser zur Extraktion von Key, Typ, Autor, Jahr und Link
     parseBibtexEntries(text) {
         const entries = [];
         // Martin: Erkennt komplexe BibTeX-Strukturen via Multiline-Regex
@@ -520,7 +520,18 @@ const SidebarModule = {
             const yearMatch = content.match(/year\s*=\s*["{]?(\d{4})["}]?/i);
             const year = yearMatch ? yearMatch[1] : "????";
 
-            entries.push({ type, key, author, year });
+            // Extrahiert URL oder DOI für einen klickbaren Link
+            const urlMatch = content.match(/url\s*=\s*["{]([^"}]*)["}]/i);
+            const doiMatch = content.match(/doi\s*=\s*["{]([^"}]*)["}]/i);
+            let link = null;
+            if (urlMatch) {
+                link = urlMatch[1].trim();
+            } else if (doiMatch) {
+                const doi = doiMatch[1].trim();
+                link = doi.startsWith("http") ? doi : `https://doi.org/${doi}`;
+            }
+
+            entries.push({ type, key, author, year, link });
         }
         return entries;
     },
@@ -565,9 +576,15 @@ const SidebarModule = {
         // Martin: Generiert die HTML-Elemente für die Listeneinträge in der Top-Bar
         entriesArray.forEach(entry => {
             const li = document.createElement("li");
+
+            // Baut den optionalen Link-Button, falls URL/DOI vorhanden
+            const linkHtml = entry.link
+                ? `<a href="${entry.link}" target="_blank" rel="noopener noreferrer" class="sidebar-link-btn" title="${entry.link}" style="font-size:0.75em; color:#7abaff; text-decoration:none; margin-left:6px; white-space:nowrap;">🔗 Link</a>`
+                : '';
+
             li.innerHTML = `
                 <div style="display:flex; flex-direction:column;">
-                    <span style="font-weight:bold; color: #fff;">${entry.key}</span>
+                    <span style="font-weight:bold; color: #fff;">${entry.key}${linkHtml}</span>
                     <span style="font-size: 0.85em; color: #bbb;">${entry.author} (${entry.year})</span>
                 </div>
                 <span style="font-size: 0.7em; background: #444; padding: 2px 6px; border-radius: 4px; color: #ccc;">${entry.type}</span>
@@ -578,6 +595,13 @@ const SidebarModule = {
             li.style.display = "flex";
             li.style.justifyContent = "space-between";
             li.style.alignItems = "center";
+
+            // stopPropagation auf dem Link, damit nur der Link geöffnet wird
+            const anchor = li.querySelector('.sidebar-link-btn');
+            if (anchor) {
+                anchor.addEventListener('click', (e) => e.stopPropagation());
+            }
+
             // Interaktion: Springt zum entsprechenden Key im Felix-Editor
             li.onclick = () => EditorModule.jumpToKey(entry.key); 
             this.citationListUl.appendChild(li);
