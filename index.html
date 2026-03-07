@@ -9,7 +9,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
@@ -42,7 +44,8 @@
             <ul id="headbarNav">
                 <li>
                     <div class="dropdownDatei">
-                        <button id="datei" class="datei-btn"><span class="material-symbols-outlined">folder</span>File</button>
+                        <button id="datei" class="datei-btn"><span
+                                class="material-symbols-outlined">folder</span>File</button>
                         <div id="dropdownDateiContent" class="dropdownDateiClass">
                             <a href="#" id="menu-new-file">Neue Datei</a>
                             <a href="#" id="btn-import-file">Datei öffnen (.bib)</a>
@@ -55,7 +58,8 @@
                 </li>
                 <li>
                     <div class="dropdownEdit">
-                        <button id="edit" class="edit-btn"><span class="material-symbols-outlined">edit</span>Edit</button>
+                        <button id="edit" class="edit-btn"><span
+                                class="material-symbols-outlined">edit</span>Edit</button>
                         <div id="dropdownEditContent" class="dropdownEditClass">
                             <a href="#" id="btn-open-settings"> Formatierung einstellen...</a>
                             <hr>
@@ -67,7 +71,8 @@
                 </li>
                 <li>
                     <div class="dropdownImport">
-                        <button id="import" class="import-btn"><span class="material-symbols-outlined">download</span>Import</button>
+                        <button id="import" class="import-btn"><span
+                                class="material-symbols-outlined">download</span>Import</button>
                         <div id="dropdownImportContent" class="dropdownImportClass">
                             <a href="#" id="btn-import-pdf">PDF importieren (Referenzen extrahieren)</a>
                         </div>
@@ -75,10 +80,11 @@
                 </li>
                 <li>
                     <div class="dropdownHelp">
-                        <button id="help" class="help-btn"><span class="material-symbols-outlined">help_outline</span>Help</button>
+                        <button id="help" class="help-btn"><span
+                                class="material-symbols-outlined">help_outline</span>Help</button>
                         <div id="dropdownHelpContent" class="dropdownHelpClass">
-                            <a href="#link1">Keyboard shortcuts</a>
-                            <a href="#link2">Contact us</a>
+                            <a href="#" id="btn-show-shortcuts">Keyboard Shortcuts</a>
+                            <a href="#" id="btn-show-contact">Contact us</a>
                         </div>
                     </div>
                 </li>
@@ -149,6 +155,77 @@
             <div class="modal-actions">
                 <button id="btn-save-settings" class="primary-btn">Speichern & Anwenden</button>
                 <button id="btn-close-settings" class="secondary-btn">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Keyboard Shortcuts</h2>
+            <p>Die wichtigsten Tastenkürzel für BibStream:</p>
+            <table class="shortcut-table">
+                <thead>
+                    <tr>
+                        <th>Aktion</th>
+                        <th>Shortcut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Rückgängig (Undo)</td>
+                        <td><kbd>Strg</kbd> + <kbd>Z</kbd></td>
+                    </tr>
+                    <tr>
+                        <td>Wiederholen (Redo)</td>
+                        <td><kbd>Strg</kbd> + <kbd>Y</kbd></td>
+                    </tr>
+                    <tr>
+                        <td>Speichern</td>
+                        <td><kbd>Strg</kbd> + <kbd>S</kbd></td>
+                    </tr>
+                    <tr>
+                        <td>Suchen</td>
+                        <td><kbd>Strg</kbd> + <kbd>F</kbd></td>
+                    </tr>
+                    <tr>
+                        <td>Alles markieren</td>
+                        <td><kbd>Strg</kbd> + <kbd>A</kbd></td>
+                    </tr>
+                    <tr>
+                        <td>Ausschneiden</td>
+                        <td><kbd>Strg</kbd> + <kbd>X</kbd></td>
+                    </tr>
+                    <tr>
+                        <td>Kopieren</td>
+                        <td><kbd>Strg</kbd> + <kbd>C</kbd></td>
+                    </tr>
+                    <tr>
+                        <td>Einfügen</td>
+                        <td><kbd>Strg</kbd> + <kbd>V</kbd></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="modal-actions">
+                <button id="btn-close-shortcuts" class="secondary-btn">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Us Modal -->
+    <div id="contact-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Kontakt</h2>
+            <p>Bei Fragen, Feedback oder Problemen erreichst du uns jederzeit:</p>
+            <div class="contact-info">
+                <span class="material-symbols-outlined">mail</span>
+                <div>
+                    <a href="mailto:rhebsp@gmail.com">rhebsp@gmail.com</a>
+                    <p>Wir antworten in der Regel innerhalb von 24 Stunden.</p>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-close-contact" class="secondary-btn">Schließen</button>
             </div>
         </div>
     </div>

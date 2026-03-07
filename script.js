@@ -23,6 +23,7 @@ const App = {
         FormatterModule.init();
         LinterModule.init();
         ThemeModule.init();
+        HelpModule.init();
 
         // Clipboard-Watcher (optional, falls vorhanden)
         if (typeof ClipboardModule !== 'undefined') ClipboardModule.init();
@@ -1111,6 +1112,63 @@ const LinterModule = {
             });
         }
         return errors;
+    }
+};
+
+// --- 10.5 HELP MODULE (Keyboard Shortcuts & Contact Modals) ---
+const HelpModule = {
+    shortcutsModal: null,
+    contactModal: null,
+
+    init() {
+        this.shortcutsModal = document.querySelector("#shortcuts-modal");
+        this.contactModal = document.querySelector("#contact-modal");
+        this.setupListeners();
+    },
+
+    setupListeners() {
+        // Shortcuts Modal
+        const showShortcutsBtn = document.querySelector("#btn-show-shortcuts");
+        const closeShortcutsBtn = document.querySelector("#btn-close-shortcuts");
+
+        if (showShortcutsBtn && this.shortcutsModal) {
+            showShortcutsBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.shortcutsModal.classList.add("show-modal");
+                document.querySelectorAll(".dropdownHelpClass").forEach(el => el.classList.remove("show"));
+            });
+        }
+        if (closeShortcutsBtn && this.shortcutsModal) {
+            closeShortcutsBtn.addEventListener("click", () => {
+                this.shortcutsModal.classList.remove("show-modal");
+            });
+        }
+
+        // Contact Modal
+        const showContactBtn = document.querySelector("#btn-show-contact");
+        const closeContactBtn = document.querySelector("#btn-close-contact");
+
+        if (showContactBtn && this.contactModal) {
+            showContactBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.contactModal.classList.add("show-modal");
+                document.querySelectorAll(".dropdownHelpClass").forEach(el => el.classList.remove("show"));
+            });
+        }
+        if (closeContactBtn && this.contactModal) {
+            closeContactBtn.addEventListener("click", () => {
+                this.contactModal.classList.remove("show-modal");
+            });
+        }
+
+        // Beide Modals: Klick auf Overlay schließt
+        [this.shortcutsModal, this.contactModal].forEach(modal => {
+            if (modal) {
+                modal.addEventListener("click", (e) => {
+                    if (e.target === modal) modal.classList.remove("show-modal");
+                });
+            }
+        });
     }
 };
 
