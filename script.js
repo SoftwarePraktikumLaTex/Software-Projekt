@@ -108,12 +108,14 @@ const FormatterModule = {
         console.log("Pretty Print ausgeführt.");
     },
 
+    // FIX: BUG-2 behoben – Parser splittet nur am ersten '=' nach einem Feldnamen,
+    // sodass '=' innerhalb von Werten (URLs, mehrzeilige Strings) nicht zerstört werden.
     formatBibtex(text) {
-        const entries = [];
-        const regexEntry = /@(\w+)\s*\{\s*([^,]+),/g;
         const lines = text.split('\n');
         let newText = "";
         let insideEntry = false;
+        // Regex erkennt nur echte BibTeX-Felder: optionales OPT-Prefix, dann Buchstabe gefolgt von Wortzeichen
+        const fieldAssignRegex = /^\s*(?:OPT)?([a-zA-Z][a-zA-Z0-9_]*)\s*=/;
 
         lines.forEach(line => {
             const trimmed = line.trim();
@@ -130,14 +132,18 @@ const FormatterModule = {
                 return;
             }
             // Felix: Formatiert die Key-Value-Paare innerhalb eines Eintrags
-            if (insideEntry && trimmed.includes("=")) {
-                const parts = trimmed.split("=");
-                const key = parts[0].trim().toLowerCase();
-                const value = parts.slice(1).join("=").trim();
-                if (this.activeFields.has(key)) {
-                    newText += `  ${key.padEnd(12)} = ${value}\n`;
+            if (insideEntry) {
+                const fieldMatch = trimmed.match(fieldAssignRegex);
+                if (fieldMatch) {
+                    const key = fieldMatch[1].toLowerCase();
+                    // FIX: BUG-2 – Split nur am Index des ersten '=' statt split("=")
+                    const eqIndex = trimmed.indexOf('=');
+                    const value = trimmed.substring(eqIndex + 1).trim();
+                    if (this.activeFields.has(key)) {
+                        newText += `  ${key.padEnd(12)} = ${value}\n`;
+                    }
+                    return;
                 }
-                return;
             }
             if (trimmed !== "") {
                 newText += line + "\n";
@@ -308,7 +314,8 @@ const FileModule = {
                 count++;
             }
         });
-        if (count === 0) alert("Keine .bib Dateien gefunden.");
+        // FIX: BUG-3 behoben – Fehlermeldung nennt jetzt beide akzeptierten Dateitypen
+        if (count === 0) alert("Keine .bib oder .txt Dateien gefunden.");
     },
 
     readFileAndAdd(fileObj) {
@@ -427,9 +434,12 @@ const EditorModule = {
             }
         });
 
+        // FIX: BUG-1 behoben – Defensiver Guard: prüfe ob Funktion existiert
         this.editorInstance.on("change", (cm) => {
             if (this.isProgrammaticUpdate) return;
-            FileModule.updateActiveFileContent(cm.getValue());
+            if (typeof FileModule.updateActiveFileContent === 'function') {
+                FileModule.updateActiveFileContent(cm.getValue());
+            }
         });
 
         // Felix: Event-Listener für die Menü-Buttons (Undo/Redo)
@@ -524,13 +534,18 @@ const SidebarModule = {
     },
 
     // Martin: Regex-basierter Parser zur Extraktion von Key, Typ, Autor, Jahr und Link
+    // FIX: Edge-Case 2 behoben – Zeilenumbrüche werden normalisiert und der Regex
+    // akzeptiert die schließende Klammer auch mit umgebendem Whitespace.
     parseBibtexEntries(text) {
         const entries = [];
-        // Martin: Erkennt komplexe BibTeX-Strukturen via Multiline-Regex
-        const entryRegex = /@(\w+)\s*\{\s*([^,]+),([\s\S]*?)\r?\n\}/g;
+        // FIX: Edge-Case 2 – Normalisiere alle Zeilenumbrüche zu \n
+        const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        // FIX: Edge-Case 2 – Flexiblerer Regex: schließende Klammer muss nicht
+        // allein auf einer Zeile stehen, erlaubt Whitespace davor
+        const entryRegex = /@(\w+)\s*\{\s*([^,]+),([\s\S]*?)\n\s*\}/g;
         let match;
 
-        while ((match = entryRegex.exec(text)) !== null) {
+        while ((match = entryRegex.exec(normalizedText)) !== null) {
             const type = match[1].toLowerCase();
             const key = match[2].trim();
             const content = match[3];
@@ -583,11 +598,18 @@ const SidebarModule = {
         } else if (this.currentSort === 'author') {
             processed.sort((a, b) => a.author.localeCompare(b.author));
         } else if (this.currentSort === 'year') {
-            processed.sort((a, b) => b.year - a.year);
+            // FIX: BUG-4 behoben – parseInt mit Fallback auf 0 verhindert NaN bei "????"
+            processed.sort((a, b) => {
+                const aYear = parseInt(a.year, 10) || 0;
+                const bYear = parseInt(b.year, 10) || 0;
+                return bYear - aYear;
+            });
         }
         this.renderList(processed);
     },
 
+    // FIX: Edge-Case 1 (XSS) behoben – Alle Benutzerdaten werden via textContent
+    // oder DOM-API eingefügt statt innerHTML, um XSS zu verhindern.
     renderList(entriesArray) {
         if (!this.citationListUl) return;
         this.citationListUl.innerHTML = "";
@@ -603,40 +625,75 @@ const SidebarModule = {
             }
         }
         if (entriesArray.length === 0) {
-            this.citationListUl.innerHTML = "<li style='padding:10px; color:var(--text-muted);'>Keine Treffer</li>";
+            const emptyLi = document.createElement("li");
+            emptyLi.setAttribute("data-empty", "true");
+            emptyLi.style.padding = "10px";
+            emptyLi.style.color = "var(--text-muted)";
+            emptyLi.textContent = "Keine Treffer";
+            this.citationListUl.appendChild(emptyLi);
             return;
         }
         // Martin: Generiert die HTML-Elemente für die Listeneinträge in der Sidebar
         entriesArray.forEach(entry => {
             const li = document.createElement("li");
 
-            // Baut den optionalen Link-Button, falls URL/DOI vorhanden
-            const linkHtml = entry.link
-                ? `<a href="${entry.link}" target="_blank" rel="noopener noreferrer" class="sidebar-link-btn" title="${entry.link}">🔗 Link</a>`
-                : '';
+            // Container für Key und Meta
+            const div = document.createElement("div");
+            div.style.display = "flex";
+            div.style.flexDirection = "column";
+            div.style.minWidth = "0";
 
-            li.innerHTML = `
-                <div style="display:flex; flex-direction:column; min-width:0;">
-                    <span class="entry-key">${entry.key}${linkHtml}</span>
-                    <span class="entry-meta">${entry.author} (${entry.year})</span>
-                </div>
-                <span class="entry-type-badge">${entry.type}</span>
-            `;
+            // Entry-Key Span (sicher via textContent)
+            const keySpan = document.createElement("span");
+            keySpan.className = "entry-key";
+            keySpan.textContent = entry.key;
 
-            // stopPropagation auf dem Link, damit nur der Link geöffnet wird
-            const anchor = li.querySelector('.sidebar-link-btn');
-            if (anchor) {
+            // FIX: Edge-Case 1 – Link-Button sicher per DOM-API erstellt
+            if (entry.link) {
+                const anchor = document.createElement("a");
+                anchor.href = entry.link;
+                anchor.target = "_blank";
+                anchor.rel = "noopener noreferrer";
+                anchor.className = "sidebar-link-btn";
+                anchor.title = entry.link;
+                anchor.textContent = "🔗 Link";
+                // stopPropagation auf dem Link, damit nur der Link geöffnet wird
                 anchor.addEventListener('click', (e) => e.stopPropagation());
+                keySpan.appendChild(anchor);
             }
+
+            // Entry-Meta Span (sicher via textContent)
+            const metaSpan = document.createElement("span");
+            metaSpan.className = "entry-meta";
+            metaSpan.textContent = `${entry.author} (${entry.year})`;
+
+            div.appendChild(keySpan);
+            div.appendChild(metaSpan);
+
+            // Type-Badge (sicher via textContent)
+            const badge = document.createElement("span");
+            badge.className = "entry-type-badge";
+            badge.textContent = entry.type;
+
+            li.appendChild(div);
+            li.appendChild(badge);
 
             // Interaktion: Springt zum entsprechenden Key im Felix-Editor
             li.onclick = () => EditorModule.jumpToKey(entry.key);
             this.citationListUl.appendChild(li);
         });
     },
+    // FIX: BUG-6 behoben – Gibt null zurück wenn nur "Keine Treffer" angezeigt wird.
+    // Verwendet spezifischeren Selektor und extrahiert nur den reinen Key-Text.
     getFirstVisibleKey() {
-        const firstLi = this.citationListUl.querySelector("li div span");
-        return firstLi ? firstLi.textContent : null;
+        // Überspringe das "Keine Treffer" Platzhalter-Element
+        const firstKeySpan = this.citationListUl.querySelector("li:not([data-empty]) .entry-key");
+        if (!firstKeySpan) return null;
+        // Nur den direkten Textinhalt des Spans nehmen (ohne Link-Child-Text)
+        const clone = firstKeySpan.cloneNode(true);
+        const linkChild = clone.querySelector('.sidebar-link-btn');
+        if (linkChild) linkChild.remove();
+        return clone.textContent.trim() || null;
     }
 };
 
@@ -969,7 +1026,8 @@ const LinterModule = {
         const errors = [];
         const lines = text.split("\n");
         const entryStartRegex = /^\s*@(\w+)\s*\{/;
-        const fieldRegex = /^\s*(OPT)?(\w+)\s*=/;
+        // FIX: BUG-5 behoben – Feldname muss mit Buchstaben beginnen (BibTeX-Konvention)
+        const fieldRegex = /^\s*(OPT)?([a-zA-Z][a-zA-Z0-9_]*)\s*=/;
         let openBraces = 0;
         lines.forEach((line, i) => {
             const trimmed = line.trim();
