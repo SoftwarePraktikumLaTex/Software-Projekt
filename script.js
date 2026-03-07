@@ -22,6 +22,10 @@ const App = {
         EditorModule.init();
         FormatterModule.init();
         LinterModule.init();
+        ThemeModule.init();
+
+        // Clipboard-Watcher (optional, falls vorhanden)
+        if (typeof ClipboardModule !== 'undefined') ClipboardModule.init();
 
         // Alexandros: Automatischer Startzustand - Erstellt einen Tab aus dem Fallback-Textarea
         if (FileModule.files.length === 0) {
@@ -30,7 +34,7 @@ const App = {
             FileModule.addFile("Unbenannt.bib", initialText);
             FileModule.switchToTab(FileModule.files[0].id);
         }
-    }
+    },
 };
 
 // --- 2. FORMATTER MODUL (Verantwortung: Felix) ---
@@ -368,7 +372,13 @@ const FileModule = {
         this.files.forEach(file => {
             const tab = document.createElement("div");
             tab.className = `tab ${file.id === this.activeFileId ? 'active' : ''}`;
+            // Icon für den Tab
+            const icon = document.createElement("span");
+            icon.className = "material-symbols-outlined tab-icon";
+            icon.textContent = "description";
+            tab.appendChild(icon);
             const span = document.createElement("span");
+            span.className = "tab-filename";
             span.textContent = file.name;
             tab.appendChild(span);
             const closeBtn = document.createElement("span");
@@ -593,31 +603,25 @@ const SidebarModule = {
             }
         }
         if (entriesArray.length === 0) {
-            this.citationListUl.innerHTML = "<li style='padding:10px; color:#aaa;'>Keine Treffer</li>";
+            this.citationListUl.innerHTML = "<li style='padding:10px; color:var(--text-muted);'>Keine Treffer</li>";
             return;
         }
-        // Martin: Generiert die HTML-Elemente für die Listeneinträge in der Top-Bar
+        // Martin: Generiert die HTML-Elemente für die Listeneinträge in der Sidebar
         entriesArray.forEach(entry => {
             const li = document.createElement("li");
 
             // Baut den optionalen Link-Button, falls URL/DOI vorhanden
             const linkHtml = entry.link
-                ? `<a href="${entry.link}" target="_blank" rel="noopener noreferrer" class="sidebar-link-btn" title="${entry.link}" style="font-size:0.75em; color:#7abaff; text-decoration:none; margin-left:6px; white-space:nowrap;"> Link</a>`
+                ? `<a href="${entry.link}" target="_blank" rel="noopener noreferrer" class="sidebar-link-btn" title="${entry.link}">🔗 Link</a>`
                 : '';
 
             li.innerHTML = `
-                <div style="display:flex; flex-direction:column;">
-                    <span style="font-weight:bold; color: #fff;">${entry.key}${linkHtml}</span>
-                    <span style="font-size: 0.85em; color: #bbb;">${entry.author} (${entry.year})</span>
+                <div style="display:flex; flex-direction:column; min-width:0;">
+                    <span class="entry-key">${entry.key}${linkHtml}</span>
+                    <span class="entry-meta">${entry.author} (${entry.year})</span>
                 </div>
-                <span style="font-size: 0.7em; background: #444; padding: 2px 6px; border-radius: 4px; color: #ccc;">${entry.type}</span>
+                <span class="entry-type-badge">${entry.type}</span>
             `;
-            li.style.cursor = "pointer";
-            li.style.padding = "8px 15px";
-            li.style.borderBottom = "1px solid #444";
-            li.style.display = "flex";
-            li.style.justifyContent = "space-between";
-            li.style.alignItems = "center";
 
             // stopPropagation auf dem Link, damit nur der Link geöffnet wird
             const anchor = li.querySelector('.sidebar-link-btn');
@@ -1034,9 +1038,34 @@ const LinterModule = {
     }
 };
 
+// --- 11. THEME MODULE (Theme-Switcher Logik) ---
+const ThemeModule = {
+    init() {
+        const saved = localStorage.getItem('bibstream-theme');
+        if (saved) {
+            document.documentElement.setAttribute('data-theme', saved);
+        }
+        const btn = document.getElementById('theme-toggle');
+        if (btn) {
+            btn.addEventListener('click', () => this.toggle());
+        }
+    },
+
+    toggle() {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('bibstream-theme', next);
+
+        // Refresh CodeMirror so it picks up the new CSS variable colors
+        if (EditorModule.editorInstance) {
+            EditorModule.editorInstance.refresh();
+        }
+    }
+};
+
 // Starten
 document.addEventListener("DOMContentLoaded", () => {
     LinterModule.init();
     App.init();
 });
-
