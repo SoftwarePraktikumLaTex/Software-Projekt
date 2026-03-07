@@ -533,42 +533,60 @@ const SidebarModule = {
         this.updateView();
     },
 
-    // Martin: Regex-basierter Parser zur Extraktion von Key, Typ, Autor, Jahr und Link
-    // FIX: Edge-Case 2 behoben – Zeilenumbrüche werden normalisiert und der Regex
-    // akzeptiert die schließende Klammer auch mit umgebendem Whitespace.
+    // Martin: Parser zur Extraktion von Key, Typ, Autor, Jahr und Link
+    // FIX: Robuster Klammertiefe-Parser anstelle des Regex, der einen
+    // Zeilenumbruch vor der schließenden } verlangt hat. Unterstützt jetzt:
+    //  - Einträge ohne \n vor der abschließenden } (z. B. IEEE-Kopien)
+    //  - Verschachtelte Klammern in Feldwerten (z. B. title = {Ein {Titel}})
     parseBibtexEntries(text) {
         const entries = [];
-        // FIX: Edge-Case 2 – Normalisiere alle Zeilenumbrüche zu \n
+        // Normalisiere Zeilenumbrüche zu \n
         const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        // FIX: Edge-Case 2 – Flexiblerer Regex: schließende Klammer muss nicht
-        // allein auf einer Zeile stehen, erlaubt Whitespace davor
-        const entryRegex = /@(\w+)\s*\{\s*([^,]+),([\s\S]*?)\n\s*\}/g;
-        let match;
 
-        while ((match = entryRegex.exec(normalizedText)) !== null) {
-            const type = match[1].toLowerCase();
-            const key = match[2].trim();
-            const content = match[3];
+        // Regex findet den Beginn eines Eintrags: @type{key,
+        const headerRegex = /@(\w+)\s*\{\s*([^,]*),/g;
+        let headerMatch;
 
-            // Martin: Extrahiert Metadaten (Author/Year) aus dem Rumpf des Eintrags
-            const authorMatch = content.match(/author\s*=\s*["{]([^"}]*)["}]/i);
-            const author = authorMatch ? authorMatch[1] : "Unbekannt";
+        while ((headerMatch = headerRegex.exec(normalizedText)) !== null) {
+            const type = headerMatch[1].toLowerCase();
+            const key = headerMatch[2].trim();
+            // Position direkt nach dem Komma hinter dem Key
+            const bodyStart = headerMatch.index + headerMatch[0].length;
 
-            const yearMatch = content.match(/year\s*=\s*["{]?(\d{4})["}]?/i);
-            const year = yearMatch ? yearMatch[1] : "????";
-
-            // Extrahiert URL oder DOI für einen klickbaren Link
-            const urlMatch = content.match(/url\s*=\s*["{]([^"}]*)["}]/i);
-            const doiMatch = content.match(/doi\s*=\s*["{]([^"}]*)["}]/i);
-            let link = null;
-            if (urlMatch) {
-                link = urlMatch[1].trim();
-            } else if (doiMatch) {
-                const doi = doiMatch[1].trim();
-                link = doi.startsWith("http") ? doi : `https://doi.org/${doi}`;
+            // Klammertiefe-Zähler: Die öffnende { des @type{ zählt bereits,
+            // wir suchen die passende schließende }.
+            let depth = 1;
+            let i = bodyStart;
+            while (i < normalizedText.length && depth > 0) {
+                if (normalizedText[i] === '{') depth++;
+                else if (normalizedText[i] === '}') depth--;
+                if (depth > 0) i++;
             }
 
-            entries.push({ type, key, author, year, link });
+            // Nur wenn die schließende Klammer tatsächlich gefunden wurde
+            if (depth === 0) {
+                const content = normalizedText.substring(bodyStart, i);
+
+                // Martin: Extrahiert Metadaten (Author/Year) aus dem Rumpf des Eintrags
+                const authorMatch = content.match(/author\s*=\s*["{]([^"}]*)["}]/i);
+                const author = authorMatch ? authorMatch[1] : "Unbekannt";
+
+                const yearMatch = content.match(/year\s*=\s*["{]?(\d{4})["}]?/i);
+                const year = yearMatch ? yearMatch[1] : "????";
+
+                // Extrahiert URL oder DOI für einen klickbaren Link
+                const urlMatch = content.match(/url\s*=\s*["{]([^"}]*)["}]/i);
+                const doiMatch = content.match(/doi\s*=\s*["{]([^"}]*)["}]/i);
+                let link = null;
+                if (urlMatch) {
+                    link = urlMatch[1].trim();
+                } else if (doiMatch) {
+                    const doi = doiMatch[1].trim();
+                    link = doi.startsWith("http") ? doi : `https://doi.org/${doi}`;
+                }
+
+                entries.push({ type, key, author, year, link });
+            }
         }
         return entries;
     },
