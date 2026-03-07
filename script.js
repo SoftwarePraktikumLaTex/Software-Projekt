@@ -16,6 +16,7 @@ const App = {
         // Martin: Initialisierung der Such- und Listenlogik
         SearchModule.init();
         SidebarModule.init();
+        ImportModule.init();
 
         // Felix: Setup der Editor-Komponenten und Validierung
         EditorModule.init();
@@ -491,11 +492,13 @@ const EditorModule = {
 const SidebarModule = {
     citationListUl: document.querySelector("#citation-list"),
     sortSelect: document.querySelector("#selektor"),
+    countDisplay: document.querySelector("#citation-count"),
     allEntries: [],
     currentSearch: "",
     currentSort: "original",
 
     init() {
+        this.countDisplay = document.querySelector("#citation-count");
         if (!this.citationListUl) return;
         // Martin: Listener für Sortier-Änderungen in der Seitenleiste
         if (this.sortSelect) {
@@ -578,6 +581,17 @@ const SidebarModule = {
     renderList(entriesArray) {
         if (!this.citationListUl) return;
         this.citationListUl.innerHTML = "";
+
+        // Martin: Quellen-Zähler aktualisieren
+        if (this.countDisplay) {
+            const total = this.allEntries.length;
+            const shown = entriesArray.length;
+            if (shown === total) {
+                this.countDisplay.textContent = `${total} Quelle${total !== 1 ? 'n' : ''}`;
+            } else {
+                this.countDisplay.textContent = `${shown} von ${total} Quellen`;
+            }
+        }
         if (entriesArray.length === 0) {
             this.citationListUl.innerHTML = "<li style='padding:10px; color:#aaa;'>Keine Treffer</li>";
             return;
@@ -669,6 +683,231 @@ const SearchModule = {
                 if (key) EditorModule.jumpToKey(key);
             });
         }
+    }
+};
+
+// --- 7.5 IMPORT MODULE (PDF-Import) ---
+const ImportModule = {
+    pdfBtn: null,
+    pdfInput: null,
+
+    init() {
+        this.pdfBtn = document.querySelector("#btn-import-pdf");
+        this.pdfInput = document.querySelector("#hidden-pdf-input");
+        this.setupListeners();
+    },
+
+    setupListeners() {
+        if (this.pdfBtn && this.pdfInput) {
+            this.pdfBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.pdfInput.value = '';
+                this.pdfInput.click();
+                // Dropdown schließen
+                document.querySelectorAll(".dropdownImportClass").forEach(el => el.classList.remove("show"));
+            });
+            this.pdfInput.addEventListener("change", (e) => {
+                if (e.target.files[0]) {
+                    this.handlePdfFile(e.target.files[0]);
+                }
+            });
+        }
+    },
+
+    /**
+     * Liest eine PDF-Datei aus, extrahiert den Text aller Seiten,
+     * isoliert das Literaturverzeichnis und konvertiert es in BibTeX.
+     */
+    async handlePdfFile(file) {
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+
+            // pdf.js laden (dynamischer Import, da als ES-Modul eingebunden)
+            const pdfjsLib = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs");
+            pdfjsLib.GlobalWorkerOptions.workerSrc = window.PDFJS_WORKER_SRC || "";
+
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = "";
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                const pageText = content.items.map(item => item.str).join(" ");
+                fullText += pageText + "\n";
+            }
+
+            console.log("PDF-Text extrahiert, Länge:", fullText.length);
+
+            const bibtex = this.extractReferences(fullText);
+
+            if (!bibtex || bibtex.trim().length === 0) {
+                alert("Es konnten keine Referenzen in dieser PDF gefunden werden.\n\nMögliche Gründe:\n- Die PDF enthält kein erkennbares Literaturverzeichnis\n- Die PDF ist bildbasiert (Scan) und enthält keinen extrahierbaren Text");
+                return;
+            }
+
+            // Ergebnis als neuen Tab hinzufügen
+            const tabName = "import_" + file.name.replace(/\.pdf$/i, ".bib");
+            FileModule.addFile(tabName, bibtex, null);
+            FileModule.switchToTab(FileModule.files[FileModule.files.length - 1].id);
+            console.log("PDF-Import abgeschlossen:", tabName);
+
+        } catch (err) {
+            console.error("Fehler beim PDF-Import:", err);
+            alert("Fehler beim Lesen der PDF-Datei: " + err.message);
+        }
+    },
+
+    /**
+     * Kernheuristik: Findet und isoliert den Referenz-Abschnitt im PDF-Text
+     * und wandelt die einzelnen Referenzen in BibTeX-Einträge um.
+     */
+    extractReferences(fullText) {
+        // Schritt 1: Referenz-Abschnitt finden
+        const refHeaderRegex = /\b(References|Bibliography|Literaturverzeichnis|REFERENCES|BIBLIOGRAPHY|LITERATURVERZEICHNIS)\b/;
+        const headerMatch = fullText.match(refHeaderRegex);
+
+        if (!headerMatch) {
+            console.warn("Kein Referenz-Abschnitt gefunden.");
+            return "";
+        }
+
+        // Text ab der Überschrift isolieren
+        let refSection = fullText.substring(headerMatch.index + headerMatch[0].length).trim();
+
+        // Optional: Abschneiden bei nächstem Hauptkapitel (z.B. "Appendix", "Acknowledgments")
+        const nextSectionRegex = /\b(Appendix|Acknowledgment|Acknowledgement|APPENDIX|Anhang|Danksagung)\b/i;
+        const nextMatch = refSection.match(nextSectionRegex);
+        if (nextMatch) {
+            refSection = refSection.substring(0, nextMatch.index).trim();
+        }
+
+        // Schritt 2: Einzelne Referenzen isolieren
+        const rawRefs = this.splitReferences(refSection);
+
+        if (rawRefs.length === 0) {
+            console.warn("Keine einzelnen Referenzen extrahiert.");
+            return "";
+        }
+
+        // Schritt 3: Jede Referenz in BibTeX umwandeln
+        const bibtexEntries = rawRefs.map((ref, i) => this.parseOneReference(ref.trim(), i + 1)).filter(e => e);
+
+        return this.buildBibtexString(bibtexEntries);
+    },
+
+    /**
+     * Splittet den Referenz-Block in einzelne Referenzen.
+     * Unterstützt nummerierte Formate: [1], [2] ... oder 1., 2., ...
+     */
+    splitReferences(refText) {
+        // Versuch 1: Nummerierung mit eckigen Klammern [1], [2], ...
+        let parts = refText.split(/(?=\[\d+\]\s)/);
+        if (parts.length > 2) {
+            return parts.map(p => p.replace(/^\[\d+\]\s*/, "").trim()).filter(p => p.length > 10);
+        }
+
+        // Versuch 2: Nummerierung mit Punkt 1., 2., ...
+        parts = refText.split(/(?=(?:^|\n)\s*\d{1,3}\.\s)/);
+        if (parts.length > 2) {
+            return parts.map(p => p.replace(/^\s*\d{1,3}\.\s*/, "").trim()).filter(p => p.length > 10);
+        }
+
+        // Fallback: Doppelte Zeilenumbrüche oder lange Lücken
+        parts = refText.split(/\n\s*\n/);
+        if (parts.length > 1) {
+            return parts.map(p => p.trim()).filter(p => p.length > 10);
+        }
+
+        // Letzter Fallback: Einzelne Zeilen, die lang genug sind
+        return refText.split(/\n/).map(l => l.trim()).filter(l => l.length > 30);
+    },
+
+    /**
+     * Versucht aus einem rohen Referenz-String BibTeX-Felder zu extrahieren.
+     * Gibt einen formatierten @article oder @misc Eintrag zurück.
+     */
+    parseOneReference(refText, index) {
+        if (!refText || refText.length < 10) return null;
+
+        // Normalisieren: Überflüssige Whitespaces entfernen
+        let text = refText.replace(/\s+/g, " ").trim();
+
+        // --- Jahr extrahieren ---
+        const yearMatch = text.match(/\b((?:19|20)\d{2}[a-z]?)\b/);
+        const year = yearMatch ? yearMatch[1].replace(/[a-z]$/, "") : "";
+
+        // --- Autoren extrahieren ---
+        // Heuristik: Alles vor der Jahreszahl oder vor einem Titel in Anführungszeichen
+        let author = "";
+        if (yearMatch) {
+            // Text vor dem Jahr nehmen (oft "Autor1, A., Autor2, B. (2020)")
+            const beforeYear = text.substring(0, yearMatch.index).trim();
+            // Entferne abschließende Interpunktion und Klammern
+            author = beforeYear.replace(/[\(\.,;:]+\s*$/, "").trim();
+        }
+        if (!author) {
+            // Fallback: Alles vor dem ersten Punkt als Autor annehmen
+            const dotIdx = text.indexOf(".");
+            if (dotIdx > 3 && dotIdx < 80) {
+                author = text.substring(0, dotIdx).trim();
+            }
+        }
+
+        // --- Titel extrahieren ---
+        let title = "";
+        // Versuch 1: Text in Anführungszeichen
+        const quotedMatch = text.match(/[\u201C\u201E"\u201D]([^\u201C\u201E"\u201D]{5,})[\u201D"\u201C]/)
+            || text.match(/"([^"]{5,})"/);
+        if (quotedMatch) {
+            title = quotedMatch[1].trim();
+        } else if (yearMatch) {
+            // Versuch 2: Text nach dem Jahr bis zum nächsten Punkt
+            const afterYear = text.substring(yearMatch.index + yearMatch[0].length);
+            const cleanAfterYear = afterYear.replace(/^[\s\)\.,;:]+/, "").trim();
+            const periodIdx = cleanAfterYear.indexOf(".");
+            if (periodIdx > 5) {
+                title = cleanAfterYear.substring(0, periodIdx).trim();
+            } else if (cleanAfterYear.length > 5) {
+                title = cleanAfterYear.substring(0, 120).trim();
+            }
+        }
+        if (!title && text.length > 10) {
+            // Fallback: Ersten Abschnitt als Titel nehmen
+            title = text.substring(0, Math.min(text.length, 100));
+        }
+
+        // --- Journal/Konferenz erkennen ---
+        let journal = "";
+        const inMatch = text.match(/\bIn\s+([A-Z][^.]{3,60})/)
+            || text.match(/(?:journal|proceedings|conference|transactions)\s*[:=]?\s*([^.,]{3,60})/i);
+        if (inMatch) {
+            journal = inMatch[1].trim().replace(/[,;]+$/, "");
+        }
+
+        // --- BibTeX-Key generieren ---
+        const firstAuthor = author.split(/[,;&]|\band\b/)[0].trim().split(/\s+/).pop() || "unknown";
+        const cleanKey = firstAuthor.replace(/[^a-zA-Z]/g, "").toLowerCase();
+        const key = cleanKey + (year || index);
+
+        // --- Typ bestimmen ---
+        const type = journal ? "article" : "misc";
+
+        // --- BibTeX-Eintrag bauen ---
+        let entry = `@${type}{${key},\n`;
+        if (author) entry += `  author       = {${author}},\n`;
+        if (title) entry += `  title        = {${title}},\n`;
+        if (year) entry += `  year         = {${year}},\n`;
+        if (journal) entry += `  journal      = {${journal}},\n`;
+        entry += `}`;
+
+        return entry;
+    },
+
+    /**
+     * Fügt alle BibTeX-Einträge zu einem String zusammen.
+     */
+    buildBibtexString(entries) {
+        return entries.join("\n\n");
     }
 };
 
