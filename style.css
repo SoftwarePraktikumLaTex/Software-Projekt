@@ -78,8 +78,7 @@
 /* ---------------------------------- */
 /* GRUNDLAYOUT & RESET (Alexandros)   */
 /* ---------------------------------- */
-html,
-body {
+html, body {
     margin: 0;
     padding: 0;
     height: 100vh;
@@ -89,9 +88,6 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.3s ease, color 0.3s ease;
-    height: 100vh;
-    font-family: Arial, sans-serif;
-    background-color: #5e5e5e;
 }
 
 body {
@@ -101,8 +97,6 @@ body {
         "sidebar"
         "resizer"
         "editor";
-    grid-template-rows: 50px 200px 5px 1fr;
-    grid-template-columns: 1fr;
     /* Alexandros: Initiales Zeilen-Layout (Header fix, Sidebar variabel) */
     grid-template-rows: 50px 200px 5px 1fr;
     grid-template-columns: 1fr;
@@ -117,18 +111,14 @@ body {
     background-color: var(--bg-surface);
     position: relative;
     z-index: 1000;
+    /* Alexandros: Sicherstellung, dass Menüs oben liegen */
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     transition: background-color 0.3s ease;
-    background-color: grey;
-    position: relative;
-    z-index: 1000;
-    /* Alexandros: Sicherstellung, dass Menüs oben liegen */
 }
 
 .header-layout {
     display: flex;
-    align-items: flex-end;
     align-items: flex-end;
     height: 100%;
     width: 100%;
@@ -169,13 +159,9 @@ body {
     list-style-type: none;
     display: flex;
     gap: 4px;
-    gap: 15px;
     margin: 0;
     padding: 0 8px;
-    padding: 0 20px;
     height: 100%;
-    align-items: center;
-    flex-shrink: 0;
     align-items: center;
     flex-shrink: 0;
 }
@@ -258,7 +244,6 @@ body {
 /* --- TAB LEISTE (Alexandros) --- */
 .tab-bar {
     flex-grow: 1;
-    flex-grow: 1;
     display: flex;
     overflow-x: auto;
     height: 100%;
@@ -266,13 +251,6 @@ body {
     padding-left: 12px;
     background-color: transparent;
     border-left: 1px solid var(--border);
-    min-width: 100px;
-    overflow-x: auto;
-    height: 100%;
-    align-items: flex-end;
-    padding-left: 20px;
-    background-color: rgba(0, 0, 0, 0.2);
-    border-left: 1px solid #777;
     min-width: 100px;
     scrollbar-width: none;
     gap: 2px;
@@ -286,9 +264,6 @@ body {
     height: 32px;
     margin-right: 0;
     padding: 0 14px;
-    height: 28px;
-    margin-right: 4px;
-    padding: 0 10px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -296,18 +271,12 @@ body {
     color: var(--text-secondary);
     font-size: 12px;
     font-weight: 500;
-    background-color: #555;
-    color: #ccc;
-    font-size: 12px;
     cursor: pointer;
     user-select: none;
     min-width: 100px;
     max-width: 200px;
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     border: 1px solid var(--border);
-    max-width: 180px;
-    border-radius: 8px 8px 0 0;
-    border: 1px solid #444;
     border-bottom: none;
     transition: all var(--transition);
     font-family: inherit;
@@ -344,16 +313,10 @@ body {
     color: var(--text-primary);
     height: 34px;
     font-weight: 600;
+    /* Alexandros: Optische Hervorhebung des aktiven Dokuments */
     border-top: 2px solid var(--accent);
     z-index: 1001;
     box-shadow: 0 -1px 6px var(--accent-dim);
-    /* Alexandros: Optische Hervorhebung des aktiven Dokuments */
-    background-color: #f0f0f0;
-    color: black;
-    height: 30px;
-    font-weight: bold;
-    border-top: 2px solid #007bff;
-    z-index: 1001;
 }
 
 .tab-close {
@@ -375,8 +338,6 @@ body {
     opacity: 1;
 }
 
-}
-
 .tab-close:hover {
     background-color: rgba(255, 80, 80, 0.25);
     color: #ff6b6b;
@@ -390,7 +351,6 @@ body {
     height: 100%;
     width: 100%;
     background-color: var(--bg-editor);
-    background-color: #f0f0f0;
     overflow: hidden;
     border-top: 1px solid var(--border);
     transition: background-color 0.3s ease;
@@ -404,7 +364,6 @@ body {
 
 /* Felix: CSS-Anpassungen für die CodeMirror-Komponente */
 .CodeMirror {
-    height: 100% !important;
     height: 100% !important;
     width: 100%;
     font-size: 15px;
@@ -439,9 +398,6 @@ body {
 
 [data-theme="light"] .CodeMirror-activeline-background {
     background: rgba(0, 0, 0, 0.03) !important;
-    font-size: 16px;
-    font-family: 'Courier New', Courier, monospace;
-    border-left: none;
 }
 
 #editor-textarea {
@@ -454,9 +410,6 @@ body {
 .sidebar {
     grid-area: sidebar;
     background-color: var(--bg-base);
-    padding: 0;
-    overflow-y: auto;
-    background-color: #5e5e5e;
     padding: 0;
     overflow-y: auto;
     display: flex;
@@ -481,7 +434,6 @@ body {
 
 /* Martin: Sticky-Header für Suche und Filterung */
 .sidebar .filter-container {
-.sidebar .filter-container {
     position: sticky;
     top: 0;
     z-index: 10;
@@ -490,10 +442,6 @@ body {
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     transition: background-color 0.3s ease;
-    z-index: 10;
-    background-color: #5e5e5e;
-    padding: 15px 20px;
-    border-bottom: 2px solid #444;
 }
 
 .sidebar .filter-container form {
@@ -506,9 +454,6 @@ body {
 #citation-list {
     list-style-type: none;
     padding: 6px;
-    margin: 0;
-    list-style-type: none;
-    padding: 0;
     margin: 0;
 }
 
@@ -575,10 +520,11 @@ body {
 /* Martin: Anzeige der aktuellen Quellenanzahl */
 .citation-count {
     font-size: 0.78em;
-    color: #aaa;
-    padding: 4px 20px;
-    background-color: #525252;
-    border-bottom: 1px solid #444;
+    color: var(--text-muted);
+    padding: 4px 16px;
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* ---------------------------------- */
@@ -606,10 +552,6 @@ body {
     border-radius: 2px;
     opacity: 0;
     transition: opacity var(--transition);
-    background-color: #444;
-    transition: background-color 0.2s;
-    height: 5px;
-    z-index: 100;
 }
 
 .resizer:hover {
@@ -645,15 +587,6 @@ body {
 
 .search-input-wrapper:focus-within .search-icon {
     color: var(--accent);
-#selektor {
-    border: none;
-    width: 130px;
-    border-radius: 4px;
-    color: white;
-    background-color: #7c7c7c;
-    height: 30px;
-    padding: 0 10px;
-    box-sizing: border-box;
 }
 
 #input1 {
@@ -728,11 +661,6 @@ body {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-dim);
-    flex: 1;
-    height: 30px;
-    border-radius: 4px;
-    border: 1px solid #7c7c7c;
-    padding: 0 10px;
 }
 
 /* ---------------------------------- */
@@ -748,8 +676,6 @@ body {
     background-color: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    z-index: 3000;
-    background-color: rgba(0, 0, 0, 0.7);
     z-index: 3000;
     justify-content: center;
     align-items: center;
@@ -783,16 +709,12 @@ body {
     color: var(--text-secondary);
     font-size: 14px;
     line-height: 1.5;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-    color: #333;
 }
 
 .checkbox-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
     margin: 20px 0;
 }
 
@@ -875,21 +797,10 @@ body {
     color: var(--text-primary);
     border-color: var(--accent);
 }
-.primary-btn:hover {
-    background-color: #005f9e;
-}
-
-.secondary-btn:hover {
-    background-color: #bbb;
-}
 
 /* ---------------------------------- */
 /* DROPDOWNS (Alexandros)             */
 /* ---------------------------------- */
-.dropdownDatei,
-.dropdownEdit,
-.dropdownImport,
-.dropdownHelp,
 .dropdownDatei,
 .dropdownEdit,
 .dropdownImport,
@@ -911,11 +822,6 @@ body {
     z-index: 2000;
     box-shadow: var(--shadow-lg);
     top: calc(100% + 4px);
-    min-width: 160px;
-    background-color: grey;
-    z-index: 2000;
-    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.5);
-    top: 100%;
     left: 0;
     border: 1px solid var(--border-light);
     border-radius: var(--radius-md);
@@ -1002,6 +908,4 @@ body {
 ::selection {
     background-color: var(--accent-dim);
     color: var(--text-primary);
-}
-}
 }

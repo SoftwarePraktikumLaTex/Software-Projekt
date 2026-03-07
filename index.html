@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="de">
 
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -26,11 +25,9 @@
         var PDFJS_WORKER_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
     </script>
 
-
     <link href="style.css" rel="stylesheet">
     <script src="script.js" defer></script>
 </head>
-
 
 <body>
 
@@ -42,7 +39,6 @@
                 <span class="app-logo-text"><span>Bib</span>Stream</span>
             </div>
 
-
             <ul id="headbarNav">
                 <li>
                     <div class="dropdownDatei">
@@ -51,10 +47,7 @@
                             <a href="#" id="menu-new-file">Neue Datei</a>
                             <a href="#" id="btn-import-file">Datei öffnen (.bib)</a>
                             <a href="#" id="btn-import-folder">Ordner öffnen...</a>
-                            <hr style="margin: 5px 0; border: 0; border-top: 1px solid #555;">
-
                             <hr>
-
                             <a href="#" id="btn-save">Speichern</a>
                             <a href="#" id="btn-save-as">Speichern unter...</a>
                         </div>
@@ -79,7 +72,6 @@
                             <a href="#" id="btn-import-pdf">PDF importieren (Referenzen extrahieren)</a>
                         </div>
                     </div>
-                    </div>
                 </li>
                 <li>
                     <div class="dropdownHelp">
@@ -94,7 +86,6 @@
 
             <div class="tab-bar" id="tab-bar">
             </div>
-            </div>
 
             <div class="theme-toggle-wrapper">
                 <button class="theme-toggle-btn" id="theme-toggle" title="Theme wechseln">
@@ -105,7 +96,6 @@
 
         </nav>
     </header>
-
 
     <aside class="sidebar">
         <div class="filter-container">
@@ -133,7 +123,6 @@
         <div class="citations-container">
             <ul id="citation-list">
             </ul>
-            </ul>
         </div>
     </aside>
 
@@ -142,21 +131,10 @@
             <h2>Formatierungs-Einstellungen</h2>
             <p>Wähle aus, welche Felder beim "Pretty Print" erhalten bleiben sollen:</p>
 
-
             <div class="checkbox-grid">
                 <label><input type="checkbox" checked data-field="author"> Author</label>
                 <label><input type="checkbox" checked data-field="title"> Title</label>
                 <label><input type="checkbox" checked data-field="journal"> Journal</label>
-                <label><input type="checkbox" checked data-field="year"> Year</label>
-                <label><input type="checkbox" checked data-field="volume"> Volume</label>
-                <label><input type="checkbox" checked data-field="number"> Number</label>
-                <label><input type="checkbox" checked data-field="pages"> Pages</label>
-                <label><input type="checkbox" checked data-field="publisher"> Publisher</label>
-                <label><input type="checkbox" checked data-field="doi"> DOI</label>
-                <label><input type="checkbox" checked data-field="url"> URL</label>
-                <label><input type="checkbox" checked data-field="isbn"> ISBN</label>
-                <label><input type="checkbox" checked data-field="abstract"> Abstract</label>
-            </div>
                 <label><input type="checkbox" checked data-field="year"> Year</label>
                 <label><input type="checkbox" checked data-field="volume"> Volume</label>
                 <label><input type="checkbox" checked data-field="number"> Number</label>
@@ -178,8 +156,6 @@
     <div id="resizer" class="resizer"></div>
 
     <main class="editor-container">
-
-    <main class="editor-container">
         <div class="editor-wrapper">
             <textarea id="editor-textarea">
 @article{beispiel,
@@ -195,6 +171,5 @@
     <input type="file" id="hidden-folder-input" webkitdirectory directory multiple style="display: none;" />
     <input type="file" id="hidden-pdf-input" accept=".pdf" style="display: none;" />
 </body>
-
 
 </html>
