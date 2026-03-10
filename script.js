@@ -25,6 +25,9 @@ const App = {
         ThemeModule.init();
         HelpModule.init();
 
+        // Alexandros: Layout-Toggle Initialisierung
+        LayoutModule.init();
+
         // Clipboard-Watcher (optional, falls vorhanden)
         if (typeof ClipboardModule !== 'undefined') ClipboardModule.init();
 
@@ -733,20 +736,31 @@ const ResizerModule = {
         const body = document.body;
         let isResizing = false;
         if (!resizer) return;
-        // Alexandros: Initialisierung des Resize-Vorgangs (Sidebar/Top-Bar Höhe)
+        // Alexandros: Initialisierung des Resize-Vorgangs (Sidebar/Top-Bar Höhe oder Breite)
         resizer.addEventListener("mousedown", (e) => {
             isResizing = true;
-            body.style.cursor = "row-resize";
+            const isSideBySide = body.classList.contains('layout-side-by-side');
+            body.style.cursor = isSideBySide ? "col-resize" : "row-resize";
             body.style.userSelect = "none";
         });
         window.addEventListener("mousemove", (e) => {
             if (!isResizing) return;
-            const headerHeight = document.querySelector(".top-nav").offsetHeight;
-            let newSidebarHeight = e.clientY - headerHeight;
-            // Alexandros: Begrenzung der Resize-Dimensionen
-            if (newSidebarHeight < 50) newSidebarHeight = 50;
-            if (newSidebarHeight > window.innerHeight * 0.8) newSidebarHeight = window.innerHeight * 0.8;
-            body.style.gridTemplateRows = `${headerHeight}px ${newSidebarHeight}px 5px 1fr`;
+            const isSideBySide = body.classList.contains('layout-side-by-side');
+
+            if (isSideBySide) {
+                // Side-by-Side-Modus: X-Achse → Sidebar-Breite ändern
+                let newSidebarWidth = e.clientX;
+                if (newSidebarWidth < 150) newSidebarWidth = 150;
+                if (newSidebarWidth > window.innerWidth * 0.5) newSidebarWidth = window.innerWidth * 0.5;
+                body.style.gridTemplateColumns = `${newSidebarWidth}px 5px 1fr`;
+            } else {
+                // Standard-Modus: Y-Achse → Sidebar-Höhe ändern
+                const headerHeight = document.querySelector(".top-nav").offsetHeight;
+                let newSidebarHeight = e.clientY - headerHeight;
+                if (newSidebarHeight < 50) newSidebarHeight = 50;
+                if (newSidebarHeight > window.innerHeight * 0.8) newSidebarHeight = window.innerHeight * 0.8;
+                body.style.gridTemplateRows = `${headerHeight}px ${newSidebarHeight}px 5px 1fr`;
+            }
             // Felix: Refresh des Editors nach Layout-Änderung
             if (EditorModule.editorInstance) EditorModule.editorInstance.refresh();
         });
@@ -1224,6 +1238,45 @@ const ThemeModule = {
         // Refresh CodeMirror so it picks up the new CSS variable colors
         if (EditorModule.editorInstance) {
             EditorModule.editorInstance.refresh();
+        }
+    }
+};
+
+// --- 12. LAYOUT MODULE (Layout-Toggle: Top-Bar ↔ Side-by-Side) ---
+const LayoutModule = {
+    init() {
+        const btn = document.getElementById('layout-toggle');
+        const icon = document.getElementById('layout-toggle-icon');
+        if (!btn || !icon) return;
+
+        // Gespeichertes Layout aus localStorage wiederherstellen
+        const saved = localStorage.getItem('bibstream-layout');
+        if (saved === 'side-by-side') {
+            document.body.classList.add('layout-side-by-side');
+            icon.textContent = 'horizontal_split';
+        }
+
+        btn.addEventListener('click', () => this.toggle());
+    },
+
+    toggle() {
+        const body = document.body;
+        const icon = document.getElementById('layout-toggle-icon');
+        const isSideBySide = body.classList.toggle('layout-side-by-side');
+
+        // Icon anpassen: zeigt das jeweils andere Layout
+        icon.textContent = isSideBySide ? 'horizontal_split' : 'vertical_split';
+
+        // Inline-Grid-Styles zurücksetzen, damit das CSS-Grid sauber greift
+        body.style.gridTemplateRows = '';
+        body.style.gridTemplateColumns = '';
+
+        // Layout-Wahl persistieren
+        localStorage.setItem('bibstream-layout', isSideBySide ? 'side-by-side' : 'default');
+
+        // Editor muss nach Layout-Wechsel neu gerendert werden
+        if (EditorModule.editorInstance) {
+            setTimeout(() => EditorModule.editorInstance.refresh(), 50);
         }
     }
 };

@@ -242,6 +242,7 @@ body {
 .theme-toggle-wrapper {
     display: flex;
     align-items: center;
+    gap: 8px;
     padding: 0 14px;
     height: 100%;
     flex-shrink: 0;
@@ -798,6 +799,38 @@ body {
 .resizer:hover::after {
     opacity: 1;
     background-color: var(--accent-hover);
+}
+
+/* ------------------------------------------------ */
+/* SIDE-BY-SIDE LAYOUT (Alexandros: Layout-Toggle)  */
+/* ------------------------------------------------ */
+body.layout-side-by-side {
+    grid-template-areas:
+        "header  header  header"
+        "sidebar resizer editor";
+    grid-template-rows: 50px 1fr;
+    grid-template-columns: 280px 5px 1fr;
+}
+
+body.layout-side-by-side .sidebar {
+    border-right: none;
+    overflow-y: auto;
+}
+
+body.layout-side-by-side .resizer {
+    cursor: col-resize;
+    width: 5px;
+    height: 100%;
+}
+
+body.layout-side-by-side .resizer::after {
+    width: 3px;
+    height: 40px;
+}
+
+body.layout-side-by-side .editor-container {
+    border-top: none;
+    border-left: 1px solid var(--border);
 }
 
 /* ---------------------------------- */
