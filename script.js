@@ -541,6 +541,8 @@ const SidebarModule = {
     //  - Verschachtelte Klammern in Feldwerten (z. B. title = {Ein {Titel}})
     parseBibtexEntries(text) {
         const entries = [];
+        // FIX: Duplikat-Handling – Set merkt sich bereits gesehene Keys
+        const seenKeys = new Set();
         // Normalisiere Zeilenumbrüche zu \n
         const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
@@ -551,6 +553,14 @@ const SidebarModule = {
         while ((headerMatch = headerRegex.exec(normalizedText)) !== null) {
             const type = headerMatch[1].toLowerCase();
             const key = headerMatch[2].trim();
+
+            // FIX: Duplikat-Handling – Wenn der Key bereits existiert,
+            // wird dieser Eintrag übersprungen und nicht in die Liste aufgenommen.
+            if (seenKeys.has(key)) {
+                continue;
+            }
+            seenKeys.add(key);
+
             // Position direkt nach dem Komma hinter dem Key
             const bodyStart = headerMatch.index + headerMatch[0].length;
 
@@ -1047,6 +1057,10 @@ const LinterModule = {
         const entryStartRegex = /^\s*@(\w+)\s*\{/;
         // FIX: BUG-5 behoben – Feldname muss mit Buchstaben beginnen (BibTeX-Konvention)
         const fieldRegex = /^\s*(OPT)?([a-zA-Z][a-zA-Z0-9_]*)\s*=/;
+        // FIX: Duplikat-Handling – Regex extrahiert den Citation-Key aus der @type{key, Zeile
+        const keyExtractRegex = /^\s*@\w+\s*\{\s*([^,]+)/;
+        // FIX: Duplikat-Handling – Set speichert bereits gesehene Citation-Keys
+        const seenKeys = new Set();
         let openBraces = 0;
         lines.forEach((line, i) => {
             const trimmed = line.trim();
@@ -1063,6 +1077,22 @@ const LinterModule = {
                         message: `Unbekannter Eintragstyp: "@${type}". Meinten Sie "@article"?`,
                         severity: "error"
                     });
+                }
+                // FIX: Duplikat-Handling – Prüft ob der Citation-Key bereits definiert wurde
+                const keyMatch = trimmed.match(keyExtractRegex);
+                if (keyMatch) {
+                    const citationKey = keyMatch[1].trim();
+                    if (seenKeys.has(citationKey)) {
+                        const keyStart = line.indexOf(citationKey);
+                        errors.push({
+                            from: CodeMirror.Pos(i, keyStart),
+                            to: CodeMirror.Pos(i, keyStart + citationKey.length),
+                            message: `Doppelter BibTeX-Key: Dieser Zitationsschlüssel existiert bereits weiter oben.`,
+                            severity: "error"
+                        });
+                    } else {
+                        seenKeys.add(citationKey);
+                    }
                 }
             }
             // Felix: Prüft auf korrekte Feldnamen und fehlende Kommata
