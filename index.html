@@ -116,12 +116,14 @@
                 <div class="dropdownSelektor selector-wrapper">
                     <span class="material-symbols-outlined selector-icon">sort</span>
                     <select id="selektor" class="selektor-btn">
-                        <option value="original">Original</option>
-                        <option value="asc">A-Z (Key)</option>
-                        <option value="desc">Z-A (Key)</option>
+                        <option value="original">Standard</option>
+                        <option value="title-asc">Titel A–Z</option>
+                        <option value="title-desc">Titel Z–A</option>
+                        <option value="author-asc">Autor A–Z</option>
+                        <option value="author-desc">Autor Z–A</option>
+                        <option value="year-desc">Jahr (Neu → Alt)</option>
+                        <option value="year-asc">Jahr (Alt → Neu)</option>
                         <option value="type">Nach Typ</option>
-                        <option value="author">Nach Autor</option>
-                        <option value="year">Nach Jahr (Neu - Alt)</option>
                     </select>
                 </div>
             </form>
@@ -237,13 +239,7 @@
 
     <main class="editor-container">
         <div class="editor-wrapper">
-            <textarea id="editor-textarea">
-@article{beispiel,
-  author  = "Autor, A.",
-  title   = "Ein Titel",
-  year    = 2025
-}
-            </textarea>
+            <textarea id="editor-textarea"></textarea>
         </div>
     </main>
 
