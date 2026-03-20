@@ -273,6 +273,9 @@ const FileModule = {
                 const writable = await file.handle.createWritable();
                 await writable.write(file.content);
                 await writable.close();
+                // Dirty-Flag zurücksetzen und Tabs aktualisieren
+                file.dirty = false;
+                this.renderTabs();
                 console.log("Erfolgreich überschrieben:", file.name);
                 alert(`"${file.name}" gespeichert!`);
             } catch (err) {
@@ -302,11 +305,16 @@ const FileModule = {
                 await writable.close();
                 file.handle = handle;
                 file.name = handle.name;
+                // Dirty-Flag zurücksetzen
+                file.dirty = false;
                 this.renderTabs();
                 alert("Gespeichert!");
             } catch (err) { /* Abbruch */ }
         } else {
             this.legacyDownload(file.name, file.content);
+            // Dirty-Flag zurücksetzen nach Download
+            file.dirty = false;
+            this.renderTabs();
         }
     },
 
@@ -365,7 +373,8 @@ const FileModule = {
             id: 'file_' + Date.now() + Math.random().toString(36).substr(2, 9),
             name: name,
             content: content,
-            handle: handle
+            handle: handle,
+            dirty: false
         };
         this.files.push(newFile);
         this.renderTabs();
@@ -415,7 +424,8 @@ const FileModule = {
             tab.appendChild(icon);
             const span = document.createElement("span");
             span.className = "tab-filename";
-            span.textContent = file.name;
+            // Dirty-Flag: Ungespeicherte Änderungen mit * markieren
+            span.textContent = (file.dirty ? '* ' : '') + file.name;
             tab.appendChild(span);
             const closeBtn = document.createElement("span");
             closeBtn.className = "tab-close";
@@ -434,6 +444,18 @@ const FileModule = {
             file.content = content;
             SidebarModule.parseAndRefresh(content);
             this.saveSession();
+        }
+    },
+
+    /**
+     * Markiert die aktive Datei als "ungespeichert" (dirty).
+     * Wird vom EditorModule bei jeder Benutzer-Änderung aufgerufen.
+     */
+    markActiveDirty() {
+        const file = this.files.find(f => f.id === this.activeFileId);
+        if (file && !file.dirty) {
+            file.dirty = true;
+            this.renderTabs();
         }
     },
 
@@ -621,6 +643,8 @@ const EditorModule = {
             if (typeof FileModule.updateActiveFileContent === 'function') {
                 FileModule.updateActiveFileContent(cm.getValue());
             }
+            // Dirty-Flag setzen: Datei hat ungespeicherte Änderungen
+            FileModule.markActiveDirty();
         });
 
         // Felix: Event-Listener für die Menü-Buttons (Undo/Redo)
@@ -678,14 +702,65 @@ const EditorModule = {
         this.isProgrammaticUpdate = false;
     },
 
+    /**
+     * Springt zum BibTeX-Eintrag mit dem gegebenen Key.
+     * Scrollt den Eintrag bündig an den oberen Bildschirmrand und
+     * hebt den gesamten Block kurzzeitig farblich hervor.
+     */
     jumpToKey(keyName) {
         if (!this.editorInstance) return;
-        const cursor = this.editorInstance.getSearchCursor(keyName);
-        if (cursor.findNext()) {
-            this.editorInstance.setSelection(cursor.from(), cursor.to());
-            this.editorInstance.scrollIntoView(cursor.from(), 200);
-            this.editorInstance.focus();
+        const cm = this.editorInstance;
+        const cursor = cm.getSearchCursor(keyName);
+        if (!cursor.findNext()) return;
+
+        const matchLine = cursor.from().line;
+
+        // Finde den Start des @type{-Blocks (rückwärts ab Treffer-Zeile)
+        let blockStart = matchLine;
+        for (let i = matchLine; i >= 0; i--) {
+            if (cm.getLine(i).trim().startsWith('@')) {
+                blockStart = i;
+                break;
+            }
         }
+
+        // Finde das Ende des Blocks (vorwärts per Klammertiefe)
+        let blockEnd = matchLine;
+        let depth = 0;
+        const totalLines = cm.lineCount();
+        for (let i = blockStart; i < totalLines; i++) {
+            const line = cm.getLine(i);
+            for (const ch of line) {
+                if (ch === '{') depth++;
+                else if (ch === '}') depth--;
+            }
+            if (depth <= 0) {
+                blockEnd = i;
+                break;
+            }
+        }
+
+        // Selektion auf den Key setzen
+        cm.setSelection(cursor.from(), cursor.to());
+
+        // Scroll: Eintrag bündig oben am Bildschirmrand
+        const topCoord = cm.charCoords({ line: blockStart, ch: 0 }, 'local').top;
+        cm.scrollTo(null, topCoord);
+
+        // Farbliches Highlighting des gesamten Blocks (temporär)
+        const markers = [];
+        for (let i = blockStart; i <= blockEnd; i++) {
+            cm.addLineClass(i, 'background', 'jumptokey-highlight');
+            markers.push(i);
+        }
+        // Highlight nach 1.5s wieder entfernen
+        setTimeout(() => {
+            markers.forEach(line => {
+                cm.removeLineClass(line, 'background', 'jumptokey-highlight');
+            });
+        }, 1500);
+
+        cm.focus();
     }
 };
 
