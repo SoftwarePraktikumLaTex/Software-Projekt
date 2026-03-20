@@ -31,11 +31,12 @@ const App = {
         // Clipboard-Watcher (optional, falls vorhanden)
         if (typeof ClipboardModule !== 'undefined') ClipboardModule.init();
 
-        // Alexandros: Automatischer Startzustand - Erstellt einen Tab aus dem Fallback-Textarea
+        // Sitzung aus LocalStorage wiederherstellen
+        FileModule.loadSession();
+
+        // Fallback: Wenn kein gespeicherter Zustand vorhanden ist, leeren Tab erstellen
         if (FileModule.files.length === 0) {
-            const initialTextElement = document.getElementById("editor-textarea");
-            const initialText = initialTextElement ? initialTextElement.value : "";
-            FileModule.addFile("Unbenannt.bib", initialText);
+            FileModule.addFile("Unbenannt.bib", "");
             FileModule.switchToTab(FileModule.files[0].id);
         }
     },
@@ -180,6 +181,8 @@ const FileModule = {
         this.saveBtn = document.querySelector("#btn-save");
         this.saveAsBtn = document.querySelector("#btn-save-as");
         this.setupListeners();
+        // "Zuletzt geöffnet"-Liste im Datei-Menü rendern
+        this.renderRecentFiles();
     },
 
     setupListeners() {
@@ -220,8 +223,17 @@ const FileModule = {
                             multiple: false
                         });
                         const file = await handle.getFile();
-                        const content = await file.text();
+                        let content = await file.text();
+                        // TXT-Import: BibTeX-Blöcke extrahieren, Rest verwerfen
+                        if (file.name.toLowerCase().endsWith('.txt')) {
+                            content = this.extractBibtex(content);
+                            if (!content) {
+                                alert('Diese .txt-Datei enthält keinen erkennbaren BibTeX-Inhalt und wird nicht importiert.');
+                                return;
+                            }
+                        }
                         this.addFile(file.name, content, handle);
+                        this.addToRecentFiles(file.name, content);
                         if (this.files.length > 0) this.switchToTab(this.files[this.files.length - 1].id);
                     } catch (err) {
                         if (err.name !== 'AbortError') console.error("Öffnen fehlgeschlagen:", err);
@@ -325,7 +337,17 @@ const FileModule = {
     readFileAndAdd(fileObj) {
         const reader = new FileReader();
         reader.onload = (e) => {
-            this.addFile(fileObj.name, e.target.result, null);
+            let content = e.target.result;
+            // TXT-Import: BibTeX-Blöcke extrahieren, Rest verwerfen
+            if (fileObj.name.toLowerCase().endsWith('.txt')) {
+                content = this.extractBibtex(content);
+                if (!content) {
+                    alert('Diese .txt-Datei enthält keinen erkennbaren BibTeX-Inhalt und wird nicht importiert.');
+                    return;
+                }
+            }
+            this.addFile(fileObj.name, content, null);
+            this.addToRecentFiles(fileObj.name, content);
             if (this.files.length === 1) this.switchToTab(this.files[0].id);
             else this.switchToTab(this.files[this.files.length - 1].id);
         };
@@ -347,6 +369,7 @@ const FileModule = {
         };
         this.files.push(newFile);
         this.renderTabs();
+        this.saveSession();
     },
 
     closeDropdowns() {
@@ -361,6 +384,7 @@ const FileModule = {
         this.renderTabs();
         EditorModule.setContent(file.content);
         SidebarModule.parseAndRefresh(file.content);
+        this.saveSession();
     },
 
     closeFile(id, event) {
@@ -375,6 +399,7 @@ const FileModule = {
         } else {
             this.renderTabs();
         }
+        this.saveSession();
     },
 
     renderTabs() {
@@ -408,7 +433,159 @@ const FileModule = {
         if (file) {
             file.content = content;
             SidebarModule.parseAndRefresh(content);
+            this.saveSession();
         }
+    },
+
+    // --- Sitzungswiederherstellung (LocalStorage) ---
+
+    /**
+     * Speichert den aktuellen Zustand aller Tabs (Name + Inhalt) und
+     * die activeFileId in den LocalStorage.
+     * FileHandles werden nicht serialisiert (nicht JSON-kompatibel).
+     */
+    saveSession() {
+        try {
+            const data = {
+                activeFileId: this.activeFileId,
+                files: this.files.map(f => ({ id: f.id, name: f.name, content: f.content }))
+            };
+            localStorage.setItem('bibstream-session', JSON.stringify(data));
+        } catch (err) {
+            console.warn('Sitzung konnte nicht gespeichert werden:', err);
+        }
+    },
+
+    /**
+     * Lädt Tabs und aktiven Tab aus dem LocalStorage.
+     * Stellt files[] wieder her und wechselt zum zuletzt aktiven Tab.
+     */
+    loadSession() {
+        try {
+            const raw = localStorage.getItem('bibstream-session');
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (!data || !Array.isArray(data.files) || data.files.length === 0) return;
+            data.files.forEach(f => {
+                this.files.push({ id: f.id, name: f.name, content: f.content || '', handle: null });
+            });
+            this.renderTabs();
+            // Zum zuletzt aktiven Tab wechseln (oder ersten Tab)
+            const targetId = data.activeFileId && this.files.find(f => f.id === data.activeFileId)
+                ? data.activeFileId
+                : this.files[0].id;
+            this.switchToTab(targetId);
+        } catch (err) {
+            console.warn('Sitzung konnte nicht geladen werden:', err);
+        }
+    },
+
+    // --- Premium-Feature: Zuletzt geöffnete Dateien ---
+
+    /**
+     * Fügt eine Datei (Name + Inhalt) zur "Zuletzt geöffnet"-Liste hinzu.
+     * Max. 5 Einträge, keine Duplikate (FIFO). Speichert Name UND Content.
+     */
+    addToRecentFiles(name, content) {
+        try {
+            let recent = JSON.parse(localStorage.getItem('bibstream-recent-files') || '[]');
+            // Duplikat entfernen, falls vorhanden
+            recent = recent.filter(entry => entry.name !== name);
+            // Am Anfang einfügen (Name + Content)
+            recent.unshift({ name: name, content: content || '' });
+            // Max. 5 Einträge behalten
+            if (recent.length > 5) recent = recent.slice(0, 5);
+            localStorage.setItem('bibstream-recent-files', JSON.stringify(recent));
+            this.renderRecentFiles();
+        } catch (err) {
+            console.warn('Zuletzt geöffnete Dateien konnten nicht gespeichert werden:', err);
+        }
+    },
+
+    /**
+     * Rendert die "Zuletzt geöffnet"-Liste im Datei-Dropdown.
+     * Fügt Einträge unterhalb einer <hr> im #dropdownDateiContent ein.
+     */
+    renderRecentFiles() {
+        const dropdown = document.querySelector('#dropdownDateiContent');
+        if (!dropdown) return;
+
+        // Alte "Zuletzt geöffnet"-Einträge entfernen
+        dropdown.querySelectorAll('.recent-file-item, .recent-file-header').forEach(el => el.remove());
+
+        let recent = [];
+        try {
+            recent = JSON.parse(localStorage.getItem('bibstream-recent-files') || '[]');
+        } catch (e) { /* leer lassen */ }
+
+        if (recent.length === 0) return;
+
+        // Trennlinie
+        const hr = document.createElement('hr');
+        hr.className = 'recent-file-header';
+        dropdown.appendChild(hr);
+
+        // Überschrift
+        const header = document.createElement('span');
+        header.className = 'recent-file-header';
+        header.textContent = 'Zuletzt geöffnet';
+        header.style.cssText = 'display:block;padding:6px 12px 2px;font-size:0.75em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;pointer-events:none;';
+        dropdown.appendChild(header);
+
+        // Dateieinträge (jeder Eintrag ist ein {name, content}-Objekt)
+        recent.forEach(entry => {
+            const a = document.createElement('a');
+            a.href = '#';
+            a.className = 'recent-file-item';
+            a.textContent = entry.name;
+            a.title = entry.name;
+            a.addEventListener('click', (e) => {
+                e.preventDefault();
+                // Prüfen ob Datei bereits geöffnet ist
+                const existing = this.files.find(f => f.name === entry.name);
+                if (existing) {
+                    this.switchToTab(existing.id);
+                } else {
+                    // Tab mit gespeichertem Inhalt erstellen
+                    this.addFile(entry.name, entry.content || '');
+                    this.switchToTab(this.files[this.files.length - 1].id);
+                }
+                this.closeDropdowns();
+            });
+            dropdown.appendChild(a);
+        });
+    },
+
+    // --- TXT-Import: BibTeX-Extraktion ---
+
+    /**
+     * Extrahiert alle gültigen BibTeX-Blöcke (@type{...}) aus einem Rohtext.
+     * Verwendet Klammertiefe-Zählung, um verschachtelte {} korrekt zu behandeln.
+     * Gibt den bereinigten String zurück, oder '' wenn nichts gefunden wurde.
+     */
+    extractBibtex(rawText) {
+        const blocks = [];
+        // Finde jedes @type{-Vorkommen
+        const headerRegex = /@\w+\s*\{/g;
+        let match;
+        while ((match = headerRegex.exec(rawText)) !== null) {
+            const start = match.index;
+            // Ab der öffnenden { die passende schließende } per Tiefenzählung finden
+            const braceStart = start + match[0].length - 1; // Position der {
+            let depth = 1;
+            let i = braceStart + 1;
+            while (i < rawText.length && depth > 0) {
+                if (rawText[i] === '{') depth++;
+                else if (rawText[i] === '}') depth--;
+                i++;
+            }
+            if (depth === 0) {
+                blocks.push(rawText.substring(start, i));
+            }
+            // Regex-Index hinter den Block setzen, damit wir nicht innerhalb suchen
+            headerRegex.lastIndex = i;
+        }
+        return blocks.length > 0 ? blocks.join('\n\n') : '';
     }
 };
 
