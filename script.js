@@ -274,7 +274,7 @@ const FileModule = {
         this.saveBtn = document.querySelector("#btn-save");
         this.saveAsBtn = document.querySelector("#btn-save-as");
         this.setupListeners();
-        // "Zuletzt geÃƒÂ¶ffnet"-Liste im Datei-MenÃƒÂ¼ rendern
+        // "Zuletzt geändert"-Liste im Datei-Menü rendern
         this.renderRecentFiles();
     },
 
@@ -595,10 +595,10 @@ const FileModule = {
         }
     },
 
-    // --- Premium-Feature: Zuletzt geÃƒÂ¶ffnete Dateien ---
+    // --- Premium-Feature: Zuletzt geänderten Dateien ---
 
     /**
-     * FÃƒÂ¼gt eine Datei (Name + Inhalt) zur "Zuletzt geÃƒÂ¶ffnet"-Liste hinzu.
+     * FÃƒÂ¼gt eine Datei (Name + Inhalt) zur "Zuletzt geändert"-Liste hinzu.
      * Max. 5 EintrÃƒÂ¤ge, keine Duplikate (FIFO). Speichert Name UND Content.
      */
     addToRecentFiles(name, content) {
@@ -613,19 +613,19 @@ const FileModule = {
             localStorage.setItem('bibstream-recent-files', JSON.stringify(recent));
             this.renderRecentFiles();
         } catch (err) {
-            console.warn('Zuletzt geÃƒÂ¶ffnete Dateien konnten nicht gespeichert werden:', err);
+            console.warn('Zuletzt geänderten Dateien konnten nicht gespeichert werden:', err);
         }
     },
 
     /**
-     * Rendert die "Zuletzt geÃƒÂ¶ffnet"-Liste im Datei-Dropdown.
+     * Rendert die "Zuletzt geändert"-Liste im Datei-Dropdown.
      * FÃƒÂ¼gt EintrÃƒÂ¤ge unterhalb einer <hr> im #dropdownDateiContent ein.
      */
     renderRecentFiles() {
         const dropdown = document.querySelector('#dropdownDateiContent');
         if (!dropdown) return;
 
-        // Alte "Zuletzt geÃƒÂ¶ffnet"-EintrÃƒÂ¤ge entfernen
+        // Alte "Zuletzt geändert"-EintrÃƒÂ¤ge entfernen
         dropdown.querySelectorAll('.recent-file-item, .recent-file-header').forEach(el => el.remove());
 
         let recent = [];
@@ -643,7 +643,7 @@ const FileModule = {
         // ÃƒÅ“berschrift
         const header = document.createElement('span');
         header.className = 'recent-file-header';
-        header.textContent = 'Zuletzt geÃƒÂ¶ffnet';
+        header.textContent = 'Zuletzt Bearbeitet';
         header.style.cssText = 'display:block;padding:6px 12px 2px;font-size:0.75em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;pointer-events:none;';
         dropdown.appendChild(header);
 
