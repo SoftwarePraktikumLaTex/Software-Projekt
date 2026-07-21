@@ -627,15 +627,23 @@ const SidebarModule = {
                 const yearMatch = content.match(/year\s*=\s*["{]?(\d{4})["}]?/i);
                 const year = yearMatch ? yearMatch[1] : "????";
 
-                // Extrahiert URL oder DOI für einen klickbaren Link
-                const urlMatch = content.match(/url\s*=\s*["{]([^"}]*)["}]/i);
-                const doiMatch = content.match(/doi\s*=\s*["{]([^"}]*)["}]/i);
+                // Extrahiert URL oder DOI für einen klickbaren Link (mit Unterstützung für OPT-Präfixe)
+                const urlMatch = content.match(/(?:OPT)?url\s*=\s*["{]([^"}]*)["}]/i);
+                const doiMatch = content.match(/(?:OPT)?doi\s*=\s*["{]([^"}]*)["}]/i);
                 let link = null;
-                if (urlMatch) {
+                let linkType = null; // 'doi' oder 'url'
+
+                if (doiMatch) {
+                    // DOI hat Priorität (wissenschaftlicher Standard)
+                    let doi = doiMatch[1].trim();
+                    // Falls die DOI bereits als URL (z.B. https://doi.org/) formatiert ist, bereinigen wir sie
+                    doi = doi.replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "");
+                    link = `https://doi.org/${doi}`;
+                    linkType = 'doi';
+                } else if (urlMatch) {
+                    // Fallback zur URL, wenn keine DOI vorhanden ist
                     link = urlMatch[1].trim();
-                } else if (doiMatch) {
-                    const doi = doiMatch[1].trim();
-                    link = doi.startsWith("http") ? doi : `https://doi.org/${doi}`;
+                    linkType = 'url';
                 }
 
                 const entryStart = headerMatch.index;
@@ -644,7 +652,7 @@ const SidebarModule = {
                 const rawText = normalizedText.substring(entryStart, entryEnd);
 
                 entries.push({ 
-                    type, key, author, year, link,
+                    type, key, author, year, link, linkType,
                     precedingText, rawText,
                     originalIndex: entries.length
                 });
@@ -783,8 +791,9 @@ const SidebarModule = {
                 anchor.target = "_blank";
                 anchor.rel = "noopener noreferrer";
                 anchor.className = "sidebar-link-btn";
-                anchor.title = entry.link;
-                anchor.textContent = "🔗 Link";
+                // UI-Feedback: Tooltip (title) und Icon je nach Link-Typ
+                anchor.title = entry.linkType === 'doi' ? `DOI: ${entry.link}` : `URL: ${entry.link}`;
+                anchor.textContent = entry.linkType === 'doi' ? "DOI" : "Link";
                 // stopPropagation auf dem Link, damit nur der Link geöffnet wird
                 anchor.addEventListener('click', (e) => e.stopPropagation());
                 keySpan.appendChild(anchor);
