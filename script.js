@@ -1012,22 +1012,40 @@ const SidebarModule = {
 
     sortAndSyncEditor() {
         let editorEntries = [...this.allEntries];
-        if (this.currentSort === 'asc') {
-            editorEntries.sort((a, b) => a.key.localeCompare(b.key));
-        } else if (this.currentSort === 'desc') {
-            editorEntries.sort((a, b) => b.key.localeCompare(a.key));
-        } else if (this.currentSort === 'type') {
-            editorEntries.sort((a, b) => a.type.localeCompare(b.type) || a.key.localeCompare(b.key));
-        } else if (this.currentSort === 'author') {
-            editorEntries.sort((a, b) => a.author.localeCompare(b.author));
-        } else if (this.currentSort === 'year') {
-            editorEntries.sort((a, b) => {
-                const aYear = parseInt(a.year, 10) || 0;
-                const bYear = parseInt(b.year, 10) || 0;
-                return bYear - aYear;
-            });
-        } else if (this.currentSort === 'original') {
-            editorEntries.sort((a, b) => a.originalIndex - b.originalIndex);
+        switch (this.currentSort) {
+            case 'title-asc':
+                editorEntries.sort((a, b) => (a.title || a.key).localeCompare(b.title || b.key));
+                break;
+            case 'title-desc':
+                editorEntries.sort((a, b) => (b.title || b.key).localeCompare(a.title || a.key));
+                break;
+            case 'author-asc':
+                editorEntries.sort((a, b) => a.author.localeCompare(b.author));
+                break;
+            case 'author-desc':
+                editorEntries.sort((a, b) => b.author.localeCompare(a.author));
+                break;
+            case 'year-desc':
+                editorEntries.sort((a, b) => {
+                    const aY = parseInt(a.year, 10) || 0;
+                    const bY = parseInt(b.year, 10) || 0;
+                    return bY - aY;
+                });
+                break;
+            case 'year-asc':
+                editorEntries.sort((a, b) => {
+                    const aY = parseInt(a.year, 10) || 0;
+                    const bY = parseInt(b.year, 10) || 0;
+                    return aY - bY;
+                });
+                break;
+            case 'type':
+                editorEntries.sort((a, b) => a.type.localeCompare(b.type) || (a.title || a.key).localeCompare(b.title || b.key));
+                break;
+            case 'original':
+            default:
+                editorEntries.sort((a, b) => a.originalIndex - b.originalIndex);
+                break;
         }
 
         let newText = "";
@@ -1201,7 +1219,7 @@ const SidebarModule = {
         });
         
         if (targetLi) {
-            targetLi.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            targetLi.scrollIntoView({ behavior: "smooth", block: "center" });
         }
     }
 };
