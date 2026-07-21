@@ -719,6 +719,13 @@ body {
     transform: translateY(0px);
 }
 
+/* Martin/Alexandros: Aktives Element beim Sync mit Editor */
+#citation-list li.active-cite {
+    background-color: var(--bg-editor);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
 /* Sidebar entry text uses CSS variables for theme-awareness */
 #citation-list .entry-key {
     font-weight: 600;

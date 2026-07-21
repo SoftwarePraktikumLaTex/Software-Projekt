@@ -416,6 +416,8 @@ const FileModule = {
 const EditorModule = {
     editorInstance: null,
     isProgrammaticUpdate: false,
+    isJumping: false,
+    cursorTimeout: null,
 
     init() {
         const textarea = document.getElementById("editor-textarea");
@@ -444,6 +446,20 @@ const EditorModule = {
             if (typeof FileModule.updateActiveFileContent === 'function') {
                 FileModule.updateActiveFileContent(cm.getValue());
             }
+        });
+
+        // Felix: Synchronisierung Editor -> Sidebar
+        this.editorInstance.on("cursorActivity", (cm) => {
+            if (this.isProgrammaticUpdate || this.isJumping) return;
+            
+            clearTimeout(this.cursorTimeout);
+            this.cursorTimeout = setTimeout(() => {
+                const cursor = cm.getCursor();
+                const key = this.findBibtexKeyAtCursor(cm, cursor);
+                if (key && typeof SidebarModule.highlightKey === 'function') {
+                    SidebarModule.highlightKey(key);
+                }
+            }, 150);
         });
 
         // Felix: Event-Listener für die Menü-Buttons (Undo/Redo)
@@ -510,12 +526,26 @@ const EditorModule = {
 
     jumpToKey(keyName) {
         if (!this.editorInstance) return;
+        this.isJumping = true; // Ping-Pong Effekt verhindern
         const cursor = this.editorInstance.getSearchCursor(keyName);
         if (cursor.findNext()) {
             this.editorInstance.setSelection(cursor.from(), cursor.to());
             this.editorInstance.scrollIntoView(cursor.from(), 200);
             this.editorInstance.focus();
         }
+        setTimeout(() => this.isJumping = false, 300);
+    },
+
+    findBibtexKeyAtCursor(cm, cursor) {
+        // Sucht vom aktuellen Cursor nach oben nach dem nächsten BibTeX-Eintrag
+        for (let i = cursor.line; i >= 0; i--) {
+            const line = cm.getLine(i);
+            const match = line.match(/@\w+\s*\{\s*([^,]*),/);
+            if (match) {
+                return match[1].trim();
+            }
+        }
+        return null;
     }
 };
 
@@ -733,6 +763,7 @@ const SidebarModule = {
         // Martin: Generiert die HTML-Elemente für die Listeneinträge in der Sidebar
         entriesArray.forEach(entry => {
             const li = document.createElement("li");
+            li.setAttribute("data-key", entry.key); // Hinzugefügt für Reverse-Nav
 
             // Container für Key und Meta
             const div = document.createElement("div");
@@ -791,6 +822,26 @@ const SidebarModule = {
         const linkChild = clone.querySelector('.sidebar-link-btn');
         if (linkChild) linkChild.remove();
         return clone.textContent.trim() || null;
+    },
+
+    highlightKey(key) {
+        if (!this.citationListUl) return;
+        
+        const items = this.citationListUl.querySelectorAll("li:not([data-empty])");
+        let targetLi = null;
+        
+        items.forEach(li => {
+            if (li.getAttribute("data-key") === key) {
+                li.classList.add("active-cite");
+                targetLi = li;
+            } else {
+                li.classList.remove("active-cite");
+            }
+        });
+        
+        if (targetLi) {
+            targetLi.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
     }
 };
 
