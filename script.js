@@ -501,6 +501,13 @@ const EditorModule = {
         this.isProgrammaticUpdate = false;
     },
 
+    updateSortedContent(text) {
+        if (!this.editorInstance) return;
+        this.isProgrammaticUpdate = true;
+        this.editorInstance.setValue(text);
+        this.isProgrammaticUpdate = false;
+    },
+
     jumpToKey(keyName) {
         if (!this.editorInstance) return;
         const cursor = this.editorInstance.getSearchCursor(keyName);
@@ -520,6 +527,7 @@ const SidebarModule = {
     allEntries: [],
     currentSearch: "",
     currentSort: "original",
+    trailingText: "",
 
     init() {
         this.countDisplay = document.querySelector("#citation-count");
@@ -552,6 +560,7 @@ const SidebarModule = {
         // Regex findet den Beginn eines Eintrags: @type{key,
         const headerRegex = /@(\w+)\s*\{\s*([^,]*),/g;
         let headerMatch;
+        let lastEnd = 0;
 
         while ((headerMatch = headerRegex.exec(normalizedText)) !== null) {
             const type = headerMatch[1].toLowerCase();
@@ -599,9 +608,23 @@ const SidebarModule = {
                     link = doi.startsWith("http") ? doi : `https://doi.org/${doi}`;
                 }
 
-                entries.push({ type, key, author, year, link });
+                const entryStart = headerMatch.index;
+                const entryEnd = i + 1;
+                const precedingText = normalizedText.substring(lastEnd, entryStart);
+                const rawText = normalizedText.substring(entryStart, entryEnd);
+
+                entries.push({ 
+                    type, key, author, year, link,
+                    precedingText, rawText,
+                    originalIndex: entries.length
+                });
+
+                lastEnd = entryEnd;
+                headerRegex.lastIndex = entryEnd;
             }
         }
+        
+        this.trailingText = normalizedText.substring(lastEnd);
         return entries;
     },
 
@@ -612,7 +635,49 @@ const SidebarModule = {
 
     setSortMode(mode) {
         this.currentSort = mode;
+        this.sortAndSyncEditor();
         this.updateView();
+    },
+
+    sortAndSyncEditor() {
+        let editorEntries = [...this.allEntries];
+        if (this.currentSort === 'asc') {
+            editorEntries.sort((a, b) => a.key.localeCompare(b.key));
+        } else if (this.currentSort === 'desc') {
+            editorEntries.sort((a, b) => b.key.localeCompare(a.key));
+        } else if (this.currentSort === 'type') {
+            editorEntries.sort((a, b) => a.type.localeCompare(b.type) || a.key.localeCompare(b.key));
+        } else if (this.currentSort === 'author') {
+            editorEntries.sort((a, b) => a.author.localeCompare(b.author));
+        } else if (this.currentSort === 'year') {
+            editorEntries.sort((a, b) => {
+                const aYear = parseInt(a.year, 10) || 0;
+                const bYear = parseInt(b.year, 10) || 0;
+                return bYear - aYear;
+            });
+        } else if (this.currentSort === 'original') {
+            editorEntries.sort((a, b) => a.originalIndex - b.originalIndex);
+        }
+
+        let newText = "";
+        editorEntries.forEach(entry => {
+            newText += entry.precedingText + entry.rawText;
+        });
+        newText += this.trailingText || "";
+
+        if (EditorModule.editorInstance && EditorModule.editorInstance.getValue() !== newText) {
+            EditorModule.updateSortedContent(newText);
+            
+            if (FileModule.activeFileId) {
+                const file = FileModule.files.find(f => f.id === FileModule.activeFileId);
+                if (file) {
+                    file.content = newText;
+                }
+            }
+            
+            this.allEntries = editorEntries;
+            this.allEntries.forEach((e, idx) => e.originalIndex = idx);
+        }
     },
 
     // Martin: Verarbeitet Sortierung und Filterung der BibTeX-Liste
