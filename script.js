@@ -922,6 +922,76 @@ const SidebarModule = {
         this.updateView();
     },
 
+    /**
+     * Extrahiert den Wert eines BibTeX-Feldes verschachtelungssicher (Brace Matching).
+     * Unterstützt geschweifte Klammern {...}, Anführungszeichen "..." und unquotierte Werte.
+     * Bilanziert Klammern per Depth-Zählung, damit verschachtelte Klammern wie z.B.
+     * {{FF}itts Law: Modeling Finger Touch with {F}itts' {L}aw} vollständig
+     * bis zur schließenden Hauptklammer extrahiert werden.
+     */
+    extractFieldValue(content, fieldName) {
+        // Suche nach "fieldName =" bzw. "(?:OPT)?fieldName =" (case-insensitive)
+        const regex = new RegExp(`(?:\\b(?:OPT)?${fieldName}\\s*=\\s*)`, 'i');
+        const match = regex.exec(content);
+        if (!match) return null;
+
+        let startIdx = match.index + match[0].length;
+
+        // Führende Leerzeichen/Umbruche überspringen
+        while (startIdx < content.length && /\s/.test(content[startIdx])) {
+            startIdx++;
+        }
+
+        if (startIdx >= content.length) return null;
+
+        const firstChar = content[startIdx];
+        let value = "";
+
+        if (firstChar === '{') {
+            // Klammertiefen-Zählung für verschachtelte geschweifte Klammern
+            let depth = 1;
+            let i = startIdx + 1;
+            while (i < content.length && depth > 0) {
+                if (content[i] === '{') depth++;
+                else if (content[i] === '}') depth--;
+                if (depth > 0) i++;
+            }
+            if (depth === 0) {
+                // Extrahierter Inhalt zwischen den äußeren Hauptklammern
+                value = content.substring(startIdx + 1, i);
+            }
+        } else if (firstChar === '"') {
+            // Anführungszeichen: Bis zum schließenden Anführungszeichen lesen (unter Beachtung von Escapes)
+            let i = startIdx + 1;
+            while (i < content.length) {
+                if (content[i] === '"' && content[i - 1] !== '\\') {
+                    break;
+                }
+                i++;
+            }
+            value = content.substring(startIdx + 1, i);
+        } else {
+            // Unquotierte Werte (z.B. Zahlen `year = 2024` oder Makros)
+            let i = startIdx;
+            while (i < content.length && content[i] !== ',' && content[i] !== '\n' && content[i] !== '}') {
+                i++;
+            }
+            value = content.substring(startIdx, i);
+        }
+
+        return value;
+    },
+
+    /**
+     * Bereinigt einen extrahierten Feldwert für die UI-Anzeige in der Cite-Liste.
+     * Entfernt geschweifte Klammern (auch innere Klammern wie {FF}) und normalisiert Whitespaces,
+     * ohne den Rohtext im Editor zu verändern.
+     */
+    cleanValueForUI(rawVal) {
+        if (!rawVal) return "";
+        return rawVal.replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
+    },
+
     // Martin: Parser zur Extraktion von Key, Typ, Titel, Autor, Jahr und Link
     parseBibtexEntries(text) {
         const entries = [];
@@ -951,31 +1021,33 @@ const SidebarModule = {
             if (depth === 0) {
                 const content = normalizedText.substring(bodyStart, i);
 
-                const titleMatch = content.match(/title\s*=\s*["{]([^"}]*)["}]/i);
-                const title = titleMatch ? titleMatch[1].trim() : "";
+                // Verschachtelungssicheres Parsing aller Felder
+                const rawTitle = this.extractFieldValue(content, 'title');
+                const title = this.cleanValueForUI(rawTitle);
 
-                const authorMatch = content.match(/author\s*=\s*["{]([^"}]*)["}]/i);
-                const author = authorMatch ? authorMatch[1] : "Unbekannt";
+                const rawAuthor = this.extractFieldValue(content, 'author');
+                const author = rawAuthor ? this.cleanValueForUI(rawAuthor) : "Unbekannt";
 
-                const yearMatch = content.match(/year\s*=\s*["{]?(\d{4})["}]?/i);
-                const year = yearMatch ? yearMatch[1] : "????";
+                const rawYear = this.extractFieldValue(content, 'year');
+                const yearMatch = rawYear ? rawYear.match(/\d{4}/) : null;
+                const year = yearMatch ? yearMatch[0] : "????";
 
                 // Extrahiert URL oder DOI für einen klickbaren Link (mit Unterstützung für OPT-Präfixe)
-                const urlMatch = content.match(/(?:OPT)?url\s*=\s*["{]([^"}]*)["}]/i);
-                const doiMatch = content.match(/(?:OPT)?doi\s*=\s*["{]([^"}]*)["}]/i);
+                const rawDoi = this.extractFieldValue(content, 'doi');
+                const rawUrl = this.extractFieldValue(content, 'url');
                 let link = null;
                 let linkType = null; // 'doi' oder 'url'
 
-                if (doiMatch) {
+                if (rawDoi) {
                     // DOI hat Priorität (wissenschaftlicher Standard)
-                    let doi = doiMatch[1].trim();
+                    let doi = this.cleanValueForUI(rawDoi);
                     // Falls die DOI bereits als URL (z.B. https://doi.org/) formatiert ist, bereinigen wir sie
                     doi = doi.replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "");
                     link = `https://doi.org/${doi}`;
                     linkType = 'doi';
-                } else if (urlMatch) {
+                } else if (rawUrl) {
                     // Fallback zur URL, wenn keine DOI vorhanden ist
-                    link = urlMatch[1].trim();
+                    link = this.cleanValueForUI(rawUrl);
                     linkType = 'url';
                 }
 
