@@ -2259,11 +2259,7 @@ const ClipboardModule = {
             });
         }
 
-        // Quick-Paste Button in Topbar & Menü
-        const quickPasteBtn = document.getElementById("btn-quick-paste");
-        if (quickPasteBtn) {
-            quickPasteBtn.addEventListener("click", () => this.checkClipboard(true));
-        }
+        // Menü: Aus Zwischenablage einfügen
         const menuPasteBtn = document.getElementById("btn-paste-clipboard");
         if (menuPasteBtn) {
             menuPasteBtn.addEventListener("click", (e) => {
