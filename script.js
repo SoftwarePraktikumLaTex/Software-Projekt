@@ -710,6 +710,8 @@ const EditorModule = {
     isProgrammaticUpdate: false,
     isJumping: false,
     cursorTimeout: null,
+    searchMarkers: [],
+    activeSearchTerms: [],
 
     init() {
         const textarea = document.getElementById("editor-textarea");
@@ -732,14 +734,15 @@ const EditorModule = {
             }
         });
 
-        // FIX: BUG-1 behoben Ã¢â‚¬â€œ Defensiver Guard: prÃƒÂ¼fe ob Funktion existiert
+        // FIX: BUG-1 behoben – Defensiver Guard: prüfe ob Funktion existiert
         this.editorInstance.on("change", (cm) => {
             if (this.isProgrammaticUpdate) return;
             if (typeof FileModule.updateActiveFileContent === 'function') {
                 FileModule.updateActiveFileContent(cm.getValue());
             }
-            // Dirty-Flag setzen: Datei hat ungespeicherte Ãƒâ€žnderungen
+            // Dirty-Flag setzen: Datei hat ungespeicherte Änderungen
             FileModule.markActiveDirty();
+            this.reapplySearchHighlights();
         });
 
         // Felix: Synchronisierung Editor -> Sidebar
@@ -804,11 +807,12 @@ const EditorModule = {
         this.isProgrammaticUpdate = true;
         this.editorInstance.setValue(text);
 
-        // Felix: Historie beim Laden eines neuen Tabs lÃƒÂ¶schen, 
-        // damit man nicht in die Datei davor "zurÃƒÂ¼ck-undon" kann.
+        // Felix: Historie beim Laden eines neuen Tabs löschen, 
+        // damit man nicht in die Datei davor "zurück-undon" kann.
         this.editorInstance.clearHistory();
 
         this.isProgrammaticUpdate = false;
+        this.reapplySearchHighlights();
     },
 
     updateSortedContent(text) {
@@ -816,6 +820,48 @@ const EditorModule = {
         this.isProgrammaticUpdate = true;
         this.editorInstance.setValue(text);
         this.isProgrammaticUpdate = false;
+        this.reapplySearchHighlights();
+    },
+
+    /**
+     * Markiert alle Vorkommen der übergebenen Suchbegriffe im CodeMirror-Editor ("unten im Text").
+     * Nutzt searchcursor und markText für sauberes, performantes Highlighting.
+     */
+    highlightSearchMatches(terms) {
+        this.activeSearchTerms = Array.isArray(terms) ? terms : [];
+        if (!this.editorInstance) return;
+        const cm = this.editorInstance;
+
+        // Vorherige Markierungen entfernen
+        if (this.searchMarkers && this.searchMarkers.length > 0) {
+            this.searchMarkers.forEach(marker => {
+                try { marker.clear(); } catch (_) {}
+            });
+        }
+        this.searchMarkers = [];
+
+        if (!this.activeSearchTerms || this.activeSearchTerms.length === 0) return;
+
+        cm.operation(() => {
+            this.activeSearchTerms.forEach(term => {
+                if (!term || term.trim().length === 0) return;
+                const cursor = cm.getSearchCursor(term, null, { caseFold: true });
+                let count = 0;
+                while (cursor.findNext() && count < 1000) {
+                    const marker = cm.markText(cursor.from(), cursor.to(), {
+                        className: "cm-search-highlight"
+                    });
+                    this.searchMarkers.push(marker);
+                    count++;
+                }
+            });
+        });
+    },
+
+    reapplySearchHighlights() {
+        if (this.activeSearchTerms && this.activeSearchTerms.length > 0) {
+            this.highlightSearchMatches(this.activeSearchTerms);
+        }
     },
 
     findBibtexKeyAtCursor(cm, cursor) {
@@ -921,6 +967,9 @@ const SidebarModule = {
     parseAndRefresh(text) {
         this.allEntries = this.parseBibtexEntries(text);
         this.updateView();
+        if (typeof EditorModule.highlightSearchMatches === 'function') {
+            EditorModule.highlightSearchMatches(this.searchTerms);
+        }
     },
 
     /**
@@ -984,11 +1033,6 @@ const SidebarModule = {
     },
 
     /**
-     * Bereinigt einen extrahierten Feldwert für die UI-Anzeige in der Cite-Liste.
-     * Entfernt geschweifte Klammern (auch innere Klammern wie {FF}) und normalisiert Whitespaces,
-     * ohne den Rohtext im Editor zu verändern.
-     */
-    /**
      * Zerlegt den Suchstring in einzelne Suchbegriffe.
      * Unterstützt Trennung durch '||' oder '|' (logisches ODER).
      * Bereinigt Leerzeichen und ignoriert leere Teilbegriffe (z. B. "ny ||" -> ["ny"]).
@@ -1004,6 +1048,53 @@ const SidebarModule = {
             }
         });
         return terms;
+    },
+
+    /**
+     * Sicheres HTML-Escaping zur Vermeidung von XSS-Injektionen bei der Treffermarkierung.
+     */
+    escapeHTML(str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    },
+
+    /**
+     * Markiert alle Vorkommen der übergebenen Suchbegriffe in einem Text mit <mark class="search-match">.
+     */
+    highlightTextToHTML(text, terms) {
+        if (!text) return "";
+        if (!terms || terms.length === 0) {
+            return this.escapeHTML(text);
+        }
+
+        const validTerms = terms
+            .map(t => (t ? t.trim() : ''))
+            .filter(t => t.length > 0);
+
+        if (validTerms.length === 0) {
+            return this.escapeHTML(text);
+        }
+
+        const escapedTerms = validTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        const regex = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+
+        const parts = String(text).split(regex);
+        let html = "";
+        parts.forEach(part => {
+            if (!part) return;
+            const isMatch = validTerms.some(t => t.toLowerCase() === part.toLowerCase());
+            if (isMatch) {
+                html += `<mark class="search-match">${this.escapeHTML(part)}</mark>`;
+            } else {
+                html += this.escapeHTML(part);
+            }
+        });
+        return html;
     },
 
     /**
@@ -1068,12 +1159,18 @@ const SidebarModule = {
 
         return fields;
     },
+
+    /**
+     * Bereinigt einen extrahierten Feldwert für die UI-Anzeige in der Cite-Liste.
+     * Entfernt geschweifte Klammern (auch innere Klammern wie {FF}) und normalisiert Whitespaces,
+     * ohne den Rohtext im Editor zu verändern.
+     */
     cleanValueForUI(rawVal) {
         if (!rawVal) return "";
         return rawVal.replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
     },
 
-    // Martin: Parser zur Extraktion von Key, Typ, Titel, Autor, Jahr und Link
+    // Martin: Parser zur Extraktion von Key, Typ, Titel, Autor, Jahr, Link und aller Felder
     parseBibtexEntries(text) {
         const entries = [];
         const seenKeys = new Set();
@@ -1102,7 +1199,7 @@ const SidebarModule = {
             if (depth === 0) {
                 const content = normalizedText.substring(bodyStart, i);
 
-                // Verschachtelungssicheres Parsing aller Felder
+                // Verschachtelungssicheres Parsing aller Felder (inkl. Ort, Address, Journal etc.)
                 const allFields = this.extractAllFields(content);
 
                 const rawTitle = allFields['title'] || this.extractFieldValue(content, 'title');
@@ -1158,6 +1255,9 @@ const SidebarModule = {
     setSearchTerm(term) {
         this.currentSearch = (term || "").trim().toLowerCase();
         this.searchTerms = this.getSearchTerms(term || "");
+        if (typeof EditorModule.highlightSearchMatches === 'function') {
+            EditorModule.highlightSearchMatches(this.searchTerms);
+        }
         this.updateView();
     },
 
@@ -1226,25 +1326,36 @@ const SidebarModule = {
         }
     },
 
-    // Martin: Verarbeitet Sortierung und Filterung der BibTeX-Liste
+    // Martin: Verarbeitet Sortierung und Filterung der BibTeX-Liste über alle Felder
     updateView() {
-        // Erweiterte Suche: durchsucht alle Felder (Key, Titel, Autor, Jahr, Typ)
+        // Umfassende Suche: durchsucht alle Felder (Author, Title, Ort/Address, Location, Publisher, Type, Key etc.)
         let processed = this.allEntries;
         if (this.searchTerms && this.searchTerms.length > 0) {
             const queryTerms = this.searchTerms.map(t => t.toLowerCase());
             processed = processed.filter(entry => {
+                // Ein Eintrag matcht, wenn mindestens ein Suchbegriff (ODER-Logik) zutrifft
                 return queryTerms.some(q => {
+                    // 1. Key & Typ prüfen
                     if (entry.key && entry.key.toLowerCase().includes(q)) return true;
                     if (entry.type && entry.type.toLowerCase().includes(q)) return true;
+
+                    // 2. Alle extrahierten Felder prüfen (address, location, ort, publisher, booktitle, journal etc.)
                     if (entry.fields) {
                         for (const val of Object.values(entry.fields)) {
-                            if (typeof val === 'string' && val.toLowerCase().includes(q)) return true;
+                            if (typeof val === 'string' && val.toLowerCase().includes(q)) {
+                                return true;
+                            }
                         }
                     }
+
+                    // 3. Titel, Autor, Jahr direkt prüfen
                     if (entry.title && entry.title.toLowerCase().includes(q)) return true;
                     if (entry.author && entry.author.toLowerCase().includes(q)) return true;
                     if (entry.year && entry.year.toLowerCase().includes(q)) return true;
+
+                    // 4. Fallback: Volltext des Eintrags
                     if (entry.rawText && entry.rawText.toLowerCase().includes(q)) return true;
+
                     return false;
                 });
             });
@@ -1286,7 +1397,7 @@ const SidebarModule = {
         this.renderList(processed);
     },
 
-    // Neugestaltete Eintrags-Anzeige: Titel/Autor/Jahr im Fokus, Key sekundaer
+    // Neugestaltete Eintrags-Anzeige: Titel/Autor/Jahr im Fokus, Key sekundär & Treffer-Hervorhebung
     renderList(entriesArray) {
         if (!this.citationListUl) return;
         this.citationListUl.innerHTML = "";
@@ -1295,10 +1406,10 @@ const SidebarModule = {
         if (this.countDisplay) {
             const total = this.allEntries.length;
             const shown = entriesArray.length;
-            if (this.currentSearch) {
+            if (this.searchTerms && this.searchTerms.length > 0) {
                 this.countDisplay.textContent = shown + " Treffer gefunden";
             } else {
-                this.countDisplay.textContent = "Gesamt: " + total + " Eintr\u00e4ge";
+                this.countDisplay.textContent = "Gesamt: " + total + " Einträge";
             }
         }
 
@@ -1312,26 +1423,28 @@ const SidebarModule = {
             return;
         }
 
+        const queryTerms = (this.searchTerms || []).map(t => t.toLowerCase());
+
         entriesArray.forEach(entry => {
             const li = document.createElement("li");
-            li.setAttribute("data-key", entry.key); // Hinzugefügt für Reverse-Nav
+            li.setAttribute("data-key", entry.key); // Für Reverse-Nav & Jump
 
             const infoDiv = document.createElement("div");
             infoDiv.className = "entry-info";
 
             const titleSpan = document.createElement("span");
             titleSpan.className = "entry-title";
-            titleSpan.textContent = entry.title || entry.key;
+            titleSpan.innerHTML = this.highlightTextToHTML(entry.title || entry.key, this.searchTerms);
             infoDiv.appendChild(titleSpan);
 
             const metaSpan = document.createElement("span");
             metaSpan.className = "entry-meta";
-            metaSpan.textContent = entry.author + " (" + entry.year + ")";
+            metaSpan.innerHTML = this.highlightTextToHTML(entry.author + " (" + entry.year + ")", this.searchTerms);
             infoDiv.appendChild(metaSpan);
 
             const keySpan = document.createElement("span");
             keySpan.className = "entry-key";
-            keySpan.textContent = entry.key;
+            keySpan.innerHTML = this.highlightTextToHTML(entry.key, this.searchTerms);
 
             if (entry.link) {
                 const anchor = document.createElement("a");
@@ -1348,9 +1461,44 @@ const SidebarModule = {
             }
             infoDiv.appendChild(keySpan);
 
+            // Match-Vorschau: Wenn ein Feld außerhalb von title, author, year gematcht hat (z.B. address, ort, publisher)
+            if (queryTerms.length > 0 && entry.fields) {
+                const matchedFields = Object.entries(entry.fields).filter(([k, v]) => {
+                    if (['title', 'author', 'year'].includes(k)) return false;
+                    return typeof v === 'string' && queryTerms.some(q => v.toLowerCase().includes(q));
+                });
+
+                if (matchedFields.length > 0) {
+                    // Zeige bis zu 2 getroffene Zusatzfelder als Vorschau an
+                    matchedFields.slice(0, 2).forEach(([k, val]) => {
+                        const previewDiv = document.createElement("div");
+                        previewDiv.className = "entry-match-preview";
+
+                        let label = k;
+                        if (['address', 'location', 'ort', 'city'].includes(k)) {
+                            label = "Ort (" + k + ")";
+                        } else {
+                            label = k.charAt(0).toUpperCase() + k.slice(1);
+                        }
+
+                        const labelSpan = document.createElement("span");
+                        labelSpan.className = "match-field-label";
+                        labelSpan.textContent = label + ":";
+
+                        const valSpan = document.createElement("span");
+                        valSpan.className = "match-field-value";
+                        valSpan.innerHTML = this.highlightTextToHTML(val, this.searchTerms);
+
+                        previewDiv.appendChild(labelSpan);
+                        previewDiv.appendChild(valSpan);
+                        infoDiv.appendChild(previewDiv);
+                    });
+                }
+            }
+
             const badge = document.createElement("span");
             badge.className = "entry-type-badge";
-            badge.textContent = entry.type;
+            badge.innerHTML = this.highlightTextToHTML(entry.type, this.searchTerms);
 
             li.appendChild(infoDiv);
             li.appendChild(badge);
