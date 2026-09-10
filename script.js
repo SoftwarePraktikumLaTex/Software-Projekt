@@ -1374,7 +1374,7 @@ const ImportModule = {
                 e.preventDefault();
                 this.pdfInput.value = '';
                 this.pdfInput.click();
-                // Dropdown schlieÃƒÅ¸en
+                // Dropdown schliessen
                 document.querySelectorAll(".dropdownImportClass").forEach(el => el.classList.remove("show"));
             });
             this.pdfInput.addEventListener("change", (e) => {
@@ -1387,7 +1387,8 @@ const ImportModule = {
 
     /**
      * Liest eine PDF-Datei aus, extrahiert den Text aller Seiten,
-     * isoliert das Literaturverzeichnis und konvertiert es in BibTeX.
+     * filtert Kopf- und Fusszeilen heraus, isoliert das Literaturverzeichnis
+     * und konvertiert alle Referenzen in typisierte BibTeX-Eintraege.
      */
     async handlePdfFile(file) {
         try {
@@ -1402,21 +1403,30 @@ const ImportModule = {
 
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 1.0 });
                 const content = await page.getTextContent();
-                const pageText = content.items.map(item => item.str).join(" ");
+
+                // Laufende Kopf- und Fusszeilen anhand der vertikalen Position herausfiltern
+                const items = content.items.filter(item => {
+                    if (!item.transform) return true;
+                    const y = item.transform[5];
+                    return !(y > viewport.height - 40 || y < 35);
+                });
+
+                const pageText = items.map(item => item.str).join(" ");
                 fullText += pageText + "\n";
             }
 
-            console.log("PDF-Text extrahiert, LÃƒÂ¤nge:", fullText.length);
+            console.log("PDF-Text extrahiert, Laenge:", fullText.length);
 
             const bibtex = this.extractReferences(fullText);
 
             if (!bibtex || bibtex.trim().length === 0) {
-                alert("Es konnten keine Referenzen in dieser PDF gefunden werden.\n\nMÃƒÂ¶gliche GrÃƒÂ¼nde:\n- Die PDF enthÃƒÂ¤lt kein erkennbares Literaturverzeichnis\n- Die PDF ist bildbasiert (Scan) und enthÃƒÂ¤lt keinen extrahierbaren Text");
+                alert("Es konnten keine Referenzen in dieser PDF gefunden werden.\n\nMoegliche Gruende:\n- Die PDF enthaelt kein erkennbares Literaturverzeichnis\n- Die PDF ist bildbasiert (Scan) und enthaelt keinen extrahierbaren Text");
                 return;
             }
 
-            // Ergebnis als neuen Tab hinzufÃƒÂ¼gen
+            // Ergebnis als neuen Tab hinzufuegen
             const tabName = "import_" + file.name.replace(/\.pdf$/i, ".bib");
             FileModule.addFile(tabName, bibtex, null);
             FileModule.switchToTab(FileModule.files[FileModule.files.length - 1].id);
@@ -1429,27 +1439,33 @@ const ImportModule = {
     },
 
     /**
+     * Bereinigt Worttrennungen am Zeilenende und PDF-Ligaturen.
+     */
+    cleanHyphenation(text) {
+        return text
+            // Worttrennungen mit Bindestrich: "metama- terials" -> "metamaterials"
+            .replace(/([a-zA-Z]{2,})-\s+([a-zA-Z]{2,})/g, '$1$2')
+            // Ligatur-Artefakte beheben: "e ffi cient" -> "efficient", "di ff ractive" -> "diffractive"
+            .replace(/\b([a-zA-Z]+)\s+(ffi|ff|fl|fi)\s+([a-zA-Z]+)\b/g, '$1$2$3')
+            .replace(/\b([a-zA-Z]+)\s+(ffi|ff|fl|fi)\b/g, '$1$2')
+            .replace(/\b(ffi|ff|fl|fi)\s+([a-zA-Z]+)\b/g, '$1$2')
+            // Typografische Anfuehrungszeichen und Gedankenstriche vereinheitlichen
+            .replace(/[\u2018\u2019´`]/g, "'")
+            .replace(/[\u201C\u201D„‟]/g, '"')
+            .replace(/[\u2013\u2014]/g, '--');
+    },
+
+    /**
      * Kernheuristik: Findet und isoliert den Referenz-Abschnitt im PDF-Text
-     * und wandelt die einzelnen Referenzen in BibTeX-EintrÃƒÂ¤ge um.
+     * und wandelt die einzelnen Referenzen in BibTeX-Eintraege um.
      */
     extractReferences(fullText) {
         // Schritt 1: Referenz-Abschnitt finden
-        const refHeaderRegex = /\b(References|Bibliography|Literaturverzeichnis|REFERENCES|BIBLIOGRAPHY|LITERATURVERZEICHNIS)\b/;
-        const headerMatch = fullText.match(refHeaderRegex);
+        const refSection = this.findReferencesSection(fullText);
 
-        if (!headerMatch) {
+        if (!refSection || refSection.trim().length === 0) {
             console.warn("Kein Referenz-Abschnitt gefunden.");
             return "";
-        }
-
-        // Text ab der ÃƒÅ“berschrift isolieren
-        let refSection = fullText.substring(headerMatch.index + headerMatch[0].length).trim();
-
-        // Optional: Abschneiden bei nÃƒÂ¤chstem Hauptkapitel (z.B. "Appendix", "Acknowledgments")
-        const nextSectionRegex = /\b(Appendix|Acknowledgment|Acknowledgement|APPENDIX|Anhang|Danksagung)\b/i;
-        const nextMatch = refSection.match(nextSectionRegex);
-        if (nextMatch) {
-            refSection = refSection.substring(0, nextMatch.index).trim();
         }
 
         // Schritt 2: Einzelne Referenzen isolieren
@@ -1460,122 +1476,358 @@ const ImportModule = {
             return "";
         }
 
-        // Schritt 3: Jede Referenz in BibTeX umwandeln
-        const bibtexEntries = rawRefs.map((ref, i) => this.parseOneReference(ref.trim(), i + 1)).filter(e => e);
+        // Schritt 3: Jede Referenz in typisierten BibTeX-Eintrag umwandeln
+        const seenKeys = new Set();
+        const bibtexEntries = rawRefs
+            .map((ref, i) => this.parseOneReference(ref.trim(), i + 1, seenKeys))
+            .filter(e => e && e.trim().length > 0);
 
         return this.buildBibtexString(bibtexEntries);
     },
 
     /**
+     * Erkennt den Beginn des Referenzabschnitts im Dokument.
+     * Unterstuetzt Standard-Ueberschriften, Spationierung (z.B. IEEE "R EFERENCES")
+     * und bietet einen Fallback auf sequenzielle Zitationsnummern.
+     */
+    findReferencesSection(fullText) {
+        const refPatterns = [
+            /(?:^|\n|\s{2,})(R\s*E\s*F\s*E\s*R\s*E\s*N\s*C\s*E\s*S|B\s*I\s*B\s*L\s*I\s*O\s*G\s*R\s*A\s*P\s*H\s*Y)\b/i,
+            /(?:^|\n|\s{2,})(References|Bibliography|Literaturverzeichnis|Quellenverzeichnis|Literatur|Works\s+Cited)\b/i
+        ];
+
+        let bestIndex = -1;
+        let matchLength = 0;
+
+        for (const pattern of refPatterns) {
+            const matches = [...fullText.matchAll(new RegExp(pattern, 'gi'))];
+            for (const m of matches) {
+                // Pruefen, ob nach der Ueberschrift Zitate wie [1] oder 1. folgen
+                const afterText = fullText.substring(m.index, m.index + 400);
+                if (/\[1\]|\b1\.\s+[A-Z]/.test(afterText)) {
+                    bestIndex = m.index;
+                    matchLength = m[0].length;
+                    break;
+                }
+            }
+            if (bestIndex !== -1) break;
+            if (matches.length > 0) {
+                const last = matches[matches.length - 1];
+                bestIndex = last.index;
+                matchLength = last[0].length;
+            }
+        }
+
+        // Fallback: Falls keine Ueberschrift erkannt wurde, nach erstem [1] suchen
+        if (bestIndex === -1) {
+            const bracketSeq = fullText.match(/(?:^|\n|\s{2,})\[1\]\s+[A-Z]/);
+            if (bracketSeq && fullText.includes('[2]')) {
+                bestIndex = bracketSeq.index;
+                matchLength = 0;
+            }
+        }
+
+        if (bestIndex === -1) return "";
+
+        let refSection = fullText.substring(bestIndex + matchLength).trim();
+
+        // Optional: Abschneiden bei nachfolgenden Autoren-Biografien oder Anhang
+        const cutoffPattern = /(?:\n\s*|\s{3,})(Biographies|About the Authors|APPENDIX\b|Anhang\b)/i;
+        const cutMatch = refSection.match(cutoffPattern);
+        if (cutMatch && cutMatch.index > 500) {
+            refSection = refSection.substring(0, cutMatch.index).trim();
+        }
+
+        return refSection;
+    },
+
+    /**
      * Splittet den Referenz-Block in einzelne Referenzen.
-     * UnterstÃƒÂ¼tzt nummerierte Formate: [1], [2] ... oder 1., 2., ...
+     * Unterstuetzt nummerierte Formate: [1], [2] ... oder 1., 2., ... sowie Absaetze.
      */
     splitReferences(refText) {
         // Versuch 1: Nummerierung mit eckigen Klammern [1], [2], ...
-        let parts = refText.split(/(?=\[\d+\]\s)/);
-        if (parts.length > 2) {
-            return parts.map(p => p.replace(/^\[\d+\]\s*/, "").trim()).filter(p => p.length > 10);
+        let parts = refText.split(/(?=(?:^|\s+)\[\d+\])/).map(p => p.trim()).filter(p => /^\[\d+\]/.test(p));
+        if (parts.length >= 2) {
+            return parts.map(p => p.replace(/^\[\d+\]\s*/, "").trim());
         }
 
         // Versuch 2: Nummerierung mit Punkt 1., 2., ...
-        parts = refText.split(/(?=(?:^|\n)\s*\d{1,3}\.\s)/);
-        if (parts.length > 2) {
-            return parts.map(p => p.replace(/^\s*\d{1,3}\.\s*/, "").trim()).filter(p => p.length > 10);
+        parts = refText.split(/(?=(?:^|\n)\s*\d{1,3}\.\s+[A-Z])/).map(p => p.trim()).filter(p => /^\d{1,3}\.\s+[A-Z]/.test(p));
+        if (parts.length >= 2) {
+            return parts.map(p => p.replace(/^\d{1,3}\.\s*/, "").trim());
         }
 
-        // Fallback: Doppelte ZeilenumbrÃƒÂ¼che oder lange LÃƒÂ¼cken
-        parts = refText.split(/\n\s*\n/);
-        if (parts.length > 1) {
-            return parts.map(p => p.trim()).filter(p => p.length > 10);
-        }
+        // Fallback 1: Doppelte Zeilenumbrueche
+        parts = refText.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 20);
+        if (parts.length >= 2) return parts;
 
-        // Letzter Fallback: Einzelne Zeilen, die lang genug sind
+        // Fallback 2: Einzelne Zeilen, die lang genug sind
         return refText.split(/\n/).map(l => l.trim()).filter(l => l.length > 30);
     },
 
     /**
      * Versucht aus einem rohen Referenz-String BibTeX-Felder zu extrahieren.
-     * Gibt einen formatierten @article oder @misc Eintrag zurÃƒÂ¼ck.
+     * Erkennt Typen (@article, @inproceedings, @book, @techreport, @phdthesis, @mastersthesis, @misc)
+     * und extrahiert Felder wie author, title, journal, booktitle, publisher, address, year, pages etc.
      */
-    parseOneReference(refText, index) {
+    parseOneReference(refText, index, seenKeys = new Set()) {
         if (!refText || refText.length < 10) return null;
 
-        // Normalisieren: ÃƒÅ“berflÃƒÂ¼ssige Whitespaces entfernen
-        let text = refText.replace(/\s+/g, " ").trim();
+        // Bereinigung von Hyphenation, Ligaturen und Whitespaces
+        let text = this.cleanHyphenation(refText).replace(/\s+/g, " ").trim();
 
-        // --- Jahr extrahieren ---
-        const yearMatch = text.match(/\b((?:19|20)\d{2}[a-z]?)\b/);
-        const year = yearMatch ? yearMatch[1].replace(/[a-z]$/, "") : "";
+        // Eventuelle Reste von Kopf-/Fusszeilen am Anfang oder Ende entfernen
+        text = text.replace(/Authorized licensed use limited to:.*$/i, "").trim();
+        text = text.replace(/Downloaded on .*$/i, "").trim();
+        text = text.replace(/^\d+\s+IEEE TRANSACTIONS ON[^\n]*\s*/i, "").trim();
+        text = text.replace(/^AN et al\.:[^\n]*\d+\s*/i, "").trim();
 
-        // --- Autoren extrahieren ---
-        // Heuristik: Alles vor der Jahreszahl oder vor einem Titel in AnfÃƒÂ¼hrungszeichen
-        let author = "";
-        if (yearMatch) {
-            // Text vor dem Jahr nehmen (oft "Autor1, A., Autor2, B. (2020)")
-            const beforeYear = text.substring(0, yearMatch.index).trim();
-            // Entferne abschlieÃƒÅ¸ende Interpunktion und Klammern
-            author = beforeYear.replace(/[\(\.,;:]+\s*$/, "").trim();
+        // --- 1. Typ bestimmen ---
+        let type = 'article';
+        const isThesis = /\b(?:Ph\.?D\.?\s+(?:dissertation|thesis)|doctoral\s+dissertation)\b/i.test(text);
+        const isMasters = /\b(?:M\.?S\.?\s+thesis|Master(?:'s)?\s+thesis)\b/i.test(text);
+        const isTechReport = /\b(?:Tech\.?\s+Rep\.?|Technical\s+Report|Standard|Std\.)\b/i.test(text);
+        const isConference = /\b(?:in\s+Proc|in\s+Proceedings|Conference|Symposium|Workshop|Congress)\b/i.test(text) ||
+                             /\b(?:ICC|GLOBECOM|INFOCOM|ICASSP|VTC|WCNC|APWCS|IJCNN|EUSIPCO|SPAWC|SIGCOMM|MobiCom)\b/.test(text);
+        const isArxiv = /\barXiv:\s*(\d{4}\.\d{4,5}(?:v\d+)?)\b/i.test(text) || /\barXiv\s+Preprint\b/i.test(text);
+        const isBook = /\b(?:Cambridge\s+Univ\.?\s+Press|Oxford\s+Univ\.?\s+Press|MIT\s+Press|Springer(?:\s+Nature)?|Wiley(?:\s*&\s*Sons)?|Elsevier|Prentice[\s\-]*Hall|McGraw[\s\-]*Hill|Academic\s+Press|Addison[\s\-]*Wesley|De\s+Gruyter|CRC\s+Press|IEEE\s+Press|[A-Z][a-zA-Z\s]+(?:Press|Publishers?))\b/i.test(text) &&
+                       !text.includes('"');
+
+        if (isThesis) {
+            type = 'phdthesis';
+        } else if (isMasters) {
+            type = 'mastersthesis';
+        } else if (isTechReport) {
+            type = 'techreport';
+        } else if (isConference) {
+            type = 'inproceedings';
+        } else if (isBook) {
+            type = 'book';
+        } else if (isArxiv && !text.includes('IEEE Trans') && !text.includes('Nature') && !text.includes('Science')) {
+            type = 'misc';
+        } else {
+            type = 'article';
         }
-        if (!author) {
-            // Fallback: Alles vor dem ersten Punkt als Autor annehmen
-            const dotIdx = text.indexOf(".");
-            if (dotIdx > 3 && dotIdx < 80) {
-                author = text.substring(0, dotIdx).trim();
+
+        // --- 2. Jahr und Monat extrahieren ---
+        let year = '';
+        const yearMatches = [...text.matchAll(/\b((?:19|20)\d{2})\b/g)];
+        if (yearMatches.length > 0) {
+            year = yearMatches[yearMatches.length - 1][1];
+        }
+
+        let month = '';
+        const monthMatch = text.match(/\b(Jan\.?|Feb\.?|Mar\.?|Apr\.?|May|Jun\.?|Jul\.?|Aug\.?|Sep\.?|Sept\.?|Oct\.?|Nov\.?|Dec\.?)\b/i);
+        if (monthMatch) {
+            month = monthMatch[1].toLowerCase().substring(0, 3);
+        }
+
+        // --- 3. Autoren, Titel und Venue extrahieren ---
+        let author = '';
+        let title = '';
+        let venuePart = '';
+        let publisher = '';
+        let address = '';
+
+        // Fall A: Titel in Anfuehrungszeichen (Standard IEEE)
+        const quoteMatch = text.match(/"([^"]{5,})"/);
+        if (quoteMatch) {
+            title = quoteMatch[1].trim().replace(/[,\.\s]+$/, '').trim();
+            author = text.substring(0, quoteMatch.index).trim().replace(/[,;:\s]+$/, '').trim();
+            venuePart = text.substring(quoteMatch.index + quoteMatch[0].length).trim().replace(/^[,\.\s]+/, '').trim();
+        } else if (type === 'book') {
+            // Fall B: Buch (z. B. "D. Tse and P. Viswanath, Fundamentals of Wireless Communication . Cambridge, U.K.: Cambridge Univ. Press, 2005.")
+            const pubRegex = /\b(Cambridge\s+Univ\.?\s+Press|Oxford\s+Univ\.?\s+Press|MIT\s+Press|Springer(?:\s+Nature)?|Wiley(?:\s*&\s*Sons)?|Elsevier|Prentice[\s\-]*Hall|McGraw[\s\-]*Hill|Academic\s+Press|Addison[\s\-]*Wesley|De\s+Gruyter|CRC\s+Press|IEEE\s+Press|[A-Z][a-zA-Z\s]+(?:Press|Publishers?))\b/i;
+            const pubMatch = text.match(pubRegex);
+
+            if (pubMatch) {
+                publisher = pubMatch[0].trim().replace(/^[,\.\s]+|[,\.\s]+$/g, '');
+                const beforePub = text.substring(0, pubMatch.index).trim();
+                venuePart = text.substring(pubMatch.index).trim();
+
+                let contentBefore = beforePub;
+                if (beforePub.includes(':')) {
+                    const colonIdx = beforePub.lastIndexOf(':');
+                    const preColon = beforePub.substring(0, colonIdx).trim();
+                    const addrMatch = preColon.match(/(?:^|[\.\n]\s*)([A-Z][a-zA-Z\s\.]+,\s*[A-Z\.\s]+)$/);
+                    if (addrMatch) {
+                        address = addrMatch[1].trim();
+                        contentBefore = preColon.substring(0, addrMatch.index).trim();
+                    } else {
+                        const lastDot = preColon.lastIndexOf('.');
+                        if (lastDot !== -1) {
+                            address = preColon.substring(lastDot + 1).trim();
+                            contentBefore = preColon.substring(0, lastDot).trim();
+                        }
+                    }
+                }
+
+                // Split author und title
+                const andMatch = contentBefore.match(/^(.*?\band\s+[A-Z][a-zA-Z\.\s]+),\s*(.+)$/i);
+                if (andMatch) {
+                    author = andMatch[1].trim();
+                    title = andMatch[2].trim();
+                } else {
+                    const singleMatch = contentBefore.match(/^([A-Z][a-zA-Z\.\s]+),\s*(.+)$/);
+                    if (singleMatch) {
+                        author = singleMatch[1].trim();
+                        title = singleMatch[2].trim();
+                    } else {
+                        title = contentBefore;
+                    }
+                }
+            } else {
+                title = text;
+            }
+        } else {
+            // Fall C: Kein Titel in Anfuehrungszeichen (z. B. APA / Harvard)
+            if (yearMatches.length > 0) {
+                const firstYear = yearMatches[0];
+                author = text.substring(0, firstYear.index).trim().replace(/[\(\),;:\s]+$/, '');
+                const afterYear = text.substring(firstYear.index + firstYear[0].length).trim().replace(/^[\)\.,;:\s]+/, '');
+                const dot = afterYear.indexOf('.');
+                if (dot > 5) {
+                    title = afterYear.substring(0, dot).trim();
+                    venuePart = afterYear.substring(dot + 1).trim();
+                } else {
+                    title = afterYear;
+                }
+            } else {
+                const dotIdx = text.indexOf('.');
+                if (dotIdx > 3 && dotIdx < 80) {
+                    author = text.substring(0, dotIdx).trim();
+                    title = text.substring(dotIdx + 1).trim();
+                } else {
+                    title = text;
+                }
             }
         }
 
-        // --- Titel extrahieren ---
-        let title = "";
-        // Versuch 1: Text in AnfÃƒÂ¼hrungszeichen
-        const quotedMatch = text.match(/[\u201C\u201E"\u201D]([^\u201C\u201E"\u201D]{5,})[\u201D"\u201C]/)
-            || text.match(/"([^"]{5,})"/);
-        if (quotedMatch) {
-            title = quotedMatch[1].trim();
-        } else if (yearMatch) {
-            // Versuch 2: Text nach dem Jahr bis zum nÃƒÂ¤chsten Punkt
-            const afterYear = text.substring(yearMatch.index + yearMatch[0].length);
-            const cleanAfterYear = afterYear.replace(/^[\s\)\.,;:]+/, "").trim();
-            const periodIdx = cleanAfterYear.indexOf(".");
-            if (periodIdx > 5) {
-                title = cleanAfterYear.substring(0, periodIdx).trim();
-            } else if (cleanAfterYear.length > 5) {
-                title = cleanAfterYear.substring(0, 120).trim();
+        // Autoren und Titel saeubern
+        author = author.replace(/[\(\)\[\]]+/g, '').replace(/\s+/g, ' ').trim();
+        title = title.replace(/^[,\.\s]+|[,\.\s]+$/g, '').trim();
+
+        // --- 4. Spezifische Felder extrahieren ---
+        let journal = '';
+        let booktitle = '';
+        let volume = '';
+        let number = '';
+        let pages = '';
+        let doi = '';
+        let eprint = '';
+        let note = '';
+
+        // DOI
+        const doiMatch = text.match(/\b(10\.\d{4,9}\/[-._;()/:A-Za-z0-9]+)\b/);
+        if (doiMatch) {
+            doi = doiMatch[1].replace(/[\.,\s]+$/, '');
+        }
+
+        // Volume / Number / Pages
+        const volMatch = venuePart.match(/\bvol\.\s*(\d+)\b/i);
+        if (volMatch) volume = volMatch[1];
+
+        const noMatch = venuePart.match(/\bno\.\s*(\d+)\b/i);
+        if (noMatch) number = noMatch[1];
+
+        const ppMatch = venuePart.match(/\bpp?\.\s*([a-zA-Z]?\d+[\s\u2013\u2014\-]+[a-zA-Z]?\d+|\d+)\b/i);
+        if (ppMatch) {
+            pages = ppMatch[1].replace(/[\s\u2013\u2014\-]+/, '--');
+        } else {
+            const artMatch = venuePart.match(/\bArt\.\s*no\.\s*([a-zA-Z0-9]+)\b/i) || venuePart.match(/\bp\.\s*([a-zA-Z]\d+|\d+)\b/i);
+            if (artMatch) pages = artMatch[1];
+        }
+
+        // ArXiv
+        const arxivMatch = text.match(/arXiv:\s*(\d{4}\.\d{4,5}(?:v\d+)?)/i);
+        if (arxivMatch) {
+            eprint = arxivMatch[1];
+            note = `arXiv:${eprint}`;
+        }
+
+        if (type === 'article') {
+            let jText = venuePart;
+            const jCutMatch = jText.match(/,\s*(?:vol\.|no\.|pp?\.|\d{4}|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i);
+            if (jCutMatch) {
+                journal = jText.substring(0, jCutMatch.index).trim();
+            } else {
+                const comma = jText.indexOf(',');
+                journal = (comma !== -1 ? jText.substring(0, comma) : jText).trim();
+            }
+            journal = journal.replace(/^[,\.\s]+|[,\.\s]+$/g, '').trim();
+            if (!journal && isArxiv) {
+                journal = `arXiv preprint arXiv:${eprint}`;
+            }
+        } else if (type === 'inproceedings') {
+            const procMatch = venuePart.match(/\bin\s+(Proc\.[^,]+|Proceedings[^,]+|[^,]+Conference[^,]*|[^,]+Symposium[^,]*)/i);
+            if (procMatch) {
+                booktitle = procMatch[1].trim();
+            } else {
+                const comma = venuePart.indexOf(',');
+                booktitle = (comma !== -1 ? venuePart.substring(0, comma) : venuePart).trim();
+            }
+            booktitle = booktitle.replace(/^[,\.\s]+|[,\.\s]+$/g, '').trim();
+        }
+
+        // --- 5. Zitationsschluessel (Key) erzeugen ---
+        let firstAuthor = 'ref';
+        if (author) {
+            const firstA = author.split(/,|&|\band\b/i)[0].trim();
+            const words = firstA.split(/\s+/).filter(w => {
+                const clean = w.replace(/[^a-zA-Z]/g, '').toLowerCase();
+                return clean.length > 1 && clean !== 'et' && clean !== 'al';
+            });
+            if (words.length > 0) {
+                firstAuthor = words[words.length - 1];
+            } else {
+                firstAuthor = firstA.replace(/[^a-zA-Z]/g, '');
             }
         }
-        if (!title && text.length > 10) {
-            // Fallback: Ersten Abschnitt als Titel nehmen
-            title = text.substring(0, Math.min(text.length, 100));
+        firstAuthor = firstAuthor.replace(/[^a-zA-Z]/g, '').toLowerCase() || 'ref';
+
+        let titleWord = '';
+        if (title) {
+            const stopWords = new Set(['with', 'from', 'that', 'this', 'using', 'over', 'into', 'under', 'towards', 'through']);
+            const words = title.split(/\s+/).map(w => w.replace(/[^a-zA-Z]/g, '').toLowerCase()).filter(w => w.length > 3 && !stopWords.has(w));
+            if (words.length > 0) titleWord = words[0];
         }
 
-        // --- Journal/Konferenz erkennen ---
-        let journal = "";
-        const inMatch = text.match(/\bIn\s+([A-Z][^.]{3,60})/)
-            || text.match(/(?:journal|proceedings|conference|transactions)\s*[:=]?\s*([^.,]{3,60})/i);
-        if (inMatch) {
-            journal = inMatch[1].trim().replace(/[,;]+$/, "");
+        let baseKey = `${firstAuthor}${year || ''}${titleWord ? '_' + titleWord : '_' + index}`;
+        let finalKey = baseKey;
+        let counter = 1;
+        while (seenKeys.has(finalKey)) {
+            counter++;
+            finalKey = `${baseKey}_${counter}`;
         }
+        seenKeys.add(finalKey);
 
-        // --- BibTeX-Key generieren ---
-        const firstAuthor = author.split(/[,;&]|\band\b/)[0].trim().split(/\s+/).pop() || "unknown";
-        const cleanKey = firstAuthor.replace(/[^a-zA-Z]/g, "").toLowerCase();
-        const key = cleanKey + (year || index);
-
-        // --- Typ bestimmen ---
-        const type = journal ? "article" : "misc";
-
-        // --- BibTeX-Eintrag bauen ---
-        let entry = `@${type}{${key},\n`;
+        // --- 6. BibTeX-Eintrag aufbauen ---
+        let entry = `@${type}{${finalKey},\n`;
         if (author) entry += `  author       = {${author}},\n`;
         if (title) entry += `  title        = {${title}},\n`;
+        if (type === 'article' && journal) entry += `  journal      = {${journal}},\n`;
+        if (type === 'inproceedings' && booktitle) entry += `  booktitle    = {${booktitle}},\n`;
+        if (type === 'book' && publisher) entry += `  publisher    = {${publisher}},\n`;
+        if (type === 'book' && address) entry += `  address      = {${address}},\n`;
         if (year) entry += `  year         = {${year}},\n`;
-        if (journal) entry += `  journal      = {${journal}},\n`;
+        if (month) entry += `  month        = {${month}},\n`;
+        if (volume) entry += `  volume       = {${volume}},\n`;
+        if (number) entry += `  number       = {${number}},\n`;
+        if (pages) entry += `  pages        = {${pages}},\n`;
+        if (doi) entry += `  doi          = {${doi}},\n`;
+        if (eprint) {
+            entry += `  eprint       = {${eprint}},\n`;
+            entry += `  archiveprefix = {arXiv},\n`;
+        }
+        if (note && type === 'misc') entry += `  note         = {${note}},\n`;
         entry += `}`;
 
         return entry;
     },
 
     /**
-     * FÃƒÂ¼gt alle BibTeX-EintrÃƒÂ¤ge zu einem String zusammen.
+     * Fuegt alle BibTeX-Eintraege zu einem String zusammen.
      */
     buildBibtexString(entries) {
         return entries.join("\n\n");
@@ -1622,7 +1874,7 @@ const LinterModule = {
     // Globale Felder: in jedem Typ erlaubt
     globalFields: [
         "key", "note", "url", "doi", "isbn", "issn", "abstract",
-        "keywords", "eprint", "crossref", "annote", "month"
+        "keywords", "eprint", "crossref", "annote", "month", "archiveprefix"
     ],
 
     // Typspezifisches Feld-Mapping: welche Felder sind fuer welchen Typ ueblich
