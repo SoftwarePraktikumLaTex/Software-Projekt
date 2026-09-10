@@ -797,6 +797,61 @@ body {
     transition: background-color 0.4s ease;
 }
 
+/* Suchtreffer-Hervorhebung im CodeMirror-Editor ("unten im Text") */
+.cm-search-highlight {
+    background-color: rgba(245, 158, 11, 0.35) !important;
+    border-bottom: 2px solid #f59e0b !important;
+    border-radius: 2px;
+    color: inherit !important;
+}
+
+[data-theme="light"] .cm-search-highlight {
+    background-color: rgba(251, 191, 36, 0.45) !important;
+    border-bottom: 2px solid #d97706 !important;
+}
+
+/* Suchtreffer-Hervorhebung in der Sidebar-Liste */
+mark.search-match {
+    background-color: rgba(245, 158, 11, 0.35);
+    color: inherit;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+[data-theme="light"] mark.search-match {
+    background-color: rgba(251, 191, 36, 0.45);
+}
+
+.entry-match-preview {
+    font-size: 0.76em;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entry-match-preview .match-field-label {
+    font-weight: 600;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.entry-match-preview .match-field-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ---------------------------------- */
 /* RESIZER (Alexandros)               */
 /* ---------------------------------- */
