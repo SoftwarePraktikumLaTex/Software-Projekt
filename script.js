@@ -2232,12 +2232,17 @@ const ClipboardModule = {
     toastContainer: null,
     toggleBtn: null,
 
+    wasOutside: false,
+
     init() {
         this.toastContainer = document.getElementById("toast-container");
         this.toggleBtn = document.getElementById("clipboard-toggle");
 
-        // Gespeicherte importierte Signaturen laden
-        this.loadImportedSignatures();
+        // Vorherige Sitzungssignaturen bereinigen
+        try {
+            sessionStorage.removeItem("bibstream_imported_signatures");
+        } catch (e) {}
+        this.importedSignatures.clear();
 
         // Gespeicherten Zustand laden (Standard: aktiv)
         const savedPref = localStorage.getItem("bibstream-clipboard-watcher");
@@ -2264,26 +2269,45 @@ const ClipboardModule = {
         if (menuPasteBtn) {
             menuPasteBtn.addEventListener("click", (e) => {
                 e.preventDefault();
-                this.checkClipboard(true);
+                this.checkClipboard(true, true);
                 document.querySelectorAll(".dropdownImportClass").forEach(el => el.classList.remove("show"));
             });
         }
 
-        // 1. Browser-Tab-Wechsel: Nur prüfen, wenn Tab aktiv wird und Berechtigung nicht verweigert wurde
+        // 1. Erkennung, wenn Benutzer den BibStream-Tab verlässt und zurückkehrt
         document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === "visible" && this.isEnabled && !this.hasPermissionFailed) {
-                this.checkClipboard(false);
+            if (document.visibilityState === "hidden") {
+                this.wasOutside = true;
+            } else if (document.visibilityState === "visible") {
+                if (this.wasOutside && this.isEnabled) {
+                    this.wasOutside = false;
+                    // Beim Zurückkehren von einer externen Seite (z.B. IEEE) sofort prüfen
+                    setTimeout(() => this.checkClipboard(false, true), 50);
+                }
             }
         });
 
-        // 2. Fenster-Fokus: Nur prüfen beim Wechsel zwischen Fenstern/Anwendungen
+        // 2. Fenster-Fokus (z.B. bei geteiltem Bildschirm / zwei Fenstern)
+        window.addEventListener("blur", () => {
+            this.wasOutside = true;
+        });
+
         window.addEventListener("focus", () => {
-            if (this.isEnabled && !this.hasPermissionFailed) {
-                this.checkClipboard(false);
+            if (this.wasOutside && this.isEnabled) {
+                this.wasOutside = false;
+                setTimeout(() => this.checkClipboard(false, true), 60);
             }
         });
 
-        // 3. Internes Kopieren in BibStream: Kopierten Text als bekannt markieren,
+        // 3. Erster Klick nach Rückkehr von extern (garantiert Browser-User-Activation)
+        document.addEventListener("pointerdown", () => {
+            if (this.wasOutside && this.isEnabled) {
+                this.wasOutside = false;
+                this.checkClipboard(true, true);
+            }
+        }, { capture: true });
+
+        // 4. Internes Kopieren in BibStream: Kopierten Text als bekannt markieren,
         // damit dieser nicht unbeabsichtigt als neues Zitat auto-importiert wird
         document.addEventListener("copy", () => {
             const sel = window.getSelection ? window.getSelection().toString() : "";
@@ -2292,7 +2316,7 @@ const ClipboardModule = {
             }
         });
 
-        // 4. Normales Einfügen (Strg+V): Funktioniert IMMER ohne Browser-Berechtigungs-Prompt
+        // 5. Normales Einfügen (Strg+V): Funktioniert IMMER ohne Browser-Berechtigungs-Prompt
         window.addEventListener("paste", (e) => {
             const pastedText = e.clipboardData ? e.clipboardData.getData("text") : "";
             if (pastedText) {
@@ -2308,32 +2332,12 @@ const ClipboardModule = {
         this.syncCurrentClipboard();
     },
 
-    loadImportedSignatures() {
-        try {
-            const raw = sessionStorage.getItem("bibstream_imported_signatures");
-            if (raw) {
-                const arr = JSON.parse(raw);
-                if (Array.isArray(arr)) {
-                    this.importedSignatures = new Set(arr);
-                }
-            }
-        } catch (e) {}
-    },
-
-    saveImportedSignatures() {
-        try {
-            sessionStorage.setItem(
-                "bibstream_imported_signatures",
-                JSON.stringify(Array.from(this.importedSignatures))
-            );
-        } catch (e) {}
-    },
-
     /**
      * Wird aufgerufen, wenn der Benutzer zwischen Bib-Dateien (Tabs) wechselt.
      * Verhindert zuverlässig, dass das zuvor kopierte Zitat in die neu gewählte Datei eingefügt wird.
      */
     async onTabSwitched() {
+        this.wasOutside = false;
         await this.syncCurrentClipboard();
     },
 
@@ -2350,11 +2354,10 @@ const ClipboardModule = {
     toggle() {
         this.isEnabled = !this.isEnabled;
         localStorage.setItem("bibstream-clipboard-watcher", this.isEnabled ? "true" : "false");
-        this.hasPermissionFailed = false; // Bei manuellem Umschalten Erlaubnis-Status zurücksetzen
         this.updateToggleBtnState();
         if (this.isEnabled) {
             this.showToast("Auto-Import aktiv", "Prüft beim Wechsel zu BibStream auf Zitate");
-            this.checkClipboard(true);
+            this.checkClipboard(true, true);
         } else {
             this.showToast("Auto-Import pausiert", "Automatische Erkennung deaktiviert");
         }
@@ -2386,37 +2389,30 @@ const ClipboardModule = {
         }
     },
 
-    async checkClipboard(isUserGesture = false) {
-        if (!this.isEnabled && !isUserGesture) return;
+    async checkClipboard(isUserGesture = false, forceCheck = false) {
+        if (!this.isEnabled) return;
         if (!navigator.clipboard || typeof navigator.clipboard.readText !== "function") return;
-
-        // Wurde der Zugriff vom Browser/Benutzer abgelehnt, nicht erneut per Popup nerven
-        if (this.hasPermissionFailed && !isUserGesture) return;
 
         // Keine parallelen Abfragen
         if (this.isChecking) return;
 
-        // Cooldown bei automatischen Fokus-Events (mindestens 2.5 Sekunden)
+        // Cooldown bei automatischen Fokus-Events (mindestens 300ms)
         const now = Date.now();
-        if (!isUserGesture && (now - this.lastCheckTime < 2500)) return;
+        if (!isUserGesture && !forceCheck && (now - this.lastCheckTime < 300)) return;
         this.lastCheckTime = now;
 
         this.isChecking = true;
         try {
             const text = await navigator.clipboard.readText();
-            this.hasPermissionFailed = false;
             if (text && typeof text === "string") {
                 const trimmed = text.trim();
-                if (trimmed && trimmed !== this.lastClipboardText) {
+                if (trimmed) {
                     this.lastClipboardText = trimmed;
                     this.processText(trimmed);
                 }
             }
         } catch (err) {
-            if (err && err.name === "NotAllowedError") {
-                this.hasPermissionFailed = true;
-                console.warn("[ClipboardModule] Zwischenablage-Zugriff nicht gestattet / abgebrochen.");
-            }
+            console.log("[ClipboardModule] readText:", err && err.message);
         } finally {
             this.isChecking = false;
         }
@@ -2597,41 +2593,26 @@ const ClipboardModule = {
         const cm = EditorModule.editorInstance;
         const currentDoc = cm.getValue();
 
-        // Eindeutige Signatur des Eintrags: z.B. "article::11479406"
-        const signature = `${entryObj.type}::${entryObj.key}`.toLowerCase();
+        const escapedKey = entryObj.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const keyExistsRegex = new RegExp(`@\\w+\\s*\\{\\s*${escapedKey}\\s*,`, 'i');
 
-        // 1. Wurde dieser Eintrag bereits importiert? Niemals erneut einfügen (z.B. bei Dateiwechsel)
-        if (this.importedSignatures.has(signature)) {
-            console.log(`[ClipboardModule] Eintrag ${signature} wurde bereits importiert und wird übersprungen.`);
+        // 1. Prüfen, ob dieser Eintrag bereits im aktuellen Dokument vorhanden ist
+        if (keyExistsRegex.test(currentDoc)) {
+            console.log(`[ClipboardModule] Eintrag ${entryObj.key} existiert bereits in dieser Datei.`);
+            EditorModule.jumpToKey(entryObj.key, true);
+            if (typeof SidebarModule.highlightKey === "function") {
+                SidebarModule.highlightKey(entryObj.key);
+            }
+            this.showToast("Bereits vorhanden", `@${entryObj.type}{${entryObj.key}} existiert bereits`);
             return;
         }
 
-        // 2. Prüfen, ob exakt dieser Key bereits im aktuellen Dokument existiert
-        const escapedKey = entryObj.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const keyExistsRegex = new RegExp(`@\\w+\\s*\\{\\s*${escapedKey}\\s*,`, 'i');
-        
-        let finalKey = entryObj.key;
-        if (keyExistsRegex.test(currentDoc)) {
-            // Falls identisch vorhanden: nur anspringen, hervorheben und nicht duplizieren
-            if (currentDoc.includes(entryObj.body.trim().substring(0, 40))) {
-                console.log(`Eintrag ${finalKey} ist bereits im Dokument vorhanden.`);
-                this.importedSignatures.add(signature);
-                this.saveImportedSignatures();
-                EditorModule.jumpToKey(finalKey, true);
-                if (typeof SidebarModule.highlightKey === "function") {
-                    SidebarModule.highlightKey(finalKey);
-                }
-                this.showToast("Bereits vorhanden", `@${entryObj.type}{${finalKey}} existiert bereits`);
-                return;
-            }
-            finalKey = `${entryObj.key}_${Date.now().toString().slice(-4)}`;
-            entryObj.key = finalKey;
-        }
+        const finalKey = entryObj.key;
 
-        // 3. Sauber formatieren
+        // 2. Sauber formatieren
         const formatted = this.formatEntry(entryObj);
 
-        // 4. Im Editor am Ende anfügen
+        // 3. Im Editor am Ende anfügen
         const separator = (currentDoc.trim().length > 0)
             ? (currentDoc.endsWith('\n\n') ? '' : (currentDoc.endsWith('\n') ? '\n' : '\n\n'))
             : '';
@@ -2641,11 +2622,7 @@ const ClipboardModule = {
 
         cm.replaceRange(insertionText, insertFrom);
 
-        // 5. Signatur als importiert registrieren (Sitzung & Speicher)
-        this.importedSignatures.add(signature);
-        this.saveImportedSignatures();
-
-        // 6. Zum neuen Eintrag springen, den gesamten Block markieren und fokussieren
+        // 4. Zum neuen Eintrag springen, den gesamten Block markieren und fokussieren
         setTimeout(() => {
             EditorModule.jumpToKey(finalKey, true);
             if (typeof SidebarModule.highlightKey === "function") {
@@ -2653,7 +2630,7 @@ const ClipboardModule = {
             }
         }, 80);
 
-        // 7. Toast-Benachrichtigung anzeigen
+        // 5. Toast-Benachrichtigung anzeigen
         this.showToast(
             "Neues Zitat aus Zwischenablage hinzugefügt",
             `@${entryObj.type}{${finalKey}}`
