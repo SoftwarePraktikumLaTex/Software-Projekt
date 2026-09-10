@@ -904,6 +904,7 @@ const SidebarModule = {
     countDisplay: document.querySelector("#citation-count"),
     allEntries: [],
     currentSearch: "",
+    searchTerms: [],
     currentSort: "original",
     trailingText: "",
 
@@ -987,6 +988,86 @@ const SidebarModule = {
      * Entfernt geschweifte Klammern (auch innere Klammern wie {FF}) und normalisiert Whitespaces,
      * ohne den Rohtext im Editor zu verändern.
      */
+    /**
+     * Zerlegt den Suchstring in einzelne Suchbegriffe.
+     * Unterstützt Trennung durch '||' oder '|' (logisches ODER).
+     * Bereinigt Leerzeichen und ignoriert leere Teilbegriffe (z. B. "ny ||" -> ["ny"]).
+     */
+    getSearchTerms(queryString) {
+        if (!queryString) return [];
+        const parts = queryString.split(/\|\||\|/);
+        const terms = [];
+        parts.forEach(part => {
+            const trimmed = part.trim();
+            if (trimmed.length > 0) {
+                terms.push(trimmed);
+            }
+        });
+        return terms;
+    },
+
+    /**
+     * Extrahiert alle Felder eines BibTeX-Eintrags verschachtelungssicher (Brace Matching).
+     * Erfasst beliebige Standard- und benutzerdefinierte Felder wie address, location, ort,
+     * publisher, journal, booktitle, pages, abstract usw.
+     */
+    extractAllFields(content) {
+        const fields = {};
+        if (!content) return fields;
+
+        const fieldRegex = /(?:^|[\s,;])(?:OPT)?([a-zA-Z0-9_-]+)\s*=\s*/g;
+        let match;
+
+        while ((match = fieldRegex.exec(content)) !== null) {
+            const fieldName = match[1].toLowerCase();
+            let startIdx = match.index + match[0].length;
+
+            while (startIdx < content.length && /\s/.test(content[startIdx])) {
+                startIdx++;
+            }
+            if (startIdx >= content.length) continue;
+
+            const firstChar = content[startIdx];
+            let value = "";
+            let endIdx = startIdx;
+
+            if (firstChar === '{') {
+                let depth = 1;
+                let i = startIdx + 1;
+                while (i < content.length && depth > 0) {
+                    if (content[i] === '{') depth++;
+                    else if (content[i] === '}') depth--;
+                    if (depth > 0) i++;
+                }
+                if (depth === 0) {
+                    value = content.substring(startIdx + 1, i);
+                    endIdx = i + 1;
+                }
+            } else if (firstChar === '"') {
+                let i = startIdx + 1;
+                while (i < content.length) {
+                    if (content[i] === '"' && content[i - 1] !== '\\') {
+                        break;
+                    }
+                    i++;
+                }
+                value = content.substring(startIdx + 1, i);
+                endIdx = i + 1;
+            } else {
+                let i = startIdx;
+                while (i < content.length && content[i] !== ',' && content[i] !== '\n' && content[i] !== '}') {
+                    i++;
+                }
+                value = content.substring(startIdx, i);
+                endIdx = i;
+            }
+
+            fields[fieldName] = this.cleanValueForUI(value);
+            fieldRegex.lastIndex = endIdx;
+        }
+
+        return fields;
+    },
     cleanValueForUI(rawVal) {
         if (!rawVal) return "";
         return rawVal.replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
@@ -1022,19 +1103,21 @@ const SidebarModule = {
                 const content = normalizedText.substring(bodyStart, i);
 
                 // Verschachtelungssicheres Parsing aller Felder
-                const rawTitle = this.extractFieldValue(content, 'title');
+                const allFields = this.extractAllFields(content);
+
+                const rawTitle = allFields['title'] || this.extractFieldValue(content, 'title');
                 const title = this.cleanValueForUI(rawTitle);
 
-                const rawAuthor = this.extractFieldValue(content, 'author');
+                const rawAuthor = allFields['author'] || this.extractFieldValue(content, 'author');
                 const author = rawAuthor ? this.cleanValueForUI(rawAuthor) : "Unbekannt";
 
-                const rawYear = this.extractFieldValue(content, 'year');
+                const rawYear = allFields['year'] || this.extractFieldValue(content, 'year');
                 const yearMatch = rawYear ? rawYear.match(/\d{4}/) : null;
                 const year = yearMatch ? yearMatch[0] : "????";
 
                 // Extrahiert URL oder DOI für einen klickbaren Link (mit Unterstützung für OPT-Präfixe)
-                const rawDoi = this.extractFieldValue(content, 'doi');
-                const rawUrl = this.extractFieldValue(content, 'url');
+                const rawDoi = allFields['doi'] || this.extractFieldValue(content, 'doi');
+                const rawUrl = allFields['url'] || this.extractFieldValue(content, 'url');
                 let link = null;
                 let linkType = null; // 'doi' oder 'url'
 
@@ -1058,6 +1141,7 @@ const SidebarModule = {
 
                 entries.push({ 
                     type, key, title, author, year, link, linkType,
+                    fields: allFields,
                     precedingText, rawText,
                     originalIndex: entries.length
                 });
@@ -1072,7 +1156,8 @@ const SidebarModule = {
     },
 
     setSearchTerm(term) {
-        this.currentSearch = term.toLowerCase();
+        this.currentSearch = (term || "").trim().toLowerCase();
+        this.searchTerms = this.getSearchTerms(term || "");
         this.updateView();
     },
 
@@ -1145,15 +1230,24 @@ const SidebarModule = {
     updateView() {
         // Erweiterte Suche: durchsucht alle Felder (Key, Titel, Autor, Jahr, Typ)
         let processed = this.allEntries;
-        if (this.currentSearch) {
-            const q = this.currentSearch;
-            processed = processed.filter(entry =>
-                entry.key.toLowerCase().includes(q) ||
-                entry.title.toLowerCase().includes(q) ||
-                entry.author.toLowerCase().includes(q) ||
-                entry.year.toLowerCase().includes(q) ||
-                entry.type.toLowerCase().includes(q)
-            );
+        if (this.searchTerms && this.searchTerms.length > 0) {
+            const queryTerms = this.searchTerms.map(t => t.toLowerCase());
+            processed = processed.filter(entry => {
+                return queryTerms.some(q => {
+                    if (entry.key && entry.key.toLowerCase().includes(q)) return true;
+                    if (entry.type && entry.type.toLowerCase().includes(q)) return true;
+                    if (entry.fields) {
+                        for (const val of Object.values(entry.fields)) {
+                            if (typeof val === 'string' && val.toLowerCase().includes(q)) return true;
+                        }
+                    }
+                    if (entry.title && entry.title.toLowerCase().includes(q)) return true;
+                    if (entry.author && entry.author.toLowerCase().includes(q)) return true;
+                    if (entry.year && entry.year.toLowerCase().includes(q)) return true;
+                    if (entry.rawText && entry.rawText.toLowerCase().includes(q)) return true;
+                    return false;
+                });
+            });
         }
 
         // Konsistente Sortierung mit bidirektionalen Optionen
@@ -1267,12 +1361,9 @@ const SidebarModule = {
     },
 
     getFirstVisibleKey() {
-        const firstKeySpan = this.citationListUl.querySelector("li:not([data-empty]) .entry-key");
-        if (!firstKeySpan) return null;
-        const clone = firstKeySpan.cloneNode(true);
-        const linkChild = clone.querySelector('.sidebar-link-btn');
-        if (linkChild) linkChild.remove();
-        return clone.textContent.trim() || null;
+        const firstLi = this.citationListUl.querySelector("li:not([data-empty])");
+        if (!firstLi) return null;
+        return firstLi.getAttribute("data-key") || null;
     },
 
     highlightKey(key) {
