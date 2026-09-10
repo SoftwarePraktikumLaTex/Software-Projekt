@@ -1445,10 +1445,19 @@ const ImportModule = {
         return text
             // Worttrennungen mit Bindestrich: "metama- terials" -> "metamaterials"
             .replace(/([a-zA-Z]{2,})-\s+([a-zA-Z]{2,})/g, '$1$2')
-            // Ligatur-Artefakte beheben: "e ffi cient" -> "efficient", "di ff ractive" -> "diffractive"
-            .replace(/\b([a-zA-Z]+)\s+(ffi|ff|fl|fi)\s+([a-zA-Z]+)\b/g, '$1$2$3')
-            .replace(/\b([a-zA-Z]+)\s+(ffi|ff|fl|fi)\b/g, '$1$2')
-            .replace(/\b(ffi|ff|fl|fi)\s+([a-zA-Z]+)\b/g, '$1$2')
+            // PDF-Ligatur-Trennungen im Wortinneren
+            .replace(/\bco\s*e\s+ffi\s*ci/gi, 'coeffici')
+            .replace(/\be\s+ffi\s*ci/gi, 'effici')
+            .replace(/\be\s+ffi\s*ca/gi, 'effica')
+            .replace(/\be\s+ff\s*ect/gi, 'effect')
+            .replace(/\ba\s+ff\s*ect/gi, 'affect')
+            .replace(/\bdi\s+ff\s*ract/gi, 'diffract')
+            .replace(/\bdi\s+ff\s*us/gi, 'diffus')
+            .replace(/\bdi\s+ff\s*er/gi, 'differ')
+            .replace(/\btra\s+ffi\s*c/gi, 'traffic')
+            // PDF-Ligatur-Trennungen am Wortanfang
+            .replace(/\bfl\s+(ow|exible|oat|at|oor|ip|ight)/gi, 'fl$1')
+            .replace(/\bfi\s+(eld|rst|ve|lter|nite|nal|gure|le|rm|nd|xed|ber)/gi, 'fi$1')
             // Typografische Anfuehrungszeichen und Gedankenstriche vereinheitlichen
             .replace(/[\u2018\u2019´`]/g, "'")
             .replace(/[\u201C\u201D„‟]/g, '"')
@@ -1534,7 +1543,7 @@ const ImportModule = {
         // Optional: Abschneiden bei nachfolgenden Autoren-Biografien oder Anhang
         const cutoffPattern = /(?:\n\s*|\s{3,})(Biographies|About the Authors|APPENDIX\b|Anhang\b)/i;
         const cutMatch = refSection.match(cutoffPattern);
-        if (cutMatch && cutMatch.index > 500) {
+        if (cutMatch && cutMatch.index > 50) {
             refSection = refSection.substring(0, cutMatch.index).trim();
         }
 
@@ -1577,6 +1586,9 @@ const ImportModule = {
         // Bereinigung von Hyphenation, Ligaturen und Whitespaces
         let text = this.cleanHyphenation(refText).replace(/\s+/g, " ").trim();
 
+        // Fuehrende Zitationsnummern [1] oder 1. entfernen
+        text = text.replace(/^(?:\[\d+\]|\d{1,3}\.)\s*/, '').trim();
+
         // Eventuelle Reste von Kopf-/Fusszeilen am Anfang oder Ende entfernen
         text = text.replace(/Authorized licensed use limited to:.*$/i, "").trim();
         text = text.replace(/Downloaded on .*$/i, "").trim();
@@ -1585,13 +1597,13 @@ const ImportModule = {
 
         // --- 1. Typ bestimmen ---
         let type = 'article';
-        const isThesis = /\b(?:Ph\.?D\.?\s+(?:dissertation|thesis)|doctoral\s+dissertation)\b/i.test(text);
-        const isMasters = /\b(?:M\.?S\.?\s+thesis|Master(?:'s)?\s+thesis)\b/i.test(text);
+        const isThesis = /\b(?:Ph\.?D\.?\s+(?:dissertation|thesis)|doctoral\s+dissertation|Dissertation)\b/i.test(text);
+        const isMasters = /\b(?:M\.?S\.?\s+thesis|Master(?:'s)?\s+thesis|Masterarbeit|Bachelorarbeit)\b/i.test(text);
         const isTechReport = /\b(?:Tech\.?\s+Rep\.?|Technical\s+Report|Standard|Std\.)\b/i.test(text);
         const isConference = /\b(?:in\s+Proc|in\s+Proceedings|Conference|Symposium|Workshop|Congress)\b/i.test(text) ||
                              /\b(?:ICC|GLOBECOM|INFOCOM|ICASSP|VTC|WCNC|APWCS|IJCNN|EUSIPCO|SPAWC|SIGCOMM|MobiCom)\b/.test(text);
         const isArxiv = /\barXiv:\s*(\d{4}\.\d{4,5}(?:v\d+)?)\b/i.test(text) || /\barXiv\s+Preprint\b/i.test(text);
-        const isBook = /\b(?:Cambridge\s+Univ\.?\s+Press|Oxford\s+Univ\.?\s+Press|MIT\s+Press|Springer(?:\s+Nature)?|Wiley(?:\s*&\s*Sons)?|Elsevier|Prentice[\s\-]*Hall|McGraw[\s\-]*Hill|Academic\s+Press|Addison[\s\-]*Wesley|De\s+Gruyter|CRC\s+Press|IEEE\s+Press|[A-Z][a-zA-Z\s]+(?:Press|Publishers?))\b/i.test(text) &&
+        const isBook = /\b(?:Cambridge\s+Univ\.?\s+Press|Oxford\s+Univ\.?\s+Press|MIT\s+Press|Springer(?:\s+Nature|\s+Vieweg)?|Wiley(?:\s*&\s*Sons)?|Elsevier|Prentice[\s\-]*Hall|McGraw[\s\-]*Hill|Academic\s+Press|Addison[\s\-]*Wesley|De\s+Gruyter|CRC\s+Press|IEEE\s+Press|Hanser(?:\s+Verlag)?|[A-Z][a-zA-Z\s]+(?:Press|Publishers?|Verlag))\b/i.test(text) &&
                        !text.includes('"');
 
         if (isThesis) {
@@ -1618,7 +1630,7 @@ const ImportModule = {
         }
 
         let month = '';
-        const monthMatch = text.match(/\b(Jan\.?|Feb\.?|Mar\.?|Apr\.?|May|Jun\.?|Jul\.?|Aug\.?|Sep\.?|Sept\.?|Oct\.?|Nov\.?|Dec\.?)\b/i);
+        const monthMatch = text.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/i);
         if (monthMatch) {
             month = monthMatch[1].toLowerCase().substring(0, 3);
         }
@@ -1631,14 +1643,14 @@ const ImportModule = {
         let address = '';
 
         // Fall A: Titel in Anfuehrungszeichen (Standard IEEE)
-        const quoteMatch = text.match(/"([^"]{5,})"/);
+        const quoteMatch = text.match(/"([^"]{2,})"/);
         if (quoteMatch) {
             title = quoteMatch[1].trim().replace(/[,\.\s]+$/, '').trim();
             author = text.substring(0, quoteMatch.index).trim().replace(/[,;:\s]+$/, '').trim();
             venuePart = text.substring(quoteMatch.index + quoteMatch[0].length).trim().replace(/^[,\.\s]+/, '').trim();
         } else if (type === 'book') {
             // Fall B: Buch (z. B. "D. Tse and P. Viswanath, Fundamentals of Wireless Communication . Cambridge, U.K.: Cambridge Univ. Press, 2005.")
-            const pubRegex = /\b(Cambridge\s+Univ\.?\s+Press|Oxford\s+Univ\.?\s+Press|MIT\s+Press|Springer(?:\s+Nature)?|Wiley(?:\s*&\s*Sons)?|Elsevier|Prentice[\s\-]*Hall|McGraw[\s\-]*Hill|Academic\s+Press|Addison[\s\-]*Wesley|De\s+Gruyter|CRC\s+Press|IEEE\s+Press|[A-Z][a-zA-Z\s]+(?:Press|Publishers?))\b/i;
+            const pubRegex = /\b(Cambridge\s+Univ\.?\s+Press|Oxford\s+Univ\.?\s+Press|MIT\s+Press|Springer(?:\s+Nature|\s+Vieweg)?|Wiley(?:\s*&\s*Sons)?|Elsevier|Prentice[\s\-]*Hall|McGraw[\s\-]*Hill|Academic\s+Press|Addison[\s\-]*Wesley|De\s+Gruyter|CRC\s+Press|IEEE\s+Press|Hanser(?:\s+Verlag)?|[A-Z][a-zA-Z\s]+(?:Press|Publishers?|Verlag))\b/i;
             const pubMatch = text.match(pubRegex);
 
             if (pubMatch) {
@@ -1755,7 +1767,7 @@ const ImportModule = {
                 const comma = jText.indexOf(',');
                 journal = (comma !== -1 ? jText.substring(0, comma) : jText).trim();
             }
-            journal = journal.replace(/^[,\.\s]+|[,\.\s]+$/g, '').trim();
+            journal = journal.replace(/^[\s,;:]+|[\s,;:]+$/g, '').trim();
             if (!journal && isArxiv) {
                 journal = `arXiv preprint arXiv:${eprint}`;
             }
