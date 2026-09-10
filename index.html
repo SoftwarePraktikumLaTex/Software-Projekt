@@ -64,8 +64,12 @@
                             <a href="#" id="btn-open-settings"> Formatierung einstellen...</a>
                             <hr>
                             <a href="#" id="btn-format-code">Code formatieren (Einrücken)</a>
-                            <a href="#" id="btn-remove-fields">Abgewählte Felder löschen</a>
                             <a href="#" id="btn-insert-template">Leeren Artikel erstellen</a>
+                            <hr>
+                            <a href="#" id="menu-toggle-clipboard">
+                                <span class="material-symbols-outlined" id="menu-clipboard-icon">toggle_on</span>
+                                Clipboard-Import: <span id="menu-clipboard-status">An</span>
+                            </a>
                             <hr>
                             <a href="#" id="btn-undo">Undo</a>
                             <a href="#" id="btn-redo">Redo</a>
@@ -77,6 +81,7 @@
                         <button id="import" class="import-btn"><span
                                 class="material-symbols-outlined">download</span>Import</button>
                         <div id="dropdownImportContent" class="dropdownImportClass">
+                            <a href="#" id="btn-paste-clipboard"><span class="material-symbols-outlined">content_paste</span>Aus Zwischenablage einfügen (Strg+V)</a>
                             <a href="#" id="btn-import-pdf">PDF importieren (Referenzen extrahieren)</a>
                         </div>
                     </div>
@@ -97,6 +102,10 @@
             </div>
 
             <div class="theme-toggle-wrapper">
+                <button class="clipboard-toggle-btn active" id="clipboard-toggle" title="Auto-Import: Aktiv (Klicken zum Umschalten)">
+                    <span class="material-symbols-outlined" id="clipboard-toggle-icon">content_paste_search</span>
+                    <span id="clipboard-toggle-label" class="clipboard-toggle-label">Auto-Import: An</span>
+                </button>
                 <button class="theme-toggle-btn" id="layout-toggle" title="Layout wechseln">
                     <span class="material-symbols-outlined" id="layout-toggle-icon">vertical_split</span>
                 </button>
@@ -238,6 +247,22 @@
         </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal-overlay">
+        <div class="modal-content delete-modal-content">
+            <div class="delete-modal-header">
+                <span class="material-symbols-outlined delete-warning-icon">delete_forever</span>
+                <h2>Eintrag löschen</h2>
+            </div>
+            <p>Möchtest du diesen Eintrag wirklich löschen?</p>
+            <div id="delete-modal-preview" class="delete-entry-preview"></div>
+            <div class="modal-actions">
+                <button id="btn-cancel-delete" class="secondary-btn">Abbrechen</button>
+                <button id="btn-confirm-delete" class="danger-btn">Ja</button>
+            </div>
+        </div>
+    </div>
+
     <div id="resizer" class="resizer"></div>
 
     <main class="editor-container">
@@ -249,6 +274,9 @@
     <input type="file" id="hidden-file-input" accept=".bib,.txt" style="display: none;" />
     <input type="file" id="hidden-folder-input" webkitdirectory directory multiple style="display: none;" />
     <input type="file" id="hidden-pdf-input" accept=".pdf" style="display: none;" />
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
 </body>
 
 </html>

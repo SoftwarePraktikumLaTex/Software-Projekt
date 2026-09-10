@@ -75,6 +75,7 @@ const FormatterModule = {
         });
         this.saveBtn.addEventListener("click", () => {
             this.saveSettings();
+            this.runRemoveFields();
             this.settingsModal.classList.remove("show-modal");
         });
 
@@ -487,6 +488,9 @@ const FileModule = {
         EditorModule.setContent(file.content);
         SidebarModule.parseAndRefresh(file.content);
         this.saveSession();
+        if (typeof ClipboardModule !== 'undefined' && typeof ClipboardModule.onTabSwitched === 'function') {
+            ClipboardModule.onTabSwitched();
+        }
     },
 
     closeFile(id, event) {
@@ -743,6 +747,7 @@ const EditorModule = {
             // Dirty-Flag setzen: Datei hat ungespeicherte Änderungen
             FileModule.markActiveDirty();
             this.reapplySearchHighlights();
+            this.scheduleUpdateDeleteButtons();
         });
 
         // Felix: Synchronisierung Editor -> Sidebar
@@ -761,6 +766,9 @@ const EditorModule = {
 
         // Felix: Event-Listener für die Menü-Buttons (Undo/Redo)
         this.setupMenuListeners();
+
+        // Löschbuttons an allen Quell-Definitionszeilen im Editor initialisieren
+        this.scheduleUpdateDeleteButtons();
     },
 
     setupMenuListeners() {
@@ -813,6 +821,7 @@ const EditorModule = {
 
         this.isProgrammaticUpdate = false;
         this.reapplySearchHighlights();
+        this.scheduleUpdateDeleteButtons();
     },
 
     updateSortedContent(text) {
@@ -821,6 +830,7 @@ const EditorModule = {
         this.editorInstance.setValue(text);
         this.isProgrammaticUpdate = false;
         this.reapplySearchHighlights();
+        this.scheduleUpdateDeleteButtons();
     },
 
     /**
@@ -881,7 +891,7 @@ const EditorModule = {
      * Scrollt den Eintrag bündig an den oberen Bildschirmrand und
      * hebt den gesamten Block kurzzeitig farblich hervor.
      */
-    jumpToKey(keyName) {
+    jumpToKey(keyName, selectWholeBlock = false) {
         if (!this.editorInstance) return;
         this.isJumping = true; // Ping-Pong Effekt verhindern
         const cm = this.editorInstance;
@@ -918,8 +928,15 @@ const EditorModule = {
             }
         }
 
-        // Selektion auf den Key setzen
-        cm.setSelection(cursor.from(), cursor.to());
+        if (selectWholeBlock) {
+            cm.setSelection(
+                { line: blockStart, ch: 0 },
+                { line: blockEnd, ch: cm.getLine(blockEnd).length }
+            );
+        } else {
+            // Selektion auf den Key setzen
+            cm.setSelection(cursor.from(), cursor.to());
+        }
 
         // Scroll: Eintrag bündig oben am Bildschirmrand
         const topCoord = cm.charCoords({ line: blockStart, ch: 0 }, 'local').top;
@@ -931,15 +948,186 @@ const EditorModule = {
             cm.addLineClass(i, 'background', 'jumptokey-highlight');
             markers.push(i);
         }
-        // Highlight nach 1.5s wieder entfernen
+        // Highlight nach 3.5s wieder entfernen
         setTimeout(() => {
             markers.forEach(line => {
                 cm.removeLineClass(line, 'background', 'jumptokey-highlight');
             });
-        }, 1500);
+        }, 3500);
 
         cm.focus();
         setTimeout(() => this.isJumping = false, 300);
+    },
+
+    /**
+     * Löscht einen BibTeX-Eintrag anhand seines Keys aus dem CodeMirror-Editor.
+     * Nutzt präzises Klammer-Matching und cm.replaceRange(), wodurch das change-Event
+     * automatisch gefeuert wird und der Undo-Verlauf (Strg+Z) erhalten bleibt.
+     */
+    deleteEntryByKey(keyName) {
+        if (!this.editorInstance) {
+            if (FileModule.activeFileId) {
+                const file = FileModule.files.find(f => f.id === FileModule.activeFileId);
+                if (file) {
+                    const escaped = keyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`@\\w+\\s*\\{\\s*${escaped}\\s*,[\\s\\S]*?\\n\\}\\n?`, 'i');
+                    const updated = file.content.replace(regex, '');
+                    FileModule.updateActiveFileContent(updated);
+                    FileModule.markActiveDirty();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        const cm = this.editorInstance;
+        const totalLines = cm.lineCount();
+        const escapedKey = keyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const headerRegex = new RegExp(`^\\s*@\\w+\\s*\\{\\s*${escapedKey}\\s*,`, 'i');
+
+        // 1. Suche die Header-Zeile des Eintrags (@type{key,)
+        let blockStart = -1;
+        for (let i = 0; i < totalLines; i++) {
+            if (headerRegex.test(cm.getLine(i))) {
+                blockStart = i;
+                break;
+            }
+        }
+
+        // Fallback: Suche über getSearchCursor, falls Header mehrzeilig umbrochen wurde
+        if (blockStart === -1) {
+            const cursor = cm.getSearchCursor(keyName);
+            while (cursor.findNext()) {
+                const matchLine = cursor.from().line;
+                for (let i = matchLine; i >= 0; i--) {
+                    if (cm.getLine(i).trim().startsWith('@')) {
+                        const snippet = cm.getRange({ line: i, ch: 0 }, { line: matchLine + 1, ch: 0 });
+                        if (headerRegex.test(snippet)) {
+                            blockStart = i;
+                        }
+                        break;
+                    }
+                }
+                if (blockStart !== -1) break;
+            }
+        }
+
+        if (blockStart === -1) return false;
+
+        // 2. Finde das Ende des Eintrags per Klammertiefe (Brace Depth)
+        let blockEnd = blockStart;
+        let depth = 0;
+        let foundOpenBrace = false;
+
+        for (let i = blockStart; i < totalLines; i++) {
+            const line = cm.getLine(i);
+            for (const ch of line) {
+                if (ch === '{') {
+                    depth++;
+                    foundOpenBrace = true;
+                } else if (ch === '}') {
+                    depth--;
+                }
+            }
+            if (foundOpenBrace && depth <= 0) {
+                blockEnd = i;
+                break;
+            }
+        }
+
+        // 3. Zu löschenden Zeilenbereich ermitteln (inklusive nachfolgender/vorangehender Leerzeile)
+        let fromLine = blockStart;
+        let toLine = blockEnd;
+        let fromCh = 0;
+        let toCh = cm.getLine(blockEnd).length;
+
+        if (blockEnd + 1 < totalLines) {
+            toLine = blockEnd + 1;
+            toCh = 0;
+            if (toLine < totalLines && cm.getLine(toLine).trim() === '') {
+                toLine = toLine + 1;
+            }
+        } else if (blockStart > 0) {
+            fromLine = blockStart - 1;
+            fromCh = cm.getLine(blockStart - 1).length;
+        }
+
+        // 4. In CodeMirror ersetzen (löst on("change") aus -> aktualisiert File & Sidebar automatisch)
+        cm.replaceRange("", { line: fromLine, ch: fromCh }, { line: toLine, ch: toCh });
+        cm.focus();
+        return true;
+    },
+
+    deleteMarkers: [],
+    deleteBtnTimeout: null,
+
+    scheduleUpdateDeleteButtons() {
+        clearTimeout(this.deleteBtnTimeout);
+        this.deleteBtnTimeout = setTimeout(() => {
+            this.renderLineDeleteButtons();
+        }, 80);
+    },
+
+    /**
+     * Erzeugt an jeder Zeile, an der eine Quelle definiert wird (@typ{key...),
+     * ganz rechts am Rand einen roten Mülleimer-Löschbutton.
+     */
+    renderLineDeleteButtons() {
+        if (!this.editorInstance) return;
+        const cm = this.editorInstance;
+
+        // Vorherige Marker bereinigen
+        if (this.deleteMarkers && this.deleteMarkers.length > 0) {
+            this.deleteMarkers.forEach(m => {
+                if (m && typeof m.clear === 'function') {
+                    m.clear();
+                }
+            });
+        }
+        this.deleteMarkers = [];
+
+        const totalLines = cm.lineCount();
+        const headerRegex = /^\s*@(\w+)\s*[{(]\s*([^,\s]*)/;
+
+        for (let i = 0; i < totalLines; i++) {
+            const lineText = cm.getLine(i);
+            const match = lineText.match(headerRegex);
+            if (match) {
+                const type = match[1];
+                const key = match[2];
+
+                const btn = document.createElement("button");
+                btn.className = "cm-entry-delete-btn";
+                btn.type = "button";
+                btn.title = `Eintrag @${type}{${key}} löschen`;
+                btn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
+
+                btn.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const entryObj = (SidebarModule.allEntries || []).find(ent => ent.key === key) || {
+                        type: type,
+                        key: key,
+                        title: "",
+                        author: "",
+                        year: ""
+                    };
+
+                    SidebarModule.openDeleteModal(entryObj);
+                });
+
+                btn.addEventListener("mousedown", (e) => {
+                    e.stopPropagation();
+                });
+
+                const marker = cm.setBookmark(
+                    { line: i, ch: lineText.length },
+                    { widget: btn, insertLeft: false, handleMouseEvents: true }
+                );
+                this.deleteMarkers.push(marker);
+            }
+        }
     }
 };
 
@@ -948,6 +1136,11 @@ const SidebarModule = {
     citationListUl: document.querySelector("#citation-list"),
     sortSelect: document.querySelector("#selektor"),
     countDisplay: document.querySelector("#citation-count"),
+    deleteModal: null,
+    deletePreview: null,
+    confirmDeleteBtn: null,
+    cancelDeleteBtn: null,
+    entryToDelete: null,
     allEntries: [],
     currentSearch: "",
     searchTerms: [],
@@ -956,6 +1149,28 @@ const SidebarModule = {
 
     init() {
         this.countDisplay = document.querySelector("#citation-count");
+        this.deleteModal = document.querySelector("#delete-modal");
+        this.deletePreview = document.querySelector("#delete-modal-preview");
+        this.confirmDeleteBtn = document.querySelector("#btn-confirm-delete");
+        this.cancelDeleteBtn = document.querySelector("#btn-cancel-delete");
+
+        if (this.confirmDeleteBtn) {
+            this.confirmDeleteBtn.addEventListener("click", () => this.confirmDelete());
+        }
+        if (this.cancelDeleteBtn) {
+            this.cancelDeleteBtn.addEventListener("click", () => this.closeDeleteModal());
+        }
+        if (this.deleteModal) {
+            this.deleteModal.addEventListener("click", (e) => {
+                if (e.target === this.deleteModal) this.closeDeleteModal();
+            });
+            window.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && this.deleteModal.classList.contains("show-modal")) {
+                    this.closeDeleteModal();
+                }
+            });
+        }
+
         if (!this.citationListUl) return;
         if (this.sortSelect) {
             this.sortSelect.addEventListener("change", (e) => {
@@ -1496,12 +1711,27 @@ const SidebarModule = {
                 }
             }
 
+            const actionsDiv = document.createElement("div");
+            actionsDiv.className = "entry-actions";
+
             const badge = document.createElement("span");
             badge.className = "entry-type-badge";
             badge.innerHTML = this.highlightTextToHTML(entry.type, this.searchTerms);
+            actionsDiv.appendChild(badge);
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "entry-delete-btn";
+            deleteBtn.title = "Eintrag löschen";
+            deleteBtn.setAttribute("aria-label", "Eintrag löschen");
+            deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
+            deleteBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                this.openDeleteModal(entry);
+            });
+            actionsDiv.appendChild(deleteBtn);
 
             li.appendChild(infoDiv);
-            li.appendChild(badge);
+            li.appendChild(actionsDiv);
 
             li.onclick = () => EditorModule.jumpToKey(entry.key);
             this.citationListUl.appendChild(li);
@@ -1532,6 +1762,31 @@ const SidebarModule = {
         if (targetLi) {
             targetLi.scrollIntoView({ behavior: "smooth", block: "center" });
         }
+    },
+
+    openDeleteModal(entry) {
+        this.entryToDelete = entry;
+        if (this.deletePreview) {
+            const titleDisplay = entry.title ? `"${entry.title}"` : 'Ohne Titel';
+            this.deletePreview.textContent = `@${entry.type}{${entry.key}}\n${titleDisplay} (${entry.author}, ${entry.year})`;
+        }
+        if (this.deleteModal) {
+            this.deleteModal.classList.add("show-modal");
+        }
+    },
+
+    closeDeleteModal() {
+        if (this.deleteModal) {
+            this.deleteModal.classList.remove("show-modal");
+        }
+        this.entryToDelete = null;
+    },
+
+    confirmDelete() {
+        if (!this.entryToDelete) return;
+        const key = this.entryToDelete.key;
+        this.closeDeleteModal();
+        EditorModule.deleteEntryByKey(key);
     }
 };
 
@@ -2466,6 +2721,448 @@ const LayoutModule = {
         if (EditorModule.editorInstance) {
             setTimeout(() => EditorModule.editorInstance.refresh(), 50);
         }
+    }
+};
+
+// --- 13. CLIPBOARD MODULE (Automatische Überwachung & Zitat-Import) ---
+const ClipboardModule = {
+    isEnabled: true,
+    isChecking: false,
+    hasPermissionFailed: false,
+    lastCheckTime: 0,
+    lastClipboardText: "",
+    importedSignatures: new Set(),
+    toastContainer: null,
+    toggleBtn: null,
+
+    wasOutside: false,
+
+    init() {
+        this.toastContainer = document.getElementById("toast-container");
+        this.toggleBtn = document.getElementById("clipboard-toggle");
+
+        // Vorherige Sitzungssignaturen bereinigen
+        try {
+            sessionStorage.removeItem("bibstream_imported_signatures");
+        } catch (e) {}
+        this.importedSignatures.clear();
+
+        // Gespeicherten Zustand laden (Standard: aktiv)
+        const savedPref = localStorage.getItem("bibstream-clipboard-watcher");
+        if (savedPref !== null) {
+            this.isEnabled = savedPref === "true";
+        }
+        this.updateToggleBtnState();
+
+        if (this.toggleBtn) {
+            this.toggleBtn.addEventListener("click", () => this.toggle());
+        }
+
+        const menuToggle = document.getElementById("menu-toggle-clipboard");
+        if (menuToggle) {
+            menuToggle.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.toggle();
+                document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
+            });
+        }
+
+        // Menü: Aus Zwischenablage einfügen
+        const menuPasteBtn = document.getElementById("btn-paste-clipboard");
+        if (menuPasteBtn) {
+            menuPasteBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.checkClipboard(true, true);
+                document.querySelectorAll(".dropdownImportClass").forEach(el => el.classList.remove("show"));
+            });
+        }
+
+        // 1. Erkennung, wenn Benutzer den BibStream-Tab verlässt und zurückkehrt
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "hidden") {
+                this.wasOutside = true;
+            } else if (document.visibilityState === "visible") {
+                if (this.wasOutside && this.isEnabled) {
+                    this.wasOutside = false;
+                    // Beim Zurückkehren von einer externen Seite (z.B. IEEE) sofort prüfen
+                    setTimeout(() => this.checkClipboard(false, true), 50);
+                }
+            }
+        });
+
+        // 2. Fenster-Fokus (z.B. bei geteiltem Bildschirm / zwei Fenstern)
+        window.addEventListener("blur", () => {
+            this.wasOutside = true;
+        });
+
+        window.addEventListener("focus", () => {
+            if (this.wasOutside && this.isEnabled) {
+                this.wasOutside = false;
+                setTimeout(() => this.checkClipboard(false, true), 60);
+            }
+        });
+
+        // 3. Erster Klick nach Rückkehr von extern (garantiert Browser-User-Activation)
+        document.addEventListener("pointerdown", () => {
+            if (this.wasOutside && this.isEnabled) {
+                this.wasOutside = false;
+                this.checkClipboard(true, true);
+            }
+        }, { capture: true });
+
+        // 4. Internes Kopieren in BibStream: Kopierten Text als bekannt markieren,
+        // damit dieser nicht unbeabsichtigt als neues Zitat auto-importiert wird
+        document.addEventListener("copy", () => {
+            const sel = window.getSelection ? window.getSelection().toString() : "";
+            if (sel) {
+                this.lastClipboardText = sel.trim();
+            }
+        });
+
+        // 5. Normales Einfügen (Strg+V): Funktioniert IMMER ohne Browser-Berechtigungs-Prompt
+        window.addEventListener("paste", (e) => {
+            const pastedText = e.clipboardData ? e.clipboardData.getData("text") : "";
+            if (pastedText) {
+                const entries = this.extractBibtexEntries(pastedText);
+                if (entries.length > 0) {
+                    e.preventDefault();
+                    this.processText(pastedText);
+                }
+            }
+        });
+
+        // Beim ersten Laden den aktuellen Clipboard-Inhalt initial synchronisieren
+        this.syncCurrentClipboard();
+    },
+
+    /**
+     * Wird aufgerufen, wenn der Benutzer zwischen Bib-Dateien (Tabs) wechselt.
+     * Verhindert zuverlässig, dass das zuvor kopierte Zitat in die neu gewählte Datei eingefügt wird.
+     */
+    async onTabSwitched() {
+        this.wasOutside = false;
+        await this.syncCurrentClipboard();
+    },
+
+    async syncCurrentClipboard() {
+        if (!navigator.clipboard || typeof navigator.clipboard.readText !== "function") return;
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text && typeof text === "string") {
+                this.lastClipboardText = text.trim();
+            }
+        } catch (err) {}
+    },
+
+    toggle() {
+        this.isEnabled = !this.isEnabled;
+        localStorage.setItem("bibstream-clipboard-watcher", this.isEnabled ? "true" : "false");
+        this.updateToggleBtnState();
+        if (this.isEnabled) {
+            this.showToast("Auto-Import aktiv", "Prüft beim Wechsel zu BibStream auf Zitate");
+            this.checkClipboard(true, true);
+        } else {
+            this.showToast("Auto-Import pausiert", "Automatische Erkennung deaktiviert");
+        }
+    },
+
+    updateToggleBtnState() {
+        const btn = document.getElementById("clipboard-toggle");
+        const label = document.getElementById("clipboard-toggle-label");
+        const menuIcon = document.getElementById("menu-clipboard-icon");
+        const menuStatus = document.getElementById("menu-clipboard-status");
+
+        if (btn) {
+            if (this.isEnabled) {
+                btn.classList.add("active");
+                btn.title = "Auto-Import: Aktiv - Klicken zum Ausschalten";
+                if (label) label.textContent = "Auto-Import: An";
+            } else {
+                btn.classList.remove("active");
+                btn.title = "Auto-Import: Aus - Klicken zum Einschalten";
+                if (label) label.textContent = "Auto-Import: Aus";
+            }
+        }
+
+        if (menuIcon) {
+            menuIcon.textContent = this.isEnabled ? "toggle_on" : "toggle_off";
+        }
+        if (menuStatus) {
+            menuStatus.textContent = this.isEnabled ? "An" : "Aus";
+        }
+    },
+
+    async checkClipboard(isUserGesture = false, forceCheck = false) {
+        if (!this.isEnabled) return;
+        if (!navigator.clipboard || typeof navigator.clipboard.readText !== "function") return;
+
+        // Keine parallelen Abfragen
+        if (this.isChecking) return;
+
+        // Cooldown bei automatischen Fokus-Events (mindestens 300ms)
+        const now = Date.now();
+        if (!isUserGesture && !forceCheck && (now - this.lastCheckTime < 300)) return;
+        this.lastCheckTime = now;
+
+        this.isChecking = true;
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text && typeof text === "string") {
+                const trimmed = text.trim();
+                if (trimmed) {
+                    this.lastClipboardText = trimmed;
+                    this.processText(trimmed);
+                }
+            }
+        } catch (err) {
+            console.log("[ClipboardModule] readText:", err && err.message);
+        } finally {
+            this.isChecking = false;
+        }
+    },
+
+    /**
+     * Prüft, ob der gegebene Text einen oder mehrere BibTeX-Einträge enthält.
+     * Unterstützt IEEE (@INPROCEEDINGS{11404116, ...}), ACM, Springer, arXiv etc.
+     */
+    processText(rawText) {
+        const entries = this.extractBibtexEntries(rawText);
+        if (!entries || entries.length === 0) return;
+
+        entries.forEach(entry => {
+            this.handleDetectedEntry(entry);
+        });
+    },
+
+    /**
+     * Robustes Parsing und Extrahieren von BibTeX-Zitaten aus Rohtext.
+     * Berücksichtigt Brace-Depth, Klammern, Quotes und IEEE-Besonderheiten.
+     */
+    extractBibtexEntries(text) {
+        const results = [];
+        const regex = /@([a-zA-Z]+)\s*([{(])/g;
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+            const type = match[1];
+            const openDelim = match[2];
+            const closeDelim = openDelim === '{' ? '}' : ')';
+            const startIndex = match.index;
+            const bodyStart = match.index + match[0].length;
+
+            let depth = 1;
+            let i = bodyStart;
+            let inQuotes = false;
+
+            while (i < text.length && depth > 0) {
+                const char = text[i];
+                const prevChar = i > 0 ? text[i - 1] : '';
+
+                if (char === '"' && prevChar !== '\\') {
+                    inQuotes = !inQuotes;
+                } else if (!inQuotes) {
+                    if (char === openDelim) {
+                        depth++;
+                    } else if (char === closeDelim) {
+                        depth--;
+                    }
+                }
+                if (depth > 0) i++;
+            }
+
+            if (depth === 0) {
+                const fullRaw = text.substring(startIndex, i + 1);
+                const afterDelim = text.substring(bodyStart, i);
+                
+                // Key extrahieren: alles bis zum ersten Komma
+                const firstComma = afterDelim.indexOf(',');
+                if (firstComma > 0) {
+                    const key = afterDelim.substring(0, firstComma).trim();
+                    const body = afterDelim.substring(firstComma + 1);
+
+                    // Validierung: Mindestens ein '=' Zeichen im Body
+                    if (key && body.includes('=')) {
+                        results.push({
+                            type: type,
+                            key: key,
+                            raw: fullRaw,
+                            openDelim: openDelim,
+                            closeDelim: closeDelim,
+                            body: body
+                        });
+                        regex.lastIndex = i + 1;
+                    }
+                }
+            }
+        }
+        return results;
+    },
+
+    /**
+     * Formatiert den BibTeX-Eintrag sauber (Einrückung 2 Spaces, Ausrichtung '='-Zeichen,
+     * schließende Klammer auf eigener Zeile).
+     */
+    formatEntry(entryObj) {
+        const typeLower = entryObj.type.toLowerCase();
+        const key = entryObj.key;
+        const fields = this.parseFieldsFromBody(entryObj.body);
+
+        let formatted = `@${typeLower}{${key},\n`;
+        fields.forEach((f, idx) => {
+            const fieldName = f.name.toLowerCase().padEnd(12);
+            const valFormatted = (f.value.startsWith('{') || f.value.startsWith('"')) ? f.value : `{${f.value}}`;
+            const isLast = idx === fields.length - 1;
+            formatted += `  ${fieldName} = ${valFormatted}${isLast ? '' : ','}\n`;
+        });
+        formatted += `}`;
+        return formatted;
+    },
+
+    /**
+     * Zerlegt den Body eines BibTeX-Eintrags in einzelne Feld-Wert-Paare.
+     */
+    parseFieldsFromBody(body) {
+        const fields = [];
+        let i = 0;
+        const len = body.length;
+
+        while (i < len) {
+            // Whitespace & Kommas überspringen
+            while (i < len && (/\s/.test(body[i]) || body[i] === ',')) i++;
+            if (i >= len) break;
+
+            // Feldname lesen
+            const nameStart = i;
+            while (i < len && body[i] !== '=' && !/\s/.test(body[i]) && body[i] !== '}' && body[i] !== ')') i++;
+            const name = body.substring(nameStart, i).trim();
+            if (!name) break;
+
+            // Bis '=' laufen
+            while (i < len && body[i] !== '=') i++;
+            if (i >= len) break;
+            i++; // '=' überspringen
+
+            // Führende Whitespaces vor Wert überspringen
+            while (i < len && /\s/.test(body[i])) i++;
+            if (i >= len) break;
+
+            // Wert ermitteln
+            const valChar = body[i];
+            let value = "";
+            if (valChar === '{') {
+                let depth = 1;
+                const valStart = i;
+                i++;
+                while (i < len && depth > 0) {
+                    if (body[i] === '{') depth++;
+                    else if (body[i] === '}') depth--;
+                    if (depth > 0) i++;
+                }
+                value = body.substring(valStart, i + 1);
+                i++;
+            } else if (valChar === '"') {
+                const valStart = i;
+                i++;
+                while (i < len) {
+                    if (body[i] === '"' && body[i - 1] !== '\\') break;
+                    i++;
+                }
+                value = body.substring(valStart, i + 1);
+                i++;
+            } else {
+                // Unquoted Wert bis zum nächsten Komma oder Zeilenende
+                const valStart = i;
+                while (i < len && body[i] !== ',' && body[i] !== '\n' && body[i] !== '}' && body[i] !== ')') {
+                    i++;
+                }
+                value = body.substring(valStart, i).trim();
+            }
+
+            if (name && value) {
+                fields.push({ name, value: value.trim() });
+            }
+        }
+
+        return fields;
+    },
+
+    /**
+     * Fügt einen erkannten BibTeX-Eintrag in den Editor ein und hebt ihn hervor.
+     * Stellt sicher, dass das Zitat nur ein einziges Mal eingefügt wird
+     * und niemals beim Wechseln von Bib-Dateien wiederholt wird.
+     */
+    handleDetectedEntry(entryObj) {
+        if (!EditorModule.editorInstance) return;
+        const cm = EditorModule.editorInstance;
+        const currentDoc = cm.getValue();
+
+        const escapedKey = entryObj.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const keyExistsRegex = new RegExp(`@\\w+\\s*\\{\\s*${escapedKey}\\s*,`, 'i');
+
+        // 1. Prüfen, ob dieser Eintrag bereits im aktuellen Dokument vorhanden ist
+        if (keyExistsRegex.test(currentDoc)) {
+            console.log(`[ClipboardModule] Eintrag ${entryObj.key} existiert bereits in dieser Datei.`);
+            EditorModule.jumpToKey(entryObj.key, true);
+            if (typeof SidebarModule.highlightKey === "function") {
+                SidebarModule.highlightKey(entryObj.key);
+            }
+            this.showToast("Bereits vorhanden", `@${entryObj.type}{${entryObj.key}} existiert bereits`);
+            return;
+        }
+
+        const finalKey = entryObj.key;
+
+        // 2. Sauber formatieren
+        const formatted = this.formatEntry(entryObj);
+
+        // 3. Im Editor am Ende anfügen
+        const separator = (currentDoc.trim().length > 0)
+            ? (currentDoc.endsWith('\n\n') ? '' : (currentDoc.endsWith('\n') ? '\n' : '\n\n'))
+            : '';
+        const insertionText = separator + formatted + '\n';
+        const lastLine = cm.lineCount();
+        const insertFrom = { line: lastLine, ch: 0 };
+
+        cm.replaceRange(insertionText, insertFrom);
+
+        // 4. Zum neuen Eintrag springen, den gesamten Block markieren und fokussieren
+        setTimeout(() => {
+            EditorModule.jumpToKey(finalKey, true);
+            if (typeof SidebarModule.highlightKey === "function") {
+                SidebarModule.highlightKey(finalKey);
+            }
+        }, 80);
+
+        // 5. Toast-Benachrichtigung anzeigen
+        this.showToast(
+            "Neues Zitat aus Zwischenablage hinzugefügt",
+            `@${entryObj.type}{${finalKey}}`
+        );
+        console.log(`[ClipboardModule] Neuer Eintrag hinzugefügt: ${finalKey}`);
+    },
+
+    showToast(title, message) {
+        if (!this.toastContainer) {
+            this.toastContainer = document.getElementById("toast-container");
+            if (!this.toastContainer) return;
+        }
+
+        const toast = document.createElement("div");
+        toast.className = "toast-notification";
+        toast.innerHTML = `
+            <span class="material-symbols-outlined toast-icon">content_paste_go</span>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+        `;
+
+        this.toastContainer.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add("hide");
+            setTimeout(() => toast.remove(), 350);
+        }, 3800);
     }
 };
 
