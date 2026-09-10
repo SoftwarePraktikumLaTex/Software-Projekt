@@ -2224,9 +2224,9 @@ const LayoutModule = {
 // --- 13. CLIPBOARD MODULE (Automatische Überwachung & Zitat-Import) ---
 const ClipboardModule = {
     isEnabled: true,
-    checkInterval: 300,
-    intervalId: null,
     isChecking: false,
+    hasPermissionFailed: false,
+    lastCheckTime: 0,
     lastClipboardText: "",
     importedSignatures: new Set(),
     toastContainer: null,
@@ -2259,27 +2259,35 @@ const ClipboardModule = {
             });
         }
 
-        // 300ms Polling-Timer starten
-        this.startWatching();
+        // Quick-Paste Button in Topbar & Menü
+        const quickPasteBtn = document.getElementById("btn-quick-paste");
+        if (quickPasteBtn) {
+            quickPasteBtn.addEventListener("click", () => this.checkClipboard(true));
+        }
+        const menuPasteBtn = document.getElementById("btn-paste-clipboard");
+        if (menuPasteBtn) {
+            menuPasteBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.checkClipboard(true);
+                document.querySelectorAll(".dropdownImportClass").forEach(el => el.classList.remove("show"));
+            });
+        }
 
-        // 1. Browser-Tab-Wechsel: Sofort prüfen, sobald der Tab wieder sichtbar wird
+        // 1. Browser-Tab-Wechsel: Nur prüfen, wenn Tab aktiv wird und Berechtigung nicht verweigert wurde
         document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === "visible" && this.isEnabled) {
-                this.checkClipboard();
+            if (document.visibilityState === "visible" && this.isEnabled && !this.hasPermissionFailed) {
+                this.checkClipboard(false);
             }
         });
 
-        // 2. Fenster-Fokus: Sofort prüfen beim Wechsel zwischen Fenstern/Anwendungen
+        // 2. Fenster-Fokus: Nur prüfen beim Wechsel zwischen Fenstern/Anwendungen
         window.addEventListener("focus", () => {
-            if (this.isEnabled) this.checkClipboard();
+            if (this.isEnabled && !this.hasPermissionFailed) {
+                this.checkClipboard(false);
+            }
         });
 
-        // 3. Maus betritt das BibStream-Fenster
-        document.addEventListener("mouseenter", () => {
-            if (this.isEnabled) this.checkClipboard();
-        });
-
-        // 4. Internes Kopieren in BibStream: Kopierten Text als bekannt markieren,
+        // 3. Internes Kopieren in BibStream: Kopierten Text als bekannt markieren,
         // damit dieser nicht unbeabsichtigt als neues Zitat auto-importiert wird
         document.addEventListener("copy", () => {
             const sel = window.getSelection ? window.getSelection().toString() : "";
@@ -2288,9 +2296,8 @@ const ClipboardModule = {
             }
         });
 
-        // 5. Normales Einfügen (Strg+V)
+        // 4. Normales Einfügen (Strg+V): Funktioniert IMMER ohne Browser-Berechtigungs-Prompt
         window.addEventListener("paste", (e) => {
-            if (!this.isEnabled) return;
             const pastedText = e.clipboardData ? e.clipboardData.getData("text") : "";
             if (pastedText) {
                 const entries = this.extractBibtexEntries(pastedText);
@@ -2347,12 +2354,13 @@ const ClipboardModule = {
     toggle() {
         this.isEnabled = !this.isEnabled;
         localStorage.setItem("bibstream-clipboard-watcher", this.isEnabled ? "true" : "false");
+        this.hasPermissionFailed = false; // Bei manuellem Umschalten Erlaubnis-Status zurücksetzen
         this.updateToggleBtnState();
         if (this.isEnabled) {
-            this.showToast("Clipboard-Überwachung aktiv", "Prüft alle 300ms auf neue Zitate");
-            this.checkClipboard();
+            this.showToast("Auto-Import aktiv", "Prüft beim Wechsel zu BibStream auf Zitate");
+            this.checkClipboard(true);
         } else {
-            this.showToast("Clipboard-Überwachung pausiert", "Automatische Erkennung deaktiviert");
+            this.showToast("Auto-Import pausiert", "Automatische Erkennung deaktiviert");
         }
     },
 
@@ -2365,11 +2373,11 @@ const ClipboardModule = {
         if (btn) {
             if (this.isEnabled) {
                 btn.classList.add("active");
-                btn.title = "Zwischenablage-Überwachung: Aktiv (alle 300ms) - Klicken zum Ausschalten";
+                btn.title = "Auto-Import: Aktiv - Klicken zum Ausschalten";
                 if (label) label.textContent = "Auto-Import: An";
             } else {
                 btn.classList.remove("active");
-                btn.title = "Zwischenablage-Überwachung: Aus - Klicken zum Einschalten";
+                btn.title = "Auto-Import: Aus - Klicken zum Einschalten";
                 if (label) label.textContent = "Auto-Import: Aus";
             }
         }
@@ -2382,20 +2390,25 @@ const ClipboardModule = {
         }
     },
 
-    startWatching() {
-        if (this.intervalId) clearInterval(this.intervalId);
-        this.intervalId = setInterval(() => {
-            if (this.isEnabled && !this.isChecking) {
-                this.checkClipboard();
-            }
-        }, this.checkInterval);
-    },
-
-    async checkClipboard() {
+    async checkClipboard(isUserGesture = false) {
+        if (!this.isEnabled && !isUserGesture) return;
         if (!navigator.clipboard || typeof navigator.clipboard.readText !== "function") return;
+
+        // Wurde der Zugriff vom Browser/Benutzer abgelehnt, nicht erneut per Popup nerven
+        if (this.hasPermissionFailed && !isUserGesture) return;
+
+        // Keine parallelen Abfragen
+        if (this.isChecking) return;
+
+        // Cooldown bei automatischen Fokus-Events (mindestens 2.5 Sekunden)
+        const now = Date.now();
+        if (!isUserGesture && (now - this.lastCheckTime < 2500)) return;
+        this.lastCheckTime = now;
+
         this.isChecking = true;
         try {
             const text = await navigator.clipboard.readText();
+            this.hasPermissionFailed = false;
             if (text && typeof text === "string") {
                 const trimmed = text.trim();
                 if (trimmed && trimmed !== this.lastClipboardText) {
@@ -2404,7 +2417,10 @@ const ClipboardModule = {
                 }
             }
         } catch (err) {
-            // NotAllowedError oder Fokus-Einschränkungen still abfangen
+            if (err && err.name === "NotAllowedError") {
+                this.hasPermissionFailed = true;
+                console.warn("[ClipboardModule] Zwischenablage-Zugriff nicht gestattet / abgebrochen.");
+            }
         } finally {
             this.isChecking = false;
         }
