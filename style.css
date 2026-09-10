@@ -767,6 +767,41 @@ body {
     margin-top: 2px;
 }
 
+#citation-list .entry-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+#citation-list .entry-delete-btn {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 3px 4px;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+    opacity: 0.8;
+    line-height: 1;
+}
+
+#citation-list .entry-delete-btn:hover {
+    opacity: 1;
+    color: #dc2626;
+    background-color: rgba(239, 68, 68, 0.14);
+    transform: scale(1.12);
+}
+
+#citation-list .entry-delete-btn .material-symbols-outlined {
+    font-size: 19px;
+}
+
 #citation-list .sidebar-link-btn {
     font-size: 1em;
     color: var(--link-color);
@@ -1100,6 +1135,55 @@ body.layout-side-by-side .editor-container {
     border-color: var(--accent);
 }
 
+.danger-btn {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #ffffff;
+    border: none;
+    padding: 9px 20px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all var(--transition);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.danger-btn:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.45);
+    transform: translateY(-1px);
+}
+
+.delete-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.delete-modal-header h2 {
+    margin: 0;
+}
+
+.delete-warning-icon {
+    font-size: 28px;
+    color: #ef4444;
+}
+
+.delete-entry-preview {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12.5px;
+    padding: 10px 14px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    word-break: break-all;
+    margin: 14px 0 20px 0;
+    line-height: 1.5;
+}
+
 /* ---------------------------------- */
 /* DROPDOWNS (Alexandros)             */
 /* ---------------------------------- */
@@ -1211,4 +1295,168 @@ body.layout-side-by-side .editor-container {
 ::selection {
     background-color: var(--accent-dim);
     color: var(--text-primary);
+}
+
+/* ===== CLIPBOARD WATCHER & TOAST NOTIFICATIONS ===== */
+.clipboard-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    border: 1px solid var(--border-light);
+    background-color: var(--bg-elevated);
+    color: var(--text-secondary);
+}
+
+.clipboard-toggle-btn.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background-color: var(--accent-dim);
+}
+
+.clipboard-toggle-btn:not(.active) {
+    opacity: 0.6;
+    color: var(--text-muted);
+}
+
+.clipboard-toggle-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.clipboard-toggle-btn .material-symbols-outlined {
+    font-size: 18px;
+}
+
+.clipboard-toggle-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+#menu-toggle-clipboard {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+#menu-toggle-clipboard .material-symbols-outlined {
+    font-size: 20px;
+    color: var(--accent);
+}
+
+/* ===== INLINE EDITOR ENTRY DELETE BUTTON ===== */
+.CodeMirror-line {
+    position: relative;
+    padding-right: 42px !important;
+}
+
+.cm-entry-delete-btn {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.75;
+    transition: all var(--transition);
+    z-index: 10;
+    line-height: 1;
+}
+
+.cm-entry-delete-btn:hover {
+    opacity: 1;
+    color: #dc2626;
+    background-color: rgba(239, 68, 68, 0.16);
+    transform: translateY(-50%) scale(1.18);
+}
+
+.cm-entry-delete-btn .material-symbols-outlined {
+    font-size: 18px;
+}
+
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 5000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.toast-notification {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--accent);
+    box-shadow: var(--shadow-lg), 0 0 12px var(--accent-dim);
+    border-radius: var(--radius-md);
+    padding: 12px 18px;
+    color: var(--text-primary);
+    font-size: 13.5px;
+    min-width: 280px;
+    max-width: 420px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transform: translateY(20px);
+    opacity: 0;
+    animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast-notification.hide {
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.toast-notification .toast-icon {
+    color: var(--accent);
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.toast-notification .toast-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.toast-notification .toast-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.toast-notification .toast-message {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+@keyframes toastSlideIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
