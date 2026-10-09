@@ -36,7 +36,7 @@ const App = {
 
         // Fallback: Wenn kein gespeicherter Zustand vorhanden ist, leeren Tab erstellen
         if (FileModule.files.length === 0) {
-            FileModule.addFile("Unbenannt.bib", "");
+            FileModule.addFile("Untitled.bib", "");
             FileModule.switchToTab(FileModule.files[0].id);
         }
     },
@@ -322,7 +322,7 @@ const FileModule = {
                         if (file.name.toLowerCase().endsWith('.txt')) {
                             content = this.extractBibtex(content);
                             if (!content) {
-                                alert('Diese .txt-Datei enthÃƒÂ¤lt keinen erkennbaren BibTeX-Inhalt und wird nicht importiert.');
+                                alert('This .txt file does not contain recognizable BibTeX content and will not be imported.');
                                 return;
                             }
                         }
@@ -330,7 +330,7 @@ const FileModule = {
                         this.addToRecentFiles(file.name, content);
                         if (this.files.length > 0) this.switchToTab(this.files[this.files.length - 1].id);
                     } catch (err) {
-                        if (err.name !== 'AbortError') console.error("Ãƒâ€“ffnen fehlgeschlagen:", err);
+                        if (err.name !== 'AbortError') console.error("Öffnen fehlgeschlagen:", err);
                     }
                 } else {
                     this.fileInput.value = '';
@@ -343,7 +343,7 @@ const FileModule = {
                 if (e.target.files[0]) this.readFileAndAdd(e.target.files[0]);
             });
         }
-        // Alexandros: UnterstÃƒÂ¼tzung fÃƒÂ¼r Ordner-Import
+        // Alexandros: Unterstützung für Ordner-Import
         if (this.folderBtn && this.folderInput) {
             this.folderBtn.addEventListener("click", (e) => {
                 e.preventDefault();
@@ -355,7 +355,7 @@ const FileModule = {
         }
     },
 
-    // Alexandros: Implementierung der Speicherlogik (Direktes ÃƒÅ“berschreiben via FileHandle)
+    // Alexandros: Implementierung der Speicherlogik (Direktes Überschreiben via FileHandle)
     async saveActiveFile() {
         const file = this.files.find(f => f.id === this.activeFileId);
         if (!file) return;
@@ -367,14 +367,14 @@ const FileModule = {
                 const writable = await file.handle.createWritable();
                 await writable.write(file.content);
                 await writable.close();
-                // Dirty-Flag zurÃƒÂ¼cksetzen und Tabs aktualisieren
+                // Dirty-Flag zurücksetzen und Tabs aktualisieren
                 file.dirty = false;
                 this.renderTabs();
-                console.log("Erfolgreich ÃƒÂ¼berschrieben:", file.name);
-                alert(`"${file.name}" gespeichert!`);
+                console.log("Erfolgreich überschrieben:", file.name);
+                alert(`"${file.name}" saved!`);
             } catch (err) {
-                console.error("Fehler beim ÃƒÅ“berschreiben:", err);
-                alert("Fehler beim Speichern. Versuche 'Speichern unter'.");
+                console.error("Fehler beim Überschreiben:", err);
+                alert("Error saving file. Try 'Save As'.");
             }
         } else {
             this.saveAsNewFile();
@@ -402,11 +402,11 @@ const FileModule = {
                 // Dirty-Flag zurÃƒÂ¼cksetzen
                 file.dirty = false;
                 this.renderTabs();
-                alert("Gespeichert!");
+                alert("Saved!");
             } catch (err) { /* Abbruch */ }
         } else {
             this.legacyDownload(file.name, file.content);
-            // Dirty-Flag zurÃƒÂ¼cksetzen nach Download
+            // Dirty-Flag zurücksetzen nach Download
             file.dirty = false;
             this.renderTabs();
         }
@@ -432,19 +432,18 @@ const FileModule = {
                 count++;
             }
         });
-        // FIX: BUG-3 behoben Ã¢â‚¬â€œ Fehlermeldung nennt jetzt beide akzeptierten Dateitypen
-        if (count === 0) alert("Keine .bib oder .txt Dateien gefunden.");
+        if (count === 0) alert("No .bib or .txt files found.");
     },
 
     readFileAndAdd(fileObj) {
         const reader = new FileReader();
         reader.onload = (e) => {
             let content = e.target.result;
-            // TXT-Import: BibTeX-BlÃƒÂ¶cke extrahieren, Rest verwerfen
+            // TXT-Import: BibTeX-Blöcke extrahieren, Rest verwerfen
             if (fileObj.name.toLowerCase().endsWith('.txt')) {
                 content = this.extractBibtex(content);
                 if (!content) {
-                    alert('Diese .txt-Datei enthÃƒÂ¤lt keinen erkennbaren BibTeX-Inhalt und wird nicht importiert.');
+                    alert('This .txt file does not contain recognizable BibTeX content and will not be imported.');
                     return;
                 }
             }
@@ -457,7 +456,7 @@ const FileModule = {
     },
 
     createNewFile() {
-        const name = `Unbenannt_${this.files.length + 1}.bib`;
+        const name = `Untitled_${this.files.length + 1}.bib`;
         this.addFile(name, "", null);
         this.switchToTab(this.files[this.files.length - 1].id);
     },
@@ -499,7 +498,7 @@ const FileModule = {
         if (this.activeFileId === id) {
             if (this.files.length > 0) this.switchToTab(this.files[this.files.length - 1].id);
             else {
-                this.addFile("Unbenannt.bib", "", null);
+                this.addFile("Untitled.bib", "", null);
                 this.switchToTab(this.files[0].id);
             }
         } else {
@@ -1142,7 +1141,7 @@ const EditorModule = {
                 const btn = document.createElement("button");
                 btn.className = "cm-entry-delete-btn";
                 btn.type = "button";
-                btn.title = `Eintrag @${type}{${key}} löschen`;
+                btn.title = `Delete entry @${type}{${key}}`;
                 btn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
 
                 btn.addEventListener("click", (e) => {
@@ -1676,9 +1675,9 @@ const SidebarModule = {
             const total = this.allEntries.length;
             const shown = entriesArray.length;
             if (this.searchTerms && this.searchTerms.length > 0) {
-                this.countDisplay.textContent = shown + " Treffer gefunden";
+                this.countDisplay.textContent = shown + (shown === 1 ? " match found" : " matches found");
             } else {
-                this.countDisplay.textContent = "Gesamt: " + total + " Einträge";
+                this.countDisplay.textContent = "Total: " + total + (total === 1 ? " entry" : " entries");
             }
         }
 
@@ -1687,7 +1686,7 @@ const SidebarModule = {
             emptyLi.setAttribute("data-empty", "true");
             emptyLi.style.padding = "10px";
             emptyLi.style.color = "var(--text-muted)";
-            emptyLi.textContent = "Keine Treffer";
+            emptyLi.textContent = "No matches found";
             this.citationListUl.appendChild(emptyLi);
             return;
         }
@@ -1745,7 +1744,7 @@ const SidebarModule = {
 
                         let label = k;
                         if (['address', 'location', 'ort', 'city'].includes(k)) {
-                            label = "Ort (" + k + ")";
+                            label = "Location (" + k + ")";
                         } else {
                             label = k.charAt(0).toUpperCase() + k.slice(1);
                         }
@@ -1775,8 +1774,8 @@ const SidebarModule = {
 
             const deleteBtn = document.createElement("button");
             deleteBtn.className = "entry-delete-btn";
-            deleteBtn.title = "Eintrag löschen";
-            deleteBtn.setAttribute("aria-label", "Eintrag löschen");
+            deleteBtn.title = "Delete entry";
+            deleteBtn.setAttribute("aria-label", "Delete entry");
             deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
             deleteBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
@@ -1824,7 +1823,7 @@ const SidebarModule = {
     openDeleteModal(entry) {
         this.entryToDelete = entry;
         if (this.deletePreview) {
-            const titleDisplay = entry.title ? `"${entry.title}"` : 'Ohne Titel';
+            const titleDisplay = entry.title ? `"${entry.title}"` : 'Untitled';
             this.deletePreview.textContent = `@${entry.type}{${entry.key}}\n${titleDisplay} (${entry.author}, ${entry.year})`;
         }
         if (this.deleteModal) {
@@ -1976,7 +1975,7 @@ const ImportModule = {
             const bibtex = this.extractReferences(fullText);
 
             if (!bibtex || bibtex.trim().length === 0) {
-                alert("Es konnten keine Referenzen in dieser PDF gefunden werden.\n\nMoegliche Gruende:\n- Die PDF enthaelt kein erkennbares Literaturverzeichnis\n- Die PDF ist bildbasiert (Scan) und enthaelt keinen extrahierbaren Text");
+                alert("No references could be found in this PDF.\n\nPossible reasons:\n- The PDF does not contain a recognizable bibliography\n- The PDF is image-based (scan) without extractable text");
                 return;
             }
 
@@ -1988,7 +1987,7 @@ const ImportModule = {
 
         } catch (err) {
             console.error("Fehler beim PDF-Import:", err);
-            alert("Fehler beim Lesen der PDF-Datei: " + err.message);
+            alert("Error reading PDF file: " + err.message);
         }
     },
 
@@ -2564,7 +2563,7 @@ const LinterModule = {
                     errors.push({
                         from: CodeMirror.Pos(i, line.indexOf(typeMatch[1])),
                         to: CodeMirror.Pos(i, line.indexOf(typeMatch[1]) + typeMatch[1].length),
-                        message: "Unbekannter Eintragstyp: \"@" + type + "\". Meinten Sie \"@article\"?",
+                        message: "Unknown entry type: \"@" + type + "\". Did you mean \"@article\"?",
                         severity: "error"
                     });
                 }
@@ -2578,7 +2577,7 @@ const LinterModule = {
                         errors.push({
                             from: CodeMirror.Pos(i, keyStart),
                             to: CodeMirror.Pos(i, keyStart + citationKey.length),
-                            message: "Doppelter BibTeX-Key: Dieser Zitationsschluessel existiert bereits weiter oben.",
+                            message: "Duplicate BibTeX key: This citation key already exists above.",
                             severity: "error"
                         });
                     } else {
@@ -2606,7 +2605,7 @@ const LinterModule = {
                             errors.push({
                                 from: CodeMirror.Pos(i, startCol),
                                 to: CodeMirror.Pos(i, startCol + fieldName.length),
-                                message: "Das Feld \"" + fieldName + "\" ist fuer den Typ \"@" + currentType + "\" unueblich.",
+                                message: "The field \"" + fieldName + "\" is unusual for type \"@" + currentType + "\".",
                                 severity: "warning"
                             });
                         }
@@ -2616,7 +2615,7 @@ const LinterModule = {
                         errors.push({
                             from: CodeMirror.Pos(i, startCol),
                             to: CodeMirror.Pos(i, startCol + fieldName.length),
-                            message: "Unbekanntes Feld: \"" + fieldName + "\".",
+                            message: "Unknown field: \"" + fieldName + "\".",
                             severity: "warning"
                         });
                     }
@@ -2629,7 +2628,7 @@ const LinterModule = {
                             errors.push({
                                 from: CodeMirror.Pos(i, line.length - 1),
                                 to: CodeMirror.Pos(i, line.length),
-                                message: "Fehlendes Komma am Ende der Feldzuweisung.",
+                                message: "Missing comma at the end of the field assignment.",
                                 severity: "error"
                             });
                         }
@@ -2638,7 +2637,7 @@ const LinterModule = {
                     errors.push({
                         from: CodeMirror.Pos(i, 0),
                         to: CodeMirror.Pos(i, line.length),
-                        message: "Syntaxfehler: Unerwartetes Format bei Zuweisung.",
+                        message: "Syntax error: Unexpected format in assignment.",
                         severity: "error"
                     });
                 }
@@ -2654,7 +2653,7 @@ const LinterModule = {
             errors.push({
                 from: CodeMirror.Pos(lines.length - 1, 0),
                 to: CodeMirror.Pos(lines.length - 1, lines[lines.length - 1].length),
-                message: "Klammern sind nicht ausgeglichen! (Offen: " + openBraces + ")",
+                message: "Braces are unbalanced! (Open: " + openBraces + ")",
                 severity: "error"
             });
         }
@@ -2889,10 +2888,10 @@ const ClipboardModule = {
         localStorage.setItem("bibstream-clipboard-watcher", this.isEnabled ? "true" : "false");
         this.updateToggleBtnState();
         if (this.isEnabled) {
-            this.showToast("Auto-Import aktiv", "Prüft beim Wechsel zu BibStream auf Zitate");
+            this.showToast("Auto-import active", "Checks for citations when switching to BibStream");
             this.checkClipboard(true, true);
         } else {
-            this.showToast("Auto-Import pausiert", "Automatische Erkennung deaktiviert");
+            this.showToast("Auto-import paused", "Automatic detection disabled");
         }
     },
 
@@ -2905,12 +2904,12 @@ const ClipboardModule = {
         if (btn) {
             if (this.isEnabled) {
                 btn.classList.add("active");
-                btn.title = "Auto-Import: Aktiv - Klicken zum Ausschalten";
-                if (label) label.textContent = "Auto-Import: An";
+                btn.title = "Auto-import: Active - Click to disable";
+                if (label) label.textContent = "Auto-Import: On";
             } else {
                 btn.classList.remove("active");
-                btn.title = "Auto-Import: Aus - Klicken zum Einschalten";
-                if (label) label.textContent = "Auto-Import: Aus";
+                btn.title = "Auto-import: Inactive - Click to enable";
+                if (label) label.textContent = "Auto-Import: Off";
             }
         }
 
@@ -2918,7 +2917,7 @@ const ClipboardModule = {
             menuIcon.textContent = this.isEnabled ? "toggle_on" : "toggle_off";
         }
         if (menuStatus) {
-            menuStatus.textContent = this.isEnabled ? "An" : "Aus";
+            menuStatus.textContent = this.isEnabled ? "On" : "Off";
         }
     },
 
@@ -3136,7 +3135,7 @@ const ClipboardModule = {
             if (typeof SidebarModule.highlightKey === "function") {
                 SidebarModule.highlightKey(entryObj.key);
             }
-            this.showToast("Bereits vorhanden", `@${entryObj.type}{${entryObj.key}} existiert bereits`);
+            this.showToast("Already exists", `@${entryObj.type}{${entryObj.key}} already exists`);
             return;
         }
 
@@ -3165,7 +3164,7 @@ const ClipboardModule = {
 
         // 5. Toast-Benachrichtigung anzeigen
         this.showToast(
-            "Neues Zitat aus Zwischenablage hinzugefügt",
+            "New citation added from clipboard",
             `@${entryObj.type}{${finalKey}}`
         );
         console.log(`[ClipboardModule] Neuer Eintrag hinzugefügt: ${finalKey}`);
