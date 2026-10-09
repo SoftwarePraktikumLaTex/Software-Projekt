@@ -888,41 +888,76 @@ const EditorModule = {
 
     /**
      * Springt zum BibTeX-Eintrag mit dem gegebenen Key.
-     * Scrollt den Eintrag bündig an den oberen Bildschirmrand und
-     * hebt den gesamten Block kurzzeitig farblich hervor.
+     * Markiert die gesamte ausgewählte Quelle im Editor, scrollt sie bündig nach oben
+     * und fokussiert den Editor, sodass der Eintrag direkt per Strg+C / Strg+V kopiert werden kann.
      */
-    jumpToKey(keyName, selectWholeBlock = false) {
+    jumpToKey(keyName, selectWholeBlock = true) {
         if (!this.editorInstance) return;
         this.isJumping = true; // Ping-Pong Effekt verhindern
         const cm = this.editorInstance;
-        const cursor = cm.getSearchCursor(keyName);
-        if (!cursor.findNext()) {
-            setTimeout(() => this.isJumping = false, 300);
-            return;
-        }
+        const totalLines = cm.lineCount();
+        const escapedKey = keyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const headerRegex = new RegExp(`^\\s*@\\w+\\s*\\{\\s*${escapedKey}\\s*(?:,|$)`, 'i');
 
-        const matchLine = cursor.from().line;
-
-        // Finde den Start des @type{-Blocks (rückwärts ab Treffer-Zeile)
-        let blockStart = matchLine;
-        for (let i = matchLine; i >= 0; i--) {
-            if (cm.getLine(i).trim().startsWith('@')) {
+        // 1. Suche die Header-Zeile des Eintrags (@type{key,)
+        let blockStart = -1;
+        for (let i = 0; i < totalLines; i++) {
+            if (headerRegex.test(cm.getLine(i))) {
                 blockStart = i;
                 break;
             }
         }
 
-        // Finde das Ende des Blocks (vorwärts per Klammertiefe)
-        let blockEnd = matchLine;
+        // Fallback: Suche über getSearchCursor, falls Header mehrzeilig umbrochen ist oder Whitespace abweicht
+        if (blockStart === -1) {
+            const cursor = cm.getSearchCursor(keyName);
+            while (cursor.findNext()) {
+                const matchLine = cursor.from().line;
+                for (let i = matchLine; i >= 0; i--) {
+                    if (cm.getLine(i).trim().startsWith('@')) {
+                        const snippet = cm.getRange({ line: i, ch: 0 }, { line: matchLine + 1, ch: 0 });
+                        if (new RegExp(`@\\w+\\s*\\{\\s*${escapedKey}\\s*[,\\s]`, 'i').test(snippet)) {
+                            blockStart = i;
+                        }
+                        break;
+                    }
+                }
+                if (blockStart !== -1) break;
+            }
+        }
+
+        // Letzter Fallback: Erstes Vorkommen von keyName
+        if (blockStart === -1) {
+            const cursor = cm.getSearchCursor(keyName);
+            if (!cursor.findNext()) {
+                setTimeout(() => this.isJumping = false, 300);
+                return;
+            }
+            const matchLine = cursor.from().line;
+            blockStart = matchLine;
+            for (let i = matchLine; i >= 0; i--) {
+                if (cm.getLine(i).trim().startsWith('@')) {
+                    blockStart = i;
+                    break;
+                }
+            }
+        }
+
+        // 2. Finde das Ende des Blocks (vorwärts per Klammertiefe)
+        let blockEnd = blockStart;
         let depth = 0;
-        const totalLines = cm.lineCount();
+        let foundOpenBrace = false;
         for (let i = blockStart; i < totalLines; i++) {
             const line = cm.getLine(i);
             for (const ch of line) {
-                if (ch === '{') depth++;
-                else if (ch === '}') depth--;
+                if (ch === '{' || ch === '(') {
+                    depth++;
+                    foundOpenBrace = true;
+                } else if (ch === '}' || ch === ')') {
+                    depth--;
+                }
             }
-            if (depth <= 0) {
+            if (foundOpenBrace && depth <= 0) {
                 blockEnd = i;
                 break;
             }
@@ -934,8 +969,11 @@ const EditorModule = {
                 { line: blockEnd, ch: cm.getLine(blockEnd).length }
             );
         } else {
-            // Selektion auf den Key setzen
-            cm.setSelection(cursor.from(), cursor.to());
+            // Selektion nur auf den Key setzen
+            const keyCursor = cm.getSearchCursor(keyName, { line: blockStart, ch: 0 });
+            if (keyCursor.findNext()) {
+                cm.setSelection(keyCursor.from(), keyCursor.to());
+            }
         }
 
         // Scroll: Eintrag bündig oben am Bildschirmrand
@@ -956,7 +994,12 @@ const EditorModule = {
         }, 3500);
 
         cm.focus();
-        setTimeout(() => this.isJumping = false, 300);
+        setTimeout(() => {
+            if (this.editorInstance) {
+                this.editorInstance.focus();
+            }
+            this.isJumping = false;
+        }, 50);
     },
 
     /**
@@ -1177,6 +1220,17 @@ const SidebarModule = {
                 this.setSortMode(e.target.value);
             });
         }
+
+        // Falls Fokus auf der Sidebar liegt und Strg+C gedrückt wird: Editor fokussieren, damit die markierte Quelle kopiert wird
+        window.addEventListener("keydown", (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key && e.key.toLowerCase() === 'c') {
+                if (document.activeElement && document.activeElement.closest('.sidebar')) {
+                    if (typeof EditorModule !== "undefined" && EditorModule.editorInstance && EditorModule.editorInstance.somethingSelected()) {
+                        EditorModule.editorInstance.focus();
+                    }
+                }
+            }
+        });
     },
 
     parseAndRefresh(text) {
@@ -1733,7 +1787,10 @@ const SidebarModule = {
             li.appendChild(infoDiv);
             li.appendChild(actionsDiv);
 
-            li.onclick = () => EditorModule.jumpToKey(entry.key);
+            li.onclick = () => {
+                this.highlightKey(entry.key);
+                EditorModule.jumpToKey(entry.key, true);
+            };
             this.citationListUl.appendChild(li);
         });
     },
@@ -1845,7 +1902,10 @@ const SearchModule = {
             form.addEventListener("submit", (e) => {
                 e.preventDefault();
                 const key = SidebarModule.getFirstVisibleKey();
-                if (key) EditorModule.jumpToKey(key);
+                if (key) {
+                    SidebarModule.highlightKey(key);
+                    EditorModule.jumpToKey(key, true);
+                }
             });
         }
     }

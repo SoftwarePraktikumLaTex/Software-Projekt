@@ -445,7 +445,11 @@ body {
 }
 
 .CodeMirror-selected {
-    background: var(--accent-dim) !important;
+    background: rgba(137, 180, 250, 0.35) !important;
+}
+
+[data-theme="light"] .CodeMirror-selected {
+    background: rgba(37, 99, 235, 0.22) !important;
 }
 
 .CodeMirror-activeline-background {
