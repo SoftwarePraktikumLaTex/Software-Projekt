@@ -2767,15 +2767,6 @@ const ClipboardModule = {
             });
         }
 
-        // Menü: Aus Zwischenablage einfügen
-        const menuPasteBtn = document.getElementById("btn-paste-clipboard");
-        if (menuPasteBtn) {
-            menuPasteBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                this.checkClipboard(true, true);
-                document.querySelectorAll(".dropdownImportClass").forEach(el => el.classList.remove("show"));
-            });
-        }
 
         // 1. Erkennung, wenn Benutzer den BibStream-Tab verlässt und zurückkehrt
         document.addEventListener("visibilitychange", () => {
