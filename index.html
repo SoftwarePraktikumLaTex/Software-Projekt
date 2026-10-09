@@ -81,6 +81,7 @@
                         <button id="import" class="import-btn"><span
                                 class="material-symbols-outlined">download</span>Import</button>
                         <div id="dropdownImportContent" class="dropdownImportClass">
+                            <a href="#" id="btn-import-identifier">Import via Identifier (DOI, arXiv, ISBN)...</a>
                             <a href="#" id="btn-import-pdf">Import PDF (Extract References)</a>
                         </div>
                     </div>
@@ -240,6 +241,46 @@
             <div class="modal-actions">
                 <button id="btn-cancel-delete" class="secondary-btn">Cancel</button>
                 <button id="btn-confirm-delete" class="danger-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Identifier Import Modal -->
+    <div id="identifier-modal" class="modal-overlay">
+        <div class="modal-content identifier-modal-content">
+            <div class="identifier-modal-header">
+                <span class="material-symbols-outlined identifier-header-icon">fingerprint</span>
+                <h2>Import via Identifier</h2>
+            </div>
+            <p class="identifier-modal-desc">Enter a DOI, arXiv-ID, ISBN, or URL to retrieve verified metadata directly via Crossref, DataCite, or Open Library:</p>
+
+            <div class="identifier-input-group">
+                <div class="identifier-input-wrapper">
+                    <span class="material-symbols-outlined identifier-search-icon">search</span>
+                    <input type="text" id="identifier-input" placeholder="e.g. 10.1145/3290605.3300267, 2410.11123, 978-0-13-468599-1" autocomplete="off" spellcheck="false">
+                </div>
+                <button id="btn-fetch-identifier" class="primary-btn identifier-fetch-btn" title="Fetch Metadata (Enter)">
+                    <span class="material-symbols-outlined" id="identifier-fetch-icon">sync</span>
+                    <span id="identifier-fetch-text">Fetch</span>
+                </button>
+            </div>
+
+            <div class="identifier-meta-row">
+                <span id="identifier-type-badge" class="identifier-badge" style="display: none;"></span>
+                <span id="identifier-status-text" class="identifier-status"></span>
+            </div>
+
+            <div id="identifier-preview-container" class="identifier-preview-container" style="display: none;">
+                <div class="identifier-preview-header">
+                    <span>Preview &amp; Edit BibTeX Entry:</span>
+                    <span id="identifier-key-tag" class="identifier-key-tag"></span>
+                </div>
+                <textarea id="identifier-preview-textarea" class="identifier-preview-textarea" spellcheck="false"></textarea>
+            </div>
+
+            <div class="modal-actions">
+                <button id="btn-cancel-identifier" class="secondary-btn">Cancel</button>
+                <button id="btn-confirm-identifier" class="primary-btn" disabled>Add to Document</button>
             </div>
         </div>
     </div>

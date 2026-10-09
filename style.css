@@ -1209,6 +1209,217 @@ body.layout-side-by-side .editor-container {
 }
 
 /* ---------------------------------- */
+/* IDENTIFIER IMPORT MODAL            */
+/* ---------------------------------- */
+.identifier-modal-content {
+    width: 580px;
+    max-width: 95%;
+}
+
+.identifier-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.identifier-modal-header h2 {
+    margin: 0;
+}
+
+.identifier-header-icon {
+    font-size: 26px;
+    color: var(--accent);
+}
+
+.identifier-modal-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.identifier-input-group {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.identifier-input-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.identifier-search-icon {
+    position: absolute;
+    left: 12px;
+    font-size: 19px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.identifier-input-wrapper input {
+    width: 100%;
+    padding: 10px 12px 10px 38px;
+    font-size: 13px;
+    font-family: inherit;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    transition: all var(--transition);
+    outline: none;
+    box-sizing: border-box;
+}
+
+.identifier-input-wrapper input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.identifier-fetch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    padding: 0 18px;
+    font-size: 13px;
+}
+
+.identifier-fetch-btn .material-symbols-outlined {
+    font-size: 18px;
+}
+
+.identifier-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 28px;
+    margin-top: 10px;
+    margin-bottom: 12px;
+    font-size: 12.5px;
+}
+
+.identifier-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background-color: var(--accent-dim);
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+}
+
+.identifier-badge.badge-arxiv {
+    background-color: rgba(78, 201, 176, 0.16);
+    color: #4ec9b0;
+}
+
+.identifier-badge.badge-isbn {
+    background-color: rgba(245, 158, 11, 0.16);
+    color: #f59e0b;
+}
+
+.identifier-badge.badge-doi {
+    background-color: rgba(137, 180, 250, 0.18);
+    color: var(--accent);
+}
+
+.identifier-badge.badge-url {
+    background-color: rgba(168, 85, 247, 0.16);
+    color: #a855f7;
+}
+
+.identifier-status {
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.identifier-status.status-loading {
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.identifier-status.status-error {
+    color: #ef4444;
+    font-weight: 500;
+}
+
+.identifier-status.status-success {
+    color: #10b981;
+    font-weight: 500;
+}
+
+.identifier-preview-container {
+    margin-top: 4px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.identifier-preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.identifier-key-tag {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background-color: var(--bg-elevated);
+    color: var(--accent);
+    border: 1px solid var(--border-light);
+}
+
+.identifier-preview-textarea {
+    width: 100%;
+    min-height: 160px;
+    max-height: 250px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 12px;
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.identifier-preview-textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spin-icon {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+/* ---------------------------------- */
 /* DROPDOWNS (Alexandros)             */
 /* ---------------------------------- */
 .dropdownDatei,

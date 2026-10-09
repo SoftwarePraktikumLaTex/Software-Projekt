@@ -1910,7 +1910,637 @@ const SearchModule = {
     }
 };
 
-// --- 7.5 IMPORT MODULE (PDF-Import) ---
+// --- 7.4 IDENTIFIER IMPORT MODULE (DOI, arXiv, ISBN, URL) ---
+const IdentifierImportModule = {
+    modal: null,
+    openBtn: null,
+    input: null,
+    fetchBtn: null,
+    fetchIcon: null,
+    fetchText: null,
+    badge: null,
+    statusText: null,
+    previewContainer: null,
+    previewTextarea: null,
+    keyTag: null,
+    cancelBtn: null,
+    confirmBtn: null,
+    currentDetected: null,
+
+    init() {
+        this.modal = document.querySelector("#identifier-modal");
+        this.openBtn = document.querySelector("#btn-import-identifier");
+        if (!this.modal || !this.openBtn) return;
+
+        this.input = document.querySelector("#identifier-input");
+        this.fetchBtn = document.querySelector("#btn-fetch-identifier");
+        this.fetchIcon = document.querySelector("#identifier-fetch-icon");
+        this.fetchText = document.querySelector("#identifier-fetch-text");
+        this.badge = document.querySelector("#identifier-type-badge");
+        this.statusText = document.querySelector("#identifier-status-text");
+        this.previewContainer = document.querySelector("#identifier-preview-container");
+        this.previewTextarea = document.querySelector("#identifier-preview-textarea");
+        this.keyTag = document.querySelector("#identifier-key-tag");
+        this.cancelBtn = document.querySelector("#btn-cancel-identifier");
+        this.confirmBtn = document.querySelector("#btn-confirm-identifier");
+
+        this.setupListeners();
+    },
+
+    setupListeners() {
+        this.openBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            document.querySelectorAll(".dropdownImportClass").forEach(el => el.classList.remove("show"));
+            this.openModal();
+        });
+
+        if (this.cancelBtn) {
+            this.cancelBtn.addEventListener("click", () => this.closeModal());
+        }
+
+        if (this.modal) {
+            this.modal.addEventListener("click", (e) => {
+                if (e.target === this.modal) this.closeModal();
+            });
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && this.modal && this.modal.classList.contains("show-modal")) {
+                this.closeModal();
+            }
+        });
+
+        if (this.input) {
+            this.input.addEventListener("input", () => this.handleInputChange());
+            this.input.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    this.fetchMetadata();
+                }
+            });
+        }
+
+        if (this.fetchBtn) {
+            this.fetchBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.fetchMetadata();
+            });
+        }
+
+        if (this.confirmBtn) {
+            this.confirmBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.importEntry();
+            });
+        }
+
+        if (this.previewTextarea) {
+            this.previewTextarea.addEventListener("input", () => {
+                this.updateKeyTagFromPreview();
+            });
+            this.previewTextarea.addEventListener("keydown", (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    this.importEntry();
+                }
+            });
+        }
+    },
+
+    openModal() {
+        this.modal.classList.add("show-modal");
+        this.resetState();
+        setTimeout(() => {
+            if (this.input) this.input.focus();
+        }, 60);
+    },
+
+    closeModal() {
+        this.modal.classList.remove("show-modal");
+    },
+
+    resetState() {
+        if (this.input) this.input.value = "";
+        this.currentDetected = null;
+        if (this.badge) {
+            this.badge.style.display = "none";
+            this.badge.className = "identifier-badge";
+            this.badge.textContent = "";
+        }
+        if (this.statusText) {
+            this.statusText.textContent = "";
+            this.statusText.className = "identifier-status";
+        }
+        if (this.previewContainer) this.previewContainer.style.display = "none";
+        if (this.previewTextarea) this.previewTextarea.value = "";
+        if (this.keyTag) this.keyTag.textContent = "";
+        if (this.confirmBtn) this.confirmBtn.disabled = true;
+        this.setLoading(false);
+    },
+
+    setLoading(isLoading, message = "") {
+        if (!this.fetchBtn) return;
+        this.fetchBtn.disabled = isLoading;
+        if (this.input) this.input.disabled = isLoading;
+        if (this.confirmBtn && isLoading) this.confirmBtn.disabled = true;
+
+        if (isLoading) {
+            if (this.fetchIcon) {
+                this.fetchIcon.textContent = "progress_activity";
+                this.fetchIcon.classList.add("spin-icon");
+            }
+            if (this.fetchText) this.fetchText.textContent = "Loading...";
+            if (this.statusText) {
+                this.statusText.textContent = message || "Fetching metadata...";
+                this.statusText.className = "identifier-status status-loading";
+            }
+        } else {
+            if (this.fetchIcon) {
+                this.fetchIcon.textContent = "sync";
+                this.fetchIcon.classList.remove("spin-icon");
+            }
+            if (this.fetchText) this.fetchText.textContent = "Fetch";
+        }
+    },
+
+    handleInputChange() {
+        const val = this.input ? this.input.value : "";
+        const detected = this.detectIdentifier(val);
+        this.currentDetected = detected;
+
+        if (detected) {
+            this.badge.style.display = "inline-flex";
+            this.badge.className = `identifier-badge badge-${detected.type}`;
+            this.badge.textContent = detected.label;
+            this.statusText.textContent = "";
+            this.statusText.className = "identifier-status";
+        } else if (val.trim()) {
+            this.badge.style.display = "none";
+            this.statusText.textContent = "Please enter a valid DOI, arXiv-ID, ISBN, or URL";
+            this.statusText.className = "identifier-status";
+        } else {
+            this.badge.style.display = "none";
+            this.statusText.textContent = "";
+            this.statusText.className = "identifier-status";
+        }
+    },
+
+    detectIdentifier(raw) {
+        const trimmed = (raw || "").trim();
+        if (!trimmed) return null;
+
+        // 1. DOI Pattern
+        const doiMatch = trimmed.match(/(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?(10\.\d{4,9}\/[-._;()/:A-Za-z0-9]+)/i);
+        if (doiMatch) {
+            let cleanDoi = doiMatch[1].replace(/[.,;)]+$/, '');
+            const arxivDoiMatch = cleanDoi.match(/^10\.48550\/arXiv\.(.+)$/i);
+            if (arxivDoiMatch) {
+                return {
+                    type: 'arxiv',
+                    value: arxivDoiMatch[1].replace(/v\d+$/i, ''),
+                    label: 'arXiv (via DataCite)'
+                };
+            }
+            return {
+                type: 'doi',
+                value: cleanDoi,
+                label: 'DOI (Crossref / DataCite)'
+            };
+        }
+
+        // 2. arXiv Pattern
+        const arxivUrlMatch = trimmed.match(/arxiv\.org\/(?:abs|pdf)\/([a-z\-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(?:v\d+)?(?:\.pdf)?/i);
+        if (arxivUrlMatch) {
+            return {
+                type: 'arxiv',
+                value: arxivUrlMatch[1],
+                label: 'arXiv (via DataCite)'
+            };
+        }
+        const arxivPrefixMatch = trimmed.match(/^arxiv:\s*([a-z\-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(?:v\d+)?$/i);
+        if (arxivPrefixMatch) {
+            return {
+                type: 'arxiv',
+                value: arxivPrefixMatch[1],
+                label: 'arXiv (via DataCite)'
+            };
+        }
+        const arxivRawNewMatch = trimmed.match(/^(\d{4}\.\d{4,5})(?:v\d+)?$/);
+        if (arxivRawNewMatch) {
+            return {
+                type: 'arxiv',
+                value: arxivRawNewMatch[1],
+                label: 'arXiv (via DataCite)'
+            };
+        }
+        const arxivRawOldMatch = trimmed.match(/^([a-z\-]+(?:\.[A-Z]{2})?\/\d{7})(?:v\d+)?$/i);
+        if (arxivRawOldMatch) {
+            return {
+                type: 'arxiv',
+                value: arxivRawOldMatch[1],
+                label: 'arXiv (via DataCite)'
+            };
+        }
+
+        // 3. ISBN Pattern
+        const isbnClean = trimmed.replace(/^(?:isbn(?:-1[03])?:?\s*)/i, '').replace(/[-\s]/g, '');
+        if (/^(?:97[89]\d{10}|\d{9}[\dX])$/i.test(isbnClean)) {
+            return {
+                type: 'isbn',
+                value: isbnClean,
+                label: 'ISBN (Open Library)'
+            };
+        }
+
+        // 4. URL
+        if (/^https?:\/\//i.test(trimmed)) {
+            return {
+                type: 'url',
+                value: trimmed,
+                label: 'Web URL (@misc)'
+            };
+        }
+
+        return null;
+    },
+
+    async fetchMetadata() {
+        const val = this.input ? this.input.value.trim() : "";
+        if (!val) {
+            this.statusText.textContent = "Please enter an identifier or URL.";
+            this.statusText.className = "identifier-status status-error";
+            return;
+        }
+
+        const detected = this.detectIdentifier(val);
+        if (!detected) {
+            this.statusText.textContent = "Unrecognized identifier format. Enter a DOI, arXiv ID, ISBN, or URL.";
+            this.statusText.className = "identifier-status status-error";
+            return;
+        }
+
+        this.setLoading(true, `Querying metadata for ${detected.label}...`);
+
+        try {
+            let bibtexRaw = "";
+            switch (detected.type) {
+                case "doi":
+                    bibtexRaw = await this.fetchDoi(detected.value);
+                    break;
+                case "arxiv":
+                    bibtexRaw = await this.fetchArxiv(detected.value);
+                    break;
+                case "isbn":
+                    bibtexRaw = await this.fetchIsbn(detected.value);
+                    break;
+                case "url":
+                    bibtexRaw = await this.fetchUrl(detected.value);
+                    break;
+                default:
+                    throw new Error("Unsupported identifier type.");
+            }
+
+            if (!bibtexRaw || !bibtexRaw.trim()) {
+                throw new Error("No metadata returned for this identifier.");
+            }
+
+            const formatted = this.normalizeBibtex(bibtexRaw.trim(), detected);
+            this.previewTextarea.value = formatted;
+            this.previewContainer.style.display = "flex";
+            this.updateKeyTagFromPreview();
+            this.confirmBtn.disabled = false;
+
+            this.statusText.textContent = "Metadata successfully retrieved!";
+            this.statusText.className = "identifier-status status-success";
+            setTimeout(() => this.confirmBtn.focus(), 50);
+
+        } catch (err) {
+            console.error("[IdentifierImportModule] Fetch error:", err);
+            this.statusText.textContent = err.message || "Failed to retrieve metadata.";
+            this.statusText.className = "identifier-status status-error";
+            this.previewContainer.style.display = "none";
+            this.confirmBtn.disabled = true;
+        } finally {
+            this.setLoading(false);
+        }
+    },
+
+    async fetchDoi(cleanDoi) {
+        // 1. Crossref Content Transformation (direkt BibTeX)
+        try {
+            const url = `https://api.crossref.org/works/${encodeURIComponent(cleanDoi)}/transform/application/x-bibtex`;
+            const res = await fetch(url, { headers: { 'Accept': 'application/x-bibtex; charset=utf-8' } });
+            if (res.ok) {
+                const text = await res.text();
+                if (text && text.trim().startsWith('@')) {
+                    return text.trim();
+                }
+            }
+        } catch (e) {
+            console.warn("[IdentifierImportModule] Crossref failed, trying DataCite...", e);
+        }
+
+        // 2. DataCite / CrossCite Content Negotiation
+        try {
+            const url = `https://data.crosscite.org/${encodeURIComponent(cleanDoi)}`;
+            const res = await fetch(url, { headers: { 'Accept': 'application/x-bibtex; charset=utf-8' } });
+            if (res.ok) {
+                const text = await res.text();
+                if (text && text.trim().startsWith('@')) {
+                    return text.trim();
+                }
+            }
+        } catch (e) {
+            console.warn("[IdentifierImportModule] DataCite failed, trying doi.org...", e);
+        }
+
+        // 3. doi.org Direct Content Negotiation
+        try {
+            const url = `https://doi.org/${encodeURIComponent(cleanDoi)}`;
+            const res = await fetch(url, { headers: { 'Accept': 'application/x-bibtex; charset=utf-8' } });
+            if (res.ok) {
+                const text = await res.text();
+                if (text && text.trim().startsWith('@')) {
+                    return text.trim();
+                }
+            }
+        } catch (e) {
+            console.error("[IdentifierImportModule] doi.org failed:", e);
+        }
+
+        throw new Error(`Could not resolve DOI "${cleanDoi}". Please verify the identifier.`);
+    },
+
+    async fetchArxiv(cleanArxivId) {
+        const baseId = cleanArxivId.replace(/v\d+$/i, '');
+        const arxivDoi = `10.48550/arXiv.${baseId}`;
+
+        // 1. DataCite via arXiv DOI
+        try {
+            const url = `https://data.crosscite.org/${encodeURIComponent(arxivDoi)}`;
+            const res = await fetch(url, { headers: { 'Accept': 'application/x-bibtex; charset=utf-8' } });
+            if (res.ok) {
+                const text = await res.text();
+                if (text && text.trim().startsWith('@')) {
+                    return text.trim();
+                }
+            }
+        } catch (e) {
+            console.warn("[IdentifierImportModule] DataCite arXiv failed, trying doi.org...", e);
+        }
+
+        // 2. doi.org via arXiv DOI
+        try {
+            const url = `https://doi.org/${encodeURIComponent(arxivDoi)}`;
+            const res = await fetch(url, { headers: { 'Accept': 'application/x-bibtex; charset=utf-8' } });
+            if (res.ok) {
+                const text = await res.text();
+                if (text && text.trim().startsWith('@')) {
+                    return text.trim();
+                }
+            }
+        } catch (e) {
+            console.warn("[IdentifierImportModule] doi.org arXiv failed...", e);
+        }
+
+        // 3. Fallback: Standard @misc entry for arXiv
+        const yearPrefix = /^\d{2}/.test(baseId) ? `20${baseId.slice(0, 2)}` : `${new Date().getFullYear()}`;
+        return `@misc{arxiv_${baseId.replace(/[./]/g, '_')},
+  title        = {arXiv preprint arXiv:${cleanArxivId}},
+  eprint       = {${cleanArxivId}},
+  archiveprefix = {arXiv},
+  url          = {https://arxiv.org/abs/${cleanArxivId}},
+  year         = {${yearPrefix}}
+}`;
+    },
+
+    async fetchIsbn(cleanIsbn) {
+        const url = `https://openlibrary.org/api/books?bibkeys=ISBN:${cleanIsbn}&format=json&jscmd=data`;
+        const res = await fetch(url);
+        if (!res.ok) {
+            throw new Error(`Open Library API error (${res.status}).`);
+        }
+        const data = await res.json();
+        const book = data[`ISBN:${cleanIsbn}`];
+        if (!book) {
+            throw new Error(`No book found for ISBN ${cleanIsbn} on Open Library.`);
+        }
+
+        const title = book.title ? (book.subtitle ? `${book.title}: ${book.subtitle}` : book.title) : "Untitled";
+        const authors = Array.isArray(book.authors) && book.authors.length > 0
+            ? book.authors.map(a => a.name).join(" and ")
+            : "";
+        const publisher = Array.isArray(book.publishers) && book.publishers.length > 0
+            ? book.publishers[0].name
+            : "";
+        const yearMatch = (book.publish_date || "").match(/\b(19\d\d|20\d\d)\b/);
+        const year = yearMatch ? yearMatch[1] : "";
+
+        let authorLast = "";
+        if (book.authors && book.authors[0] && book.authors[0].name) {
+            const parts = book.authors[0].name.trim().split(/\s+/);
+            authorLast = parts[parts.length - 1].replace(/[^a-zA-Z0-9]/g, '');
+        }
+        const key = (authorLast && year) ? `${authorLast}${year}` : `isbn_${cleanIsbn}`;
+
+        let bibtex = `@book{${key},\n`;
+        if (authors) bibtex += `  author       = {${authors}},\n`;
+        bibtex += `  title        = {${title}},\n`;
+        if (publisher) bibtex += `  publisher    = {${publisher}},\n`;
+        if (year) bibtex += `  year         = {${year}},\n`;
+        bibtex += `  isbn         = {${cleanIsbn}},\n`;
+        if (book.number_of_pages) bibtex += `  pages        = {${book.number_of_pages}},\n`;
+        if (book.url) bibtex += `  url          = {${book.url}},\n`;
+        bibtex = bibtex.replace(/,\n$/, '\n') + `}`;
+
+        return bibtex;
+    },
+
+    async fetchUrl(rawUrl) {
+        const doiMatch = rawUrl.match(/10\.\d{4,9}\/[-._;()/:A-Za-z0-9]+/i);
+        if (doiMatch) {
+            return this.fetchDoi(doiMatch[0]);
+        }
+        const arxivMatch = rawUrl.match(/(\d{4}\.\d{4,5})/);
+        if (rawUrl.includes("arxiv.org") && arxivMatch) {
+            return this.fetchArxiv(arxivMatch[1]);
+        }
+
+        let hostname = "";
+        try {
+            hostname = new URL(rawUrl).hostname.replace(/^www\./, '');
+        } catch (_) {
+            hostname = "webpage";
+        }
+
+        const currentYear = new Date().getFullYear();
+        const today = new Date().toISOString().split('T')[0];
+        const key = `${hostname.replace(/[^a-zA-Z0-9]/g, '')}_${currentYear}`;
+
+        return `@misc{${key},
+  title        = {${hostname}},
+  url          = {${rawUrl}},
+  note         = {Accessed: ${today}},
+  year         = {${currentYear}}
+}`;
+    },
+
+    normalizeBibtex(bibtexStr, detectedInfo) {
+        const headerMatch = bibtexStr.match(/^@([a-zA-Z]+)\s*\{\s*([^,]+),/m);
+        if (!headerMatch) return bibtexStr;
+        const type = headerMatch[1];
+        let key = headerMatch[2].trim();
+
+        // Wenn der Key eine URL oder ein DOI-Pfad ist, erzeuge einen sauberen Key (Autor + Jahr)
+        if (key.startsWith('http') || key.includes('/') || key.includes(':')) {
+            const authorMatch = bibtexStr.match(/\bauthor\s*=\s*[\"{]([^,\"}]+)/i);
+            const yearMatch = bibtexStr.match(/\byear\s*=\s*[\"{]?(\d{4})/i);
+            let authorPart = "";
+            if (authorMatch) {
+                const authorRaw = authorMatch[1].trim();
+                if (authorRaw.includes(',')) {
+                    authorPart = authorRaw.split(',')[0].trim().replace(/[^a-zA-Z0-9]/g, '');
+                } else {
+                    const parts = authorRaw.split(/\s+/);
+                    authorPart = parts[parts.length - 1].replace(/[^a-zA-Z0-9]/g, '');
+                }
+            }
+            const yearPart = yearMatch ? yearMatch[1] : "";
+            if (authorPart && yearPart) {
+                key = `${authorPart}${yearPart}`;
+            } else if (detectedInfo && detectedInfo.type === 'arxiv') {
+                key = `arxiv_${detectedInfo.value.replace(/[./]/g, '_')}`;
+            } else {
+                key = `ref_${Date.now().toString().slice(-6)}`;
+            }
+        }
+
+        // Ersetze unhandliche Keys
+        let cleanedBibtex = bibtexStr.replace(/^(@[a-zA-Z]+\s*\{\s*)[^,]+,/m, `$1${key},`);
+
+        // Formatierung vereinheitlichen mit ClipboardModule, falls vorhanden
+        if (typeof ClipboardModule !== 'undefined' && typeof ClipboardModule.extractBibtexEntries === 'function') {
+            const parsedList = ClipboardModule.extractBibtexEntries(cleanedBibtex);
+            if (parsedList && parsedList.length > 0) {
+                parsedList[0].key = key;
+                return ClipboardModule.formatEntry(parsedList[0]);
+            }
+        }
+
+        return cleanedBibtex;
+    },
+
+    updateKeyTagFromPreview() {
+        if (!this.previewTextarea || !this.keyTag) return;
+        const match = this.previewTextarea.value.match(/^@([a-zA-Z]+)\s*\{\s*([^,]+),/m);
+        if (match) {
+            this.keyTag.textContent = `@${match[1]}{${match[2].trim()}}`;
+            if (this.confirmBtn) this.confirmBtn.disabled = false;
+        } else {
+            this.keyTag.textContent = "";
+            if (this.confirmBtn) this.confirmBtn.disabled = true;
+        }
+    },
+
+    importEntry() {
+        if (!this.previewTextarea) return;
+        let entryText = this.previewTextarea.value.trim();
+        if (!entryText) return;
+
+        const match = entryText.match(/^@([a-zA-Z]+)\s*\{\s*([^,]+),/m);
+        if (!match) {
+            alert("The entry does not appear to be valid BibTeX code. Please check the preview.");
+            return;
+        }
+
+        const type = match[1];
+        const baseKey = match[2].trim();
+
+        if (!EditorModule.editorInstance) {
+            if (FileModule.files.length === 0) {
+                FileModule.addFile("Untitled.bib", "", null);
+                FileModule.switchToTab(FileModule.files[0].id);
+            }
+        }
+
+        const cm = EditorModule.editorInstance;
+        if (!cm) {
+            alert("No active editor found to insert the citation.");
+            return;
+        }
+
+        const currentDoc = cm.getValue();
+
+        // 1. Duplikatprüfung: Existiert der Key bereits im Dokument?
+        let uniqueKey = baseKey;
+        let counter = 1;
+        const escapedBase = baseKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        let keyExistsRegex = new RegExp(`^\\s*@\\w+\\s*\\{\\s*${escapedBase}\\s*,`, 'm');
+
+        if (keyExistsRegex.test(currentDoc)) {
+            while (keyExistsRegex.test(currentDoc)) {
+                uniqueKey = `${baseKey}_${counter}`;
+                const escapedNext = uniqueKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                keyExistsRegex = new RegExp(`^\\s*@\\w+\\s*\\{\\s*${escapedNext}\\s*,`, 'm');
+                counter++;
+            }
+            entryText = entryText.replace(
+                new RegExp(`^(\\s*@\\w+\\s*\\{\\s*)${escapedBase}(\\s*,)`, 'm'),
+                `$1${uniqueKey}$2`
+            );
+        }
+
+        // 2. Im Editor am Dokumentende anfügen
+        const separator = (currentDoc.trim().length > 0)
+            ? (currentDoc.endsWith('\n\n') ? '' : (currentDoc.endsWith('\n') ? '\n' : '\n\n'))
+            : '';
+        const insertionText = separator + entryText + '\n';
+        const lastLine = cm.lineCount();
+        cm.replaceRange(insertionText, { line: lastLine, ch: 0 });
+
+        // 3. Modal schließen
+        this.closeModal();
+
+        // 4. Zum neuen Eintrag navigieren und hervorheben
+        setTimeout(() => {
+            EditorModule.jumpToKey(uniqueKey, true);
+            if (typeof SidebarModule.highlightKey === "function") {
+                SidebarModule.highlightKey(uniqueKey);
+            }
+        }, 80);
+
+        // 5. Toast-Benachrichtigung
+        this.showToast(
+            "Imported from Identifier",
+            `@${type}{${uniqueKey}} added to document`
+        );
+    },
+
+    showToast(title, message) {
+        if (typeof ClipboardModule !== 'undefined' && typeof ClipboardModule.showToast === 'function') {
+            ClipboardModule.showToast(title, message);
+            return;
+        }
+        const container = document.getElementById("toast-container");
+        if (!container) return;
+        const toast = document.createElement("div");
+        toast.className = "toast-notification";
+        toast.innerHTML = `
+            <span class="material-symbols-outlined toast-icon">fingerprint</span>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add("hide");
+            setTimeout(() => toast.remove(), 350);
+        }, 3800);
+    }
+};
+
+// --- 7.5 IMPORT MODULE (PDF- & Identifier-Import) ---
 const ImportModule = {
     pdfBtn: null,
     pdfInput: null,
@@ -1919,6 +2549,7 @@ const ImportModule = {
         this.pdfBtn = document.querySelector("#btn-import-pdf");
         this.pdfInput = document.querySelector("#hidden-pdf-input");
         this.setupListeners();
+        IdentifierImportModule.init();
     },
 
     setupListeners() {
