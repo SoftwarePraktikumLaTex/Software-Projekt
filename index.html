@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -47,12 +47,12 @@
                         <button id="datei" class="datei-btn"><span
                                 class="material-symbols-outlined">folder</span>File</button>
                         <div id="dropdownDateiContent" class="dropdownDateiClass">
-                            <a href="#" id="menu-new-file">Neue Datei</a>
-                            <a href="#" id="btn-import-file">Datei öffnen (.bib)</a>
-                            <a href="#" id="btn-import-folder">Ordner öffnen...</a>
+                            <a href="#" id="menu-new-file">New File</a>
+                            <a href="#" id="btn-import-file">Open File (.bib)</a>
+                            <a href="#" id="btn-import-folder">Open Folder...</a>
                             <hr>
-                            <a href="#" id="btn-save">Speichern</a>
-                            <a href="#" id="btn-save-as">Speichern unter...</a>
+                            <a href="#" id="btn-save">Save</a>
+                            <a href="#" id="btn-save-as">Save As...</a>
                         </div>
                     </div>
                 </li>
@@ -61,14 +61,14 @@
                         <button id="edit" class="edit-btn"><span
                                 class="material-symbols-outlined">edit</span>Edit</button>
                         <div id="dropdownEditContent" class="dropdownEditClass">
-                            <a href="#" id="btn-open-settings"> Formatierung einstellen...</a>
+                            <a href="#" id="btn-open-settings">Formatting Settings...</a>
                             <hr>
-                            <a href="#" id="btn-format-code">Code formatieren (Einrücken)</a>
-                            <a href="#" id="btn-insert-template">Leeren Artikel erstellen</a>
+                            <a href="#" id="btn-format-code">Format Code (Indent)</a>
+                            <a href="#" id="btn-insert-template">Create Empty Article</a>
                             <hr>
                             <a href="#" id="menu-toggle-clipboard">
                                 <span class="material-symbols-outlined" id="menu-clipboard-icon">toggle_on</span>
-                                Clipboard-Import: <span id="menu-clipboard-status">An</span>
+                                Clipboard Import: <span id="menu-clipboard-status">On</span>
                             </a>
                             <hr>
                             <a href="#" id="btn-undo">Undo</a>
@@ -81,8 +81,7 @@
                         <button id="import" class="import-btn"><span
                                 class="material-symbols-outlined">download</span>Import</button>
                         <div id="dropdownImportContent" class="dropdownImportClass">
-                            <a href="#" id="btn-paste-clipboard"><span class="material-symbols-outlined">content_paste</span>Aus Zwischenablage einfügen (Strg+V)</a>
-                            <a href="#" id="btn-import-pdf">PDF importieren (Referenzen extrahieren)</a>
+                            <a href="#" id="btn-import-pdf">Import PDF (Extract References)</a>
                         </div>
                     </div>
                 </li>
@@ -92,7 +91,6 @@
                                 class="material-symbols-outlined">help_outline</span>Help</button>
                         <div id="dropdownHelpContent" class="dropdownHelpClass">
                             <a href="#" id="btn-show-shortcuts">Keyboard Shortcuts</a>
-                            <a href="#" id="btn-show-contact">Contact us</a>
                         </div>
                     </div>
                 </li>
@@ -102,14 +100,14 @@
             </div>
 
             <div class="theme-toggle-wrapper">
-                <button class="clipboard-toggle-btn active" id="clipboard-toggle" title="Auto-Import: Aktiv (Klicken zum Umschalten)">
+                <button class="clipboard-toggle-btn active" id="clipboard-toggle" title="Auto-Import: Active (Click to toggle)">
                     <span class="material-symbols-outlined" id="clipboard-toggle-icon">content_paste_search</span>
-                    <span id="clipboard-toggle-label" class="clipboard-toggle-label">Auto-Import: An</span>
+                    <span id="clipboard-toggle-label" class="clipboard-toggle-label">Auto-Import: On</span>
                 </button>
-                <button class="theme-toggle-btn" id="layout-toggle" title="Layout wechseln">
+                <button class="theme-toggle-btn" id="layout-toggle" title="Toggle Layout">
                     <span class="material-symbols-outlined" id="layout-toggle-icon">vertical_split</span>
                 </button>
-                <button class="theme-toggle-btn" id="theme-toggle" title="Theme wechseln">
+                <button class="theme-toggle-btn" id="theme-toggle" title="Toggle Theme">
                     <span class="material-symbols-outlined theme-icon-dark">light_mode</span>
                     <span class="material-symbols-outlined theme-icon-light">dark_mode</span>
                 </button>
@@ -123,25 +121,25 @@
             <form id="search-form">
                 <div class="search-input-wrapper">
                     <span class="material-symbols-outlined search-icon">search</span>
-                    <input placeholder="Suchen..." id="input1">
+                    <input placeholder="Search..." id="input1">
                 </div>
                 <div class="dropdownSelektor selector-wrapper">
                     <span class="material-symbols-outlined selector-icon">sort</span>
                     <select id="selektor" class="selektor-btn">
-                        <option value="original">Standard</option>
-                        <option value="title-asc">Titel A–Z</option>
-                        <option value="title-desc">Titel Z–A</option>
-                        <option value="author-asc">Autor A–Z</option>
-                        <option value="author-desc">Autor Z–A</option>
-                        <option value="year-desc">Jahr (Neu → Alt)</option>
-                        <option value="year-asc">Jahr (Alt → Neu)</option>
-                        <option value="type">Nach Typ</option>
+                        <option value="original">Default</option>
+                        <option value="title-asc">Title A–Z</option>
+                        <option value="title-desc">Title Z–A</option>
+                        <option value="author-asc">Author A–Z</option>
+                        <option value="author-desc">Author Z–A</option>
+                        <option value="year-desc">Year (New → Old)</option>
+                        <option value="year-asc">Year (Old → New)</option>
+                        <option value="type">By Type</option>
                     </select>
                 </div>
             </form>
         </div>
 
-        <div id="citation-count" class="citation-count">0 Quellen</div>
+        <div id="citation-count" class="citation-count">0 citations</div>
 
         <div class="citations-container">
             <ul id="citation-list">
@@ -151,8 +149,8 @@
 
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-content">
-            <h2>Formatierungs-Einstellungen</h2>
-            <p>Wähle aus, welche Felder beim "Pretty Print" erhalten bleiben sollen:</p>
+            <h2>Formatting Settings</h2>
+            <p>Select which fields should be preserved during "Pretty Print":</p>
 
             <div class="checkbox-grid">
                 <label><input type="checkbox" checked data-field="author"> Author</label>
@@ -170,8 +168,8 @@
             </div>
 
             <div class="modal-actions">
-                <button id="btn-save-settings" class="primary-btn">Speichern & Anwenden</button>
-                <button id="btn-close-settings" class="secondary-btn">Abbrechen</button>
+                <button id="btn-save-settings" class="primary-btn">Save & Apply</button>
+                <button id="btn-close-settings" class="secondary-btn">Cancel</button>
             </div>
         </div>
     </div>
@@ -180,85 +178,68 @@
     <div id="shortcuts-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Keyboard Shortcuts</h2>
-            <p>Die wichtigsten Tastenkürzel für BibStream:</p>
+            <p>Key keyboard shortcuts for BibStream:</p>
             <table class="shortcut-table">
                 <thead>
                     <tr>
-                        <th>Aktion</th>
+                        <th>Action</th>
                         <th>Shortcut</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Rückgängig (Undo)</td>
-                        <td><kbd>Strg</kbd> + <kbd>Z</kbd></td>
+                        <td>Undo</td>
+                        <td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td>
                     </tr>
                     <tr>
-                        <td>Wiederholen (Redo)</td>
-                        <td><kbd>Strg</kbd> + <kbd>Y</kbd></td>
+                        <td>Redo</td>
+                        <td><kbd>Ctrl</kbd> + <kbd>Y</kbd></td>
                     </tr>
                     <tr>
-                        <td>Speichern</td>
-                        <td><kbd>Strg</kbd> + <kbd>S</kbd></td>
+                        <td>Save</td>
+                        <td><kbd>Ctrl</kbd> + <kbd>S</kbd></td>
                     </tr>
                     <tr>
-                        <td>Suchen</td>
-                        <td><kbd>Strg</kbd> + <kbd>F</kbd></td>
+                        <td>Search</td>
+                        <td><kbd>Ctrl</kbd> + <kbd>F</kbd></td>
                     </tr>
                     <tr>
-                        <td>Alles markieren</td>
-                        <td><kbd>Strg</kbd> + <kbd>A</kbd></td>
+                        <td>Select All</td>
+                        <td><kbd>Ctrl</kbd> + <kbd>A</kbd></td>
                     </tr>
                     <tr>
-                        <td>Ausschneiden</td>
-                        <td><kbd>Strg</kbd> + <kbd>X</kbd></td>
+                        <td>Cut</td>
+                        <td><kbd>Ctrl</kbd> + <kbd>X</kbd></td>
                     </tr>
                     <tr>
-                        <td>Kopieren</td>
-                        <td><kbd>Strg</kbd> + <kbd>C</kbd></td>
+                        <td>Copy</td>
+                        <td><kbd>Ctrl</kbd> + <kbd>C</kbd></td>
                     </tr>
                     <tr>
-                        <td>Einfügen</td>
-                        <td><kbd>Strg</kbd> + <kbd>V</kbd></td>
+                        <td>Paste</td>
+                        <td><kbd>Ctrl</kbd> + <kbd>V</kbd></td>
                     </tr>
                 </tbody>
             </table>
             <div class="modal-actions">
-                <button id="btn-close-shortcuts" class="secondary-btn">Schließen</button>
+                <button id="btn-close-shortcuts" class="secondary-btn">Close</button>
             </div>
         </div>
     </div>
 
-    <!-- Contact Us Modal -->
-    <div id="contact-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h2>Kontakt</h2>
-            <p>Bei Fragen, Feedback oder Problemen erreichst du uns jederzeit:</p>
-            <div class="contact-info">
-                <span class="material-symbols-outlined">mail</span>
-                <div>
-                    <a href="mailto:rhebsp@gmail.com">rhebsp@gmail.com</a>
-                    <p>Wir antworten in der Regel innerhalb von 24 Stunden.</p>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button id="btn-close-contact" class="secondary-btn">Schließen</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Delete Confirmation Modal -->
     <div id="delete-modal" class="modal-overlay">
         <div class="modal-content delete-modal-content">
             <div class="delete-modal-header">
                 <span class="material-symbols-outlined delete-warning-icon">delete_forever</span>
-                <h2>Eintrag löschen</h2>
+                <h2>Delete Entry</h2>
             </div>
-            <p>Möchtest du diesen Eintrag wirklich löschen?</p>
+            <p>Are you sure you want to delete this entry?</p>
             <div id="delete-modal-preview" class="delete-entry-preview"></div>
             <div class="modal-actions">
-                <button id="btn-cancel-delete" class="secondary-btn">Abbrechen</button>
-                <button id="btn-confirm-delete" class="danger-btn">Ja</button>
+                <button id="btn-cancel-delete" class="secondary-btn">Cancel</button>
+                <button id="btn-confirm-delete" class="danger-btn">Delete</button>
             </div>
         </div>
     </div>
