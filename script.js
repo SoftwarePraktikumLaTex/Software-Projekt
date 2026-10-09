@@ -2602,14 +2602,12 @@ const LinterModule = {
     }
 };
 
-// --- 10.5 HELP MODULE (Keyboard Shortcuts & Contact Modals) ---
+// --- 10.5 HELP MODULE (Keyboard Shortcuts Modal) ---
 const HelpModule = {
     shortcutsModal: null,
-    contactModal: null,
 
     init() {
         this.shortcutsModal = document.querySelector("#shortcuts-modal");
-        this.contactModal = document.querySelector("#contact-modal");
         this.setupListeners();
     },
 
@@ -2631,31 +2629,12 @@ const HelpModule = {
             });
         }
 
-        // Contact Modal
-        const showContactBtn = document.querySelector("#btn-show-contact");
-        const closeContactBtn = document.querySelector("#btn-close-contact");
-
-        if (showContactBtn && this.contactModal) {
-            showContactBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                this.contactModal.classList.add("show-modal");
-                document.querySelectorAll(".dropdownHelpClass").forEach(el => el.classList.remove("show"));
+        // Klick auf Overlay schließt Modal
+        if (this.shortcutsModal) {
+            this.shortcutsModal.addEventListener("click", (e) => {
+                if (e.target === this.shortcutsModal) this.shortcutsModal.classList.remove("show-modal");
             });
         }
-        if (closeContactBtn && this.contactModal) {
-            closeContactBtn.addEventListener("click", () => {
-                this.contactModal.classList.remove("show-modal");
-            });
-        }
-
-        // Beide Modals: Klick auf Overlay schlieÃƒÅ¸t
-        [this.shortcutsModal, this.contactModal].forEach(modal => {
-            if (modal) {
-                modal.addEventListener("click", (e) => {
-                    if (e.target === modal) modal.classList.remove("show-modal");
-                });
-            }
-        });
     }
 };
 

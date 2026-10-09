@@ -601,41 +601,6 @@ body {
     white-space: nowrap;
 }
 
-/* Contact-Info im Modal */
-.contact-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px;
-    background: var(--bg-elevated);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-light);
-    margin: 16px 0;
-}
-
-.contact-info .material-symbols-outlined {
-    font-size: 28px;
-    color: var(--accent);
-}
-
-.contact-info a {
-    color: var(--accent);
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 14px;
-    transition: color var(--transition);
-}
-
-.contact-info a:hover {
-    color: var(--accent-hover);
-    text-decoration: underline;
-}
-
-.contact-info p {
-    margin: 0;
-    font-size: 12px;
-    color: var(--text-muted);
-}
 
 #editor-textarea {
     display: none;
