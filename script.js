@@ -7,7 +7,11 @@
 // --- 1. HAUPT-APP (Gemeinsame Orchestrierung) ---
 const App = {
     init() {
-        console.log("App startet...");
+        // Ohne CodeMirror (z. B. offline) bleiben Menüs und Eintragsliste nutzbar, nur der Editor fehlt
+        if (typeof CodeMirror === "undefined") {
+            alert("The editor (CodeMirror) could not be loaded. Please check your internet connection and reload the page.");
+        }
+
         // Alexandros: Initialisierung der UI-Rahmenkomponenten
         DropdownModule.init();
         ResizerModule.init();
@@ -19,17 +23,18 @@ const App = {
         ImportModule.init();
 
         // Felix: Setup der Editor-Komponenten und Validierung
+        // Der Linter wird vor dem Editor registriert, damit bereits die erste Prüfung greift
+        LinterModule.init();
         EditorModule.init();
         FormatterModule.init();
-        LinterModule.init();
         ThemeModule.init();
         HelpModule.init();
 
         // Alexandros: Layout-Toggle Initialisierung
         LayoutModule.init();
 
-        // Clipboard-Watcher (optional, falls vorhanden)
-        if (typeof ClipboardModule !== 'undefined') ClipboardModule.init();
+        // Clipboard-Watcher
+        ClipboardModule.init();
 
         // Sitzung aus LocalStorage wiederherstellen
         FileModule.loadSession();
@@ -42,36 +47,269 @@ const App = {
     },
 };
 
+// --- 1.5 BIBTEX-PARSER (Gemeinsam: von Liste, Linter, Formatierung, Editor und Import genutzt) ---
+const BibTeXParser = {
+    SPECIAL_TYPES: ["string", "preamble", "comment"],
+    VALID_KEY: /^[^\s"#%'(),={}<>\\]+$/,
+    HEADER_AT_LINE_START: /\n[ \t]*@[a-zA-Z]\w*\s*[{(]/g,
+
+    // Zeichenklassen über Zeichencodes (deutlich schneller als ein regulärer Ausdruck pro Zeichen)
+    isSpace(code) {
+        return code === 32 || (code >= 9 && code <= 13) || code === 160;
+    },
+
+    // In Feldnamen, Makros und Schlüsseln erlaubt: alles außer Leerraum und "#%'(),={}
+    isNameChar(code) {
+        return code > 32 && code !== 160 && code !== 34 && code !== 35 && code !== 37 && code !== 39 &&
+            code !== 40 && code !== 41 && code !== 44 && code !== 61 && code !== 123 && code !== 125;
+    },
+
+    /**
+     * Findet alle geschlossenen Einträge (@typ{...} und @typ(...)) und liefert Typ, Schlüssel
+     * und Positionen. Ein nicht geschlossener Eintrag wird übersprungen, ohne die folgenden
+     * Einträge zu verschlucken (er endet spätestens vor dem nächsten Eintragskopf am Zeilenanfang).
+     */
+    findEntries(text) {
+        const entries = [];
+        const headerRegex = /@([a-zA-Z]\w*)\s*([{(])/g;
+        let match;
+        while ((match = headerRegex.exec(text)) !== null) {
+            const type = match[1].toLowerCase();
+            const special = this.SPECIAL_TYPES.includes(type);
+            const bodyStart = match.index + match[0].length;
+            const limit = special ? text.length : this.nextHeaderAtLineStart(text, bodyStart);
+            const close = this.findEntryEnd(text, bodyStart, match[2], limit);
+            if (close === -1) continue;
+            const entry = {
+                type, special, open: match[2],
+                start: match.index, end: close + 1,
+                typeStart: match.index + 1, bodyStart, bodyEnd: close,
+                key: "", keyStart: bodyStart, keyEnd: bodyStart, fieldsStart: close, validKey: false
+            };
+            if (!special) this.readKey(text, entry);
+            entries.push(entry);
+            headerRegex.lastIndex = entry.end;
+        }
+        return entries;
+    },
+
+    nextHeaderAtLineStart(text, from) {
+        this.HEADER_AT_LINE_START.lastIndex = from;
+        const match = this.HEADER_AT_LINE_START.exec(text);
+        return match ? match.index + 1 : text.length;
+    },
+
+    // Klammerbilanzierung: Position der schließenden Klammer des Eintrags oder -1
+    findEntryEnd(text, i, open, limit = text.length) {
+        let depth = 0;
+        let inQuotes = false;
+        for (; i < limit; i++) {
+            const ch = text[i];
+            if (ch === "{") depth++;
+            else if (ch === "}") {
+                if (depth > 0) depth--;
+                else if (open === "{") return i;
+            } else if (open === "(" && depth === 0) {
+                if (ch === '"') inQuotes = !inQuotes;
+                else if (ch === ")" && !inQuotes) return i;
+            }
+        }
+        return -1;
+    },
+
+    // Schlüssel bis zum ersten Komma; ohne Komma reicht er bis zum Eintragsende
+    readKey(text, entry) {
+        let i = entry.bodyStart;
+        while (i < entry.bodyEnd && this.isSpace(text.charCodeAt(i))) i++;
+        const comma = text.indexOf(",", i);
+        const keyEnd = (comma === -1 || comma > entry.bodyEnd) ? entry.bodyEnd : comma;
+        const key = text.slice(i, keyEnd).trim();
+        entry.key = key;
+        entry.keyStart = i;
+        entry.keyEnd = i + key.length;
+        entry.fieldsStart = keyEnd === entry.bodyEnd ? entry.bodyEnd : keyEnd + 1;
+        entry.validKey = this.VALID_KEY.test(key);
+    },
+
+    /**
+     * Liest einen Feldwert ab Position i: {…} (beliebig verschachtelt), "…", Zahl oder Makro,
+     * auch mit #-Verkettung. Liefert das Ende (exklusiv) und die einzelnen Bestandteile.
+     */
+    scanValue(text, i, end) {
+        const parts = [];
+        let complete = true;
+        while (i < end) {
+            while (i < end && this.isSpace(text.charCodeAt(i))) i++;
+            const start = i;
+            const first = text.charCodeAt(i);
+            if (first === 123) {
+                // {…}: Klammerbilanzierung
+                let depth = 0;
+                do {
+                    const code = text.charCodeAt(i);
+                    if (code === 123) depth++;
+                    else if (code === 125) depth--;
+                    i++;
+                } while (i < end && depth > 0);
+                if (depth > 0) complete = false;
+                parts.push({ kind: "brace", text: text.slice(start + 1, depth > 0 ? i : i - 1) });
+            } else if (first === 34) {
+                // "…": endet beim nächsten Anführungszeichen außerhalb geschweifter Klammern
+                let depth = 0;
+                i++;
+                while (i < end) {
+                    const code = text.charCodeAt(i);
+                    if (code === 34 && depth === 0 && text.charCodeAt(i - 1) !== 92) break;
+                    if (code === 123) depth++;
+                    else if (code === 125 && depth > 0) depth--;
+                    i++;
+                }
+                if (i >= end) complete = false;
+                parts.push({ kind: "quote", text: text.slice(start + 1, Math.min(i, end)) });
+                if (i < end) i++;
+            } else {
+                while (i < end && this.isNameChar(text.charCodeAt(i))) i++;
+                if (i === start) break;
+                parts.push({ kind: "bare", text: text.slice(start, i) });
+            }
+            let j = i;
+            while (j < end && this.isSpace(text.charCodeAt(j))) j++;
+            if (j >= end || text.charCodeAt(j) !== 35) break;
+            i = j + 1;
+        }
+        return { end: i, parts, complete: complete && parts.length > 0 };
+    },
+
+    /**
+     * Zerlegt den Rumpf eines Eintrags (ab dem Komma nach dem Schlüssel) in Felder.
+     * complete ist false, sobald Text vorkommt, der keinem Feld zugeordnet werden kann.
+     */
+    scanFields(text, from, end) {
+        const fields = [];
+        let complete = true;
+        let i = from;
+        while (i < end) {
+            while (i < end && (this.isSpace(text.charCodeAt(i)) || text.charCodeAt(i) === 44)) i++;
+            if (i >= end) break;
+            if (text.charCodeAt(i) === 37) {
+                // Kommentarzeile innerhalb eines Eintrags überspringen
+                complete = false;
+                while (i < end && text.charCodeAt(i) !== 10) i++;
+                continue;
+            }
+            const nameStart = i;
+            while (i < end && this.isNameChar(text.charCodeAt(i))) i++;
+            const nameEnd = i;
+            while (i < end && this.isSpace(text.charCodeAt(i))) i++;
+            if (nameEnd === nameStart || text.charCodeAt(i) !== 61) {
+                complete = false;
+                i = this.skipToComma(text, Math.max(i, nameStart + 1), end);
+                continue;
+            }
+            i++;
+            while (i < end && this.isSpace(text.charCodeAt(i))) i++;
+            const valueStart = i;
+            const value = this.scanValue(text, i, end);
+            if (!value.complete) complete = false;
+            const rawName = text.slice(nameStart, nameEnd);
+            fields.push({
+                rawName,
+                name: rawName.replace(/^OPT(?=[a-z])/, "").toLowerCase(),
+                nameStart, valueStart, valueEnd: value.end,
+                parts: value.parts
+            });
+            i = value.end;
+        }
+        return { fields, complete };
+    },
+
+    skipToComma(text, i, end) {
+        let depth = 0;
+        for (; i < end; i++) {
+            const ch = text[i];
+            if (ch === "{") depth++;
+            else if (ch === "}") depth = Math.max(0, depth - 1);
+            else if (ch === "," && depth === 0) return i;
+        }
+        return end;
+    },
+
+    // Inhalt eines Werts ohne die äußeren Begrenzer (Teile einer #-Verkettung aneinandergefügt)
+    valueText(parts) {
+        return parts.map(part => part.text).join("");
+    },
+
+    // Feldnamen klein schreiben, ein OPT-Präfix (deaktiviertes Feld) aber erhalten
+    formatFieldName(rawName) {
+        return /^OPT[a-z]/.test(rawName) ? "OPT" + rawName.slice(3).toLowerCase() : rawName.toLowerCase();
+    }
+};
+
+// --- 1.6 TOAST-BENACHRICHTIGUNGEN (Gemeinsam; Inhalte werden immer als Text gesetzt) ---
+const ToastModule = {
+    show(title, message, icon = "content_paste_go") {
+        const container = document.getElementById("toast-container");
+        if (!container) return;
+
+        const toast = document.createElement("div");
+        toast.className = "toast-notification";
+        const iconEl = document.createElement("span");
+        iconEl.className = "material-symbols-outlined toast-icon";
+        iconEl.textContent = icon;
+        const content = document.createElement("div");
+        content.className = "toast-content";
+        const titleEl = document.createElement("div");
+        titleEl.className = "toast-title";
+        titleEl.textContent = title;
+        const messageEl = document.createElement("div");
+        messageEl.className = "toast-message";
+        messageEl.textContent = message;
+        content.append(titleEl, messageEl);
+        toast.append(iconEl, content);
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add("hide");
+            setTimeout(() => toast.remove(), 350);
+        }, 3800);
+    }
+};
+
 // --- 2. FORMATTER MODUL (Verantwortung: Felix) ---
 const FormatterModule = {
     settingsModal: document.querySelector("#settings-modal"),
     openBtn: document.querySelector("#btn-open-settings"),
     formatCodeBtn: null,
-    removeFieldsBtn: null,
     insertTemplateBtn: null,
     saveBtn: document.querySelector("#btn-save-settings"),
     closeBtn: document.querySelector("#btn-close-settings"),
     checkboxes: document.querySelectorAll(".checkbox-grid input"),
-    activeFields: new Set(['author', 'title', 'year', 'journal', 'publisher']),
+    // Ausgewählte Felder; ohne gespeicherte Einstellung gilt die Vorauswahl im Dialog
+    activeFields: new Set(),
 
     init() {
         if (!this.settingsModal) return;
         this.formatCodeBtn = document.querySelector("#btn-format-code");
-        this.removeFieldsBtn = document.querySelector("#btn-remove-fields");
         this.insertTemplateBtn = document.querySelector("#btn-insert-template");
         this.loadSettings();
         this.setupListeners();
     },
 
     setupListeners() {
-        // Felix: Listener fuer das Modal-Fenster der Formatierungs-Einstellungen
+        // Felix: Listener für das Modal-Fenster der Formatierungs-Einstellungen
         this.openBtn.addEventListener("click", (e) => {
             e.preventDefault();
+            // Zuvor abgebrochene Änderungen an den Kontrollkästchen verwerfen
+            this.syncCheckboxes();
             this.settingsModal.classList.add("show-modal");
             document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
         });
-        this.closeBtn.addEventListener("click", () => {
-            this.settingsModal.classList.remove("show-modal");
+        this.closeBtn.addEventListener("click", () => this.closeSettings());
+        this.settingsModal.addEventListener("click", (e) => {
+            if (e.target === this.settingsModal) this.closeSettings();
+        });
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && this.settingsModal.classList.contains("show-modal")) this.closeSettings();
         });
         this.saveBtn.addEventListener("click", () => {
             this.saveSettings();
@@ -84,15 +322,6 @@ const FormatterModule = {
             this.formatCodeBtn.addEventListener("click", (e) => {
                 e.preventDefault();
                 this.runFormatCode();
-                document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
-            });
-        }
-
-        // Abgewaehlte Felder loeschen
-        if (this.removeFieldsBtn) {
-            this.removeFieldsBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                this.runRemoveFields();
                 document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
             });
         }
@@ -118,111 +347,124 @@ const FormatterModule = {
     },
 
     loadSettings() {
-        const saved = localStorage.getItem("bibFilterConfig");
-        if (saved) {
-            const arr = JSON.parse(saved);
-            this.activeFields = new Set(arr);
-            this.checkboxes.forEach(cb => {
-                const field = cb.getAttribute("data-field");
-                cb.checked = this.activeFields.has(field);
-            });
+        let saved = null;
+        try {
+            saved = JSON.parse(localStorage.getItem("bibFilterConfig"));
+        } catch (err) { /* ungültige Einstellung ignorieren */ }
+        if (Array.isArray(saved)) {
+            this.activeFields = new Set(saved);
+            this.syncCheckboxes();
+        } else {
+            this.activeFields = new Set([...this.checkboxes].filter(cb => cb.checked).map(cb => cb.getAttribute("data-field")));
         }
     },
 
-    // ---- 1) Code formatieren: Nur Einruecken, nichts loeschen ----
+    syncCheckboxes() {
+        this.checkboxes.forEach(cb => {
+            cb.checked = this.activeFields.has(cb.getAttribute("data-field"));
+        });
+    },
+
+    closeSettings() {
+        this.settingsModal.classList.remove("show-modal");
+    },
+
+    // ---- 1) Code formatieren: Nur Einrücken, nichts löschen ----
     runFormatCode() {
-        if (!EditorModule.editorInstance) return;
-        const originalText = EditorModule.editorInstance.getValue();
+        const cm = EditorModule.editorInstance;
+        if (!cm) return;
+        const originalText = cm.getValue();
         const formatted = this.formatIndentation(originalText);
-        EditorModule.editorInstance.setValue(formatted);
-        console.log("Code formatieren ausgefuehrt.");
+        if (formatted !== originalText) cm.setValue(formatted);
     },
 
     /**
-     * Formatiert den BibTeX-Code: saubere Einrueckung, Alignment der = Zeichen.
-     * Loescht KEINE Felder, behaelt alles bei.
+     * Formatiert den BibTeX-Code: ein Feld pro Zeile, zwei Leerzeichen Einrückung, bündige
+     * "="-Zeichen und eine Leerzeile nach jedem Eintrag. Feldwerte (auch mehrzeilige) bleiben
+     * unverändert; Einträge, die nicht vollständig erkannt werden, bleiben, wie sie sind.
      */
     formatIndentation(text) {
-        const lines = text.split('\n');
+        const keepLines = (chunk) => chunk.split("\n").filter(line => line.trim() !== "").map(line => line + "\n").join("");
         let result = "";
-        let insideEntry = false;
-        const fieldAssignRegex = /^\s*(?:OPT)?([a-zA-Z][a-zA-Z0-9_]*)\s*=/;
-
-        lines.forEach(line => {
-            const trimmed = line.trim();
-            if (trimmed.startsWith("@")) {
-                result += trimmed + "\n";
-                insideEntry = true;
-                return;
-            }
-            if (trimmed === "}" && insideEntry) {
-                result += "}\n\n";
-                insideEntry = false;
-                return;
-            }
-            if (insideEntry) {
-                const fieldMatch = trimmed.match(fieldAssignRegex);
-                if (fieldMatch) {
-                    const key = fieldMatch[1].toLowerCase();
-                    const eqIndex = trimmed.indexOf('=');
-                    const value = trimmed.substring(eqIndex + 1).trim();
-                    result += "  " + key.padEnd(12) + " = " + value + "\n";
-                    return;
-                }
-            }
-            if (trimmed !== "") {
-                result += line + "\n";
-            }
+        let pos = 0;
+        BibTeXParser.findEntries(text).forEach(entry => {
+            result += keepLines(text.slice(pos, entry.start));
+            result += this.formatEntry(text, entry) + "\n\n";
+            pos = entry.end;
         });
+        result += keepLines(text.slice(pos));
         return result.trim();
     },
 
-    // ---- 2) Abgewaehlte Felder loeschen ----
+    formatEntry(text, entry) {
+        const raw = text.slice(entry.start, entry.end);
+        if (entry.special || !entry.validKey) return raw;
+        const { fields, complete } = BibTeXParser.scanFields(text, entry.fieldsStart, entry.bodyEnd);
+        if (!complete) return raw;
+        const type = text.slice(entry.typeStart, entry.typeStart + entry.type.length);
+        if (fields.length === 0) return `@${type}{${entry.key}}`;
+        const lines = fields.map(f => "  " + BibTeXParser.formatFieldName(f.rawName).padEnd(12) + " = " + text.slice(f.valueStart, f.valueEnd));
+        return `@${type}{${entry.key},\n` + lines.join(",\n") + "\n}";
+    },
+
+    // ---- 2) Abgewählte Felder löschen ----
     runRemoveFields() {
-        if (!EditorModule.editorInstance) return;
-        const originalText = EditorModule.editorInstance.getValue();
+        const cm = EditorModule.editorInstance;
+        if (!cm) return;
+        const originalText = cm.getValue();
         const cleaned = this.removeUncheckedFields(originalText);
-        EditorModule.editorInstance.setValue(cleaned);
-        console.log("Abgewaehlte Felder geloescht.");
+        if (cleaned !== originalText) cm.setValue(cleaned);
     },
 
     /**
-     * Entfernt nur die Felder, die NICHT in activeFields stehen.
-     * Behaelt die Formatierung bei, loescht nur Zeilen abgewaehlter Felder.
+     * Entfernt nur Felder, die im Dialog angeboten und dort abgewählt sind. Alle anderen
+     * Felder (z. B. booktitle oder school) bleiben erhalten; mehrzeilige Werte werden
+     * vollständig entfernt.
      */
     removeUncheckedFields(text) {
-        const lines = text.split('\n');
-        let result = "";
-        let insideEntry = false;
-        const fieldAssignRegex = /^\s*(?:OPT)?([a-zA-Z][a-zA-Z0-9_]*)\s*=/;
+        const offered = [...this.checkboxes].map(cb => cb.getAttribute("data-field"));
+        const toRemove = new Set(offered.filter(field => !this.activeFields.has(field)));
+        if (toRemove.size === 0) return text;
 
-        lines.forEach(line => {
-            const trimmed = line.trim();
-            if (trimmed.startsWith("@")) {
-                result += line + "\n";
-                insideEntry = true;
-                return;
-            }
-            if (trimmed === "}" && insideEntry) {
-                result += line + "\n";
-                insideEntry = false;
-                return;
-            }
-            if (insideEntry) {
-                const fieldMatch = trimmed.match(fieldAssignRegex);
-                if (fieldMatch) {
-                    const key = fieldMatch[1].toLowerCase();
-                    // Nur AKTIVE Felder behalten, abgewaehlte werden uebersprungen
-                    if (this.activeFields.has(key)) {
-                        result += line + "\n";
-                    }
-                    return;
-                }
-            }
-            // Nicht-Feld-Zeilen (Leerzeilen, Kommentare etc.) beibehalten
-            result += line + "\n";
+        const ranges = [];
+        BibTeXParser.findEntries(text).forEach(entry => {
+            if (entry.special || !entry.validKey) return;
+            BibTeXParser.scanFields(text, entry.fieldsStart, entry.bodyEnd).fields.forEach(field => {
+                if (toRemove.has(field.name)) ranges.push(this.fieldRemovalRange(text, field, entry));
+            });
         });
-        return result.trim();
+
+        let result = "";
+        let pos = 0;
+        ranges.forEach(([from, to]) => {
+            result += text.slice(pos, from);
+            pos = to;
+        });
+        return result + text.slice(pos);
+    },
+
+    // Bereich eines Felds samt Komma; steht das Feld allein in seinen Zeilen, werden diese ganz entfernt
+    fieldRemovalRange(text, field, entry) {
+        let from = field.nameStart;
+        let to = field.valueEnd;
+        let j = to;
+        while (j < entry.bodyEnd && (text[j] === " " || text[j] === "\t")) j++;
+        const hasComma = j < entry.bodyEnd && text[j] === ",";
+        if (hasComma) to = j + 1;
+        while (to < entry.bodyEnd && (text[to] === " " || text[to] === "\t")) to++;
+
+        const lineStart = text.lastIndexOf("\n", from - 1) + 1;
+        const aloneInLine = /^[ \t]*$/.test(text.slice(lineStart, from));
+        if (to < entry.bodyEnd && text[to] === "\n" && aloneInLine) {
+            return [lineStart, to + 1];
+        }
+        if (!hasComma) {
+            // Letztes Feld: das trennende Komma davor mit entfernen
+            let k = from;
+            while (k > entry.fieldsStart && /\s/.test(text[k - 1])) k--;
+            if (k > entry.fieldsStart && text[k - 1] === ",") from = k - 1;
+        }
+        return [from, to];
     },
 
     // ---- 3) Leeren Artikel erstellen (Template) ----
@@ -231,15 +473,14 @@ const FormatterModule = {
         const template = this.buildTemplate();
         const cm = EditorModule.editorInstance;
         const cursor = cm.getCursor();
-        // An aktueller Cursor-Position einfuegen
+        // An aktueller Cursor-Position einfügen
         cm.replaceRange(template, cursor);
         cm.focus();
-        console.log("Leeres Template eingefuegt.");
     },
 
     /**
      * Erzeugt ein leeres @article{}-Template mit nur den aktuell
-     * in den Voreinstellungen (Checkboxen) ausgewaehlten Feldern.
+     * in den Voreinstellungen (Checkboxen) ausgewählten Feldern.
      */
     buildTemplate() {
         const fields = [...this.activeFields];
@@ -256,6 +497,8 @@ const FormatterModule = {
 const FileModule = {
     files: [],
     activeFileId: null,
+    refreshTimeout: null,
+    sessionWarningShown: false,
     tabContainer: document.querySelector("#tab-bar"),
     fileInput: document.querySelector("#hidden-file-input"),
     folderInput: document.querySelector("#hidden-folder-input"),
@@ -317,20 +560,12 @@ const FileModule = {
                             multiple: false
                         });
                         const file = await handle.getFile();
-                        let content = await file.text();
-                        // TXT-Import: BibTeX-BlÃƒÂ¶cke extrahieren, Rest verwerfen
-                        if (file.name.toLowerCase().endsWith('.txt')) {
-                            content = this.extractBibtex(content);
-                            if (!content) {
-                                alert('This .txt file does not contain recognizable BibTeX content and will not be imported.');
-                                return;
-                            }
-                        }
-                        this.addFile(file.name, content, handle);
-                        this.addToRecentFiles(file.name, content);
-                        if (this.files.length > 0) this.switchToTab(this.files[this.files.length - 1].id);
+                        this.openContent(file.name, await file.text(), handle);
                     } catch (err) {
-                        if (err.name !== 'AbortError') console.error("Öffnen fehlgeschlagen:", err);
+                        if (err.name !== 'AbortError') {
+                            console.error("Öffnen fehlgeschlagen:", err);
+                            alert("Could not open the file: " + err.message);
+                        }
                     }
                 } else {
                     this.fileInput.value = '';
@@ -353,6 +588,16 @@ const FileModule = {
             });
             this.folderInput.addEventListener("change", (e) => this.handleFolderUpload(e));
         }
+        // Strg+S / Cmd+S speichert die aktive Datei, statt den Speichern-Dialog des Browsers zu öffnen
+        window.addEventListener("keydown", (e) => {
+            if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {
+                e.preventDefault();
+                e.stopPropagation();
+                this.saveActiveFile();
+            }
+        }, true);
+        // Eine während des Tippens noch ausstehende Sicherung beim Verlassen der Seite nachholen
+        window.addEventListener("pagehide", () => this.saveSession());
     },
 
     // Alexandros: Implementierung der Speicherlogik (Direktes Überschreiben via FileHandle)
@@ -362,22 +607,16 @@ const FileModule = {
         if (EditorModule.editorInstance) {
             file.content = EditorModule.editorInstance.getValue();
         }
-        if (file.handle) {
-            try {
-                const writable = await file.handle.createWritable();
-                await writable.write(file.content);
-                await writable.close();
-                // Dirty-Flag zurücksetzen und Tabs aktualisieren
-                file.dirty = false;
-                this.renderTabs();
-                console.log("Erfolgreich überschrieben:", file.name);
-                alert(`"${file.name}" saved!`);
-            } catch (err) {
-                console.error("Fehler beim Überschreiben:", err);
-                alert("Error saving file. Try 'Save As'.");
-            }
-        } else {
-            this.saveAsNewFile();
+        if (!file.handle) {
+            await this.saveAsNewFile();
+            return;
+        }
+        try {
+            await this.writeToHandle(file.handle, file);
+            this.markSaved(file);
+        } catch (err) {
+            console.error("Fehler beim Überschreiben:", err);
+            alert("Error saving file. Try 'Save As'.");
         }
     },
 
@@ -385,89 +624,111 @@ const FileModule = {
         const file = this.files.find(f => f.id === this.activeFileId);
         if (!file) return;
         if (EditorModule.editorInstance) file.content = EditorModule.editorInstance.getValue();
-        if (window.showSaveFilePicker) {
-            try {
-                const handle = await window.showSaveFilePicker({
-                    suggestedName: file.name,
-                    types: [{
-                        description: 'BibTeX File',
-                        accept: { 'text/plain': ['.bib', '.txt'] },
-                    }],
-                });
-                const writable = await handle.createWritable();
-                await writable.write(file.content);
-                await writable.close();
-                file.handle = handle;
-                file.name = handle.name;
-                // Dirty-Flag zurÃƒÂ¼cksetzen
-                file.dirty = false;
-                this.renderTabs();
-                alert("Saved!");
-            } catch (err) { /* Abbruch */ }
-        } else {
-            this.legacyDownload(file.name, file.content);
-            // Dirty-Flag zurücksetzen nach Download
-            file.dirty = false;
-            this.renderTabs();
+        if (!window.showSaveFilePicker) {
+            this.legacyDownload(file.name, this.contentForDisk(file));
+            this.markSaved(file);
+            return;
+        }
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: file.name,
+                types: [{
+                    description: 'BibTeX File',
+                    accept: { 'text/plain': ['.bib', '.txt'] },
+                }],
+            });
+            await this.writeToHandle(handle, file);
+            file.handle = handle;
+            file.name = handle.name;
+            this.markSaved(file);
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error("Fehler beim Speichern:", err);
+                alert("Error saving file: " + err.message);
+            }
         }
     },
 
+    async writeToHandle(handle, file) {
+        const writable = await handle.createWritable();
+        await writable.write(this.contentForDisk(file));
+        await writable.close();
+    },
+
+    // Der Editor arbeitet intern mit \n; ursprüngliche Windows-Zeilenenden beim Speichern beibehalten
+    contentForDisk(file) {
+        return file.lineEnding === "\r\n" ? file.content.replace(/\r?\n/g, "\r\n") : file.content;
+    },
+
+    markSaved(file) {
+        file.dirty = false;
+        this.renderTabs();
+        this.saveSession();
+        this.addToRecentFiles(file.name, this.contentForDisk(file));
+        ToastModule.show("Saved", file.name, "save");
+    },
+
     legacyDownload(filename, content) {
+        const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
         const element = document.createElement('a');
-        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
-        element.setAttribute('download', filename);
+        element.href = url;
+        element.download = filename;
         element.style.display = 'none';
         document.body.appendChild(element);
         element.click();
         document.body.removeChild(element);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
 
-    handleFolderUpload(event) {
-        const files = event.target.files;
-        if (!files || files.length === 0) return;
-        let count = 0;
-        Array.from(files).forEach(file => {
-            if (file.name.endsWith(".bib") || file.name.endsWith(".txt")) {
-                this.readFileAndAdd(file);
-                count++;
+    async handleFolderUpload(event) {
+        const files = Array.from(event.target.files || []).filter(file => /\.(bib|txt)$/i.test(file.name));
+        let imported = 0;
+        for (const file of files) {
+            try {
+                if (this.openContent(file.name, await file.text(), null, true)) imported++;
+            } catch (err) {
+                console.error("Datei konnte nicht gelesen werden:", file.name, err);
             }
-        });
-        if (count === 0) alert("No .bib or .txt files found.");
+        }
+        if (imported === 0) alert("No .bib or .txt files with BibTeX content found.");
     },
 
     readFileAndAdd(fileObj) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            let content = e.target.result;
-            // TXT-Import: BibTeX-Blöcke extrahieren, Rest verwerfen
-            if (fileObj.name.toLowerCase().endsWith('.txt')) {
-                content = this.extractBibtex(content);
-                if (!content) {
-                    alert('This .txt file does not contain recognizable BibTeX content and will not be imported.');
-                    return;
-                }
+        fileObj.text()
+            .then(content => this.openContent(fileObj.name, content))
+            .catch(err => alert("Could not read the file: " + err.message));
+    },
+
+    // Öffnet eine Datei als neuen Tab; aus .txt-Dateien werden nur die BibTeX-Einträge übernommen
+    openContent(name, content, handle = null, silent = false) {
+        if (name.toLowerCase().endsWith('.txt')) {
+            content = this.extractBibtex(content);
+            if (!content) {
+                if (!silent) alert('This .txt file does not contain recognizable BibTeX content and will not be imported.');
+                return false;
             }
-            this.addFile(fileObj.name, content, null);
-            this.addToRecentFiles(fileObj.name, content);
-            if (this.files.length === 1) this.switchToTab(this.files[0].id);
-            else this.switchToTab(this.files[this.files.length - 1].id);
-        };
-        reader.readAsText(fileObj);
+        }
+        this.addFile(name, content, handle);
+        this.addToRecentFiles(name, content);
+        this.switchToTab(this.files[this.files.length - 1].id);
+        return true;
     },
 
     createNewFile() {
-        const name = `Untitled_${this.files.length + 1}.bib`;
-        this.addFile(name, "", null);
+        let number = this.files.length + 1;
+        while (this.files.some(f => f.name === `Untitled_${number}.bib`)) number++;
+        this.addFile(`Untitled_${number}.bib`, "", null);
         this.switchToTab(this.files[this.files.length - 1].id);
     },
 
-    addFile(name, content, handle = null) {
+    addFile(name, content, handle = null, dirty = false) {
         const newFile = {
-            id: 'file_' + Date.now() + Math.random().toString(36).substr(2, 9),
+            id: 'file_' + Date.now() + Math.random().toString(36).slice(2, 11),
             name: name,
             content: content,
             handle: handle,
-            dirty: false
+            dirty: dirty,
+            lineEnding: /\r\n/.test(content) ? "\r\n" : "\n"
         };
         this.files.push(newFile);
         this.renderTabs();
@@ -482,18 +743,19 @@ const FileModule = {
     switchToTab(id) {
         const file = this.files.find(f => f.id === id);
         if (!file) return;
+        clearTimeout(this.refreshTimeout);
         this.activeFileId = id;
         this.renderTabs();
         EditorModule.setContent(file.content);
         SidebarModule.parseAndRefresh(file.content);
         this.saveSession();
-        if (typeof ClipboardModule !== 'undefined' && typeof ClipboardModule.onTabSwitched === 'function') {
-            ClipboardModule.onTabSwitched();
-        }
+        ClipboardModule.onTabSwitched();
     },
 
     closeFile(id, event) {
         if (event) event.stopPropagation();
+        const file = this.files.find(f => f.id === id);
+        if (file && file.dirty && !confirm(`"${file.name}" has unsaved changes. Close anyway?`)) return;
         this.files = this.files.filter(f => f.id !== id);
         if (this.activeFileId === id) {
             if (this.files.length > 0) this.switchToTab(this.files[this.files.length - 1].id);
@@ -513,14 +775,14 @@ const FileModule = {
         this.files.forEach(file => {
             const tab = document.createElement("div");
             tab.className = `tab ${file.id === this.activeFileId ? 'active' : ''}`;
-            // Icon fÃƒÂ¼r den Tab
+            // Icon für den Tab
             const icon = document.createElement("span");
             icon.className = "material-symbols-outlined tab-icon";
             icon.textContent = "description";
             tab.appendChild(icon);
             const span = document.createElement("span");
             span.className = "tab-filename";
-            // Dirty-Flag: Ungespeicherte Ãƒâ€žnderungen mit * markieren
+            // Dirty-Flag: Ungespeicherte Änderungen mit * markieren
             span.textContent = (file.dirty ? '* ' : '') + file.name;
             tab.appendChild(span);
             const closeBtn = document.createElement("span");
@@ -533,19 +795,34 @@ const FileModule = {
         });
     },
 
-    // Aktualisiert den Inhalt der aktiven Datei und refresht die Sidebar
-    updateActiveFileContent(content) {
+    /**
+     * Übernimmt den Editorinhalt in die aktive Datei. Liste, Suchmarkierungen und Sitzung werden
+     * beim Tippen erst nach einer kurzen Pause aktualisiert, sonst sofort.
+     */
+    updateActiveFileContent(content, deferRefresh = false) {
         const file = this.files.find(f => f.id === this.activeFileId);
-        if (file) {
-            file.content = content;
-            SidebarModule.parseAndRefresh(content);
-            this.saveSession();
+        if (!file) return;
+        file.content = content;
+        clearTimeout(this.refreshTimeout);
+        if (deferRefresh) {
+            this.refreshTimeout = setTimeout(() => this.refreshActiveFile(), 200);
+        } else {
+            this.refreshActiveFile();
         }
+    },
+
+    refreshActiveFile() {
+        clearTimeout(this.refreshTimeout);
+        const file = this.files.find(f => f.id === this.activeFileId);
+        if (!file) return;
+        SidebarModule.parseAndRefresh(file.content);
+        EditorModule.reapplySearchHighlights();
+        this.saveSession();
     },
 
     /**
      * Markiert die aktive Datei als "ungespeichert" (dirty).
-     * Wird vom EditorModule bei jeder Benutzer-Ãƒâ€žnderung aufgerufen.
+     * Wird vom EditorModule bei jeder Benutzer-Änderung aufgerufen.
      */
     markActiveDirty() {
         const file = this.files.find(f => f.id === this.activeFileId);
@@ -566,16 +843,20 @@ const FileModule = {
         try {
             const data = {
                 activeFileId: this.activeFileId,
-                files: this.files.map(f => ({ id: f.id, name: f.name, content: f.content }))
+                files: this.files.map(f => ({ id: f.id, name: f.name, content: f.content, dirty: !!f.dirty, lineEnding: f.lineEnding }))
             };
             localStorage.setItem('bibstream-session', JSON.stringify(data));
         } catch (err) {
             console.warn('Sitzung konnte nicht gespeichert werden:', err);
+            if (!this.sessionWarningShown) {
+                this.sessionWarningShown = true;
+                ToastModule.show("Session not saved", "Browser storage is full – please save your files", "warning");
+            }
         }
     },
 
     /**
-     * LÃƒÂ¤dt Tabs und aktiven Tab aus dem LocalStorage.
+     * Lädt Tabs und aktiven Tab aus dem LocalStorage.
      * Stellt files[] wieder her und wechselt zum zuletzt aktiven Tab.
      */
     loadSession() {
@@ -585,7 +866,10 @@ const FileModule = {
             const data = JSON.parse(raw);
             if (!data || !Array.isArray(data.files) || data.files.length === 0) return;
             data.files.forEach(f => {
-                this.files.push({ id: f.id, name: f.name, content: f.content || '', handle: null });
+                this.files.push({
+                    id: f.id, name: f.name, content: f.content || '', handle: null,
+                    dirty: !!f.dirty, lineEnding: f.lineEnding === "\r\n" ? "\r\n" : "\n"
+                });
             });
             this.renderTabs();
             // Zum zuletzt aktiven Tab wechseln (oder ersten Tab)
@@ -601,17 +885,17 @@ const FileModule = {
     // --- Premium-Feature: Zuletzt geänderten Dateien ---
 
     /**
-     * FÃƒÂ¼gt eine Datei (Name + Inhalt) zur "Zuletzt geändert"-Liste hinzu.
-     * Max. 5 EintrÃƒÂ¤ge, keine Duplikate (FIFO). Speichert Name UND Content.
+     * Fügt eine Datei (Name + Inhalt) zur "Zuletzt geändert"-Liste hinzu.
+     * Max. 5 Einträge, keine Duplikate (FIFO). Speichert Name UND Content.
      */
     addToRecentFiles(name, content) {
         try {
             let recent = JSON.parse(localStorage.getItem('bibstream-recent-files') || '[]');
             // Duplikat entfernen, falls vorhanden
             recent = recent.filter(entry => entry.name !== name);
-            // Am Anfang einfÃƒÂ¼gen (Name + Content)
+            // Am Anfang einfügen (Name + Content)
             recent.unshift({ name: name, content: content || '' });
-            // Max. 5 EintrÃƒÂ¤ge behalten
+            // Max. 5 Einträge behalten
             if (recent.length > 5) recent = recent.slice(0, 5);
             localStorage.setItem('bibstream-recent-files', JSON.stringify(recent));
             this.renderRecentFiles();
@@ -622,13 +906,13 @@ const FileModule = {
 
     /**
      * Rendert die "Zuletzt geändert"-Liste im Datei-Dropdown.
-     * FÃƒÂ¼gt EintrÃƒÂ¤ge unterhalb einer <hr> im #dropdownDateiContent ein.
+     * Fügt Einträge unterhalb einer <hr> im #dropdownDateiContent ein.
      */
     renderRecentFiles() {
         const dropdown = document.querySelector('#dropdownDateiContent');
         if (!dropdown) return;
 
-        // Alte "Zuletzt geändert"-EintrÃƒÂ¤ge entfernen
+        // Alte "Zuletzt geändert"-Einträge entfernen
         dropdown.querySelectorAll('.recent-file-item, .recent-file-header').forEach(el => el.remove());
 
         let recent = [];
@@ -636,21 +920,21 @@ const FileModule = {
             recent = JSON.parse(localStorage.getItem('bibstream-recent-files') || '[]');
         } catch (e) { /* leer lassen */ }
 
-        if (recent.length === 0) return;
+        if (!Array.isArray(recent) || recent.length === 0) return;
 
         // Trennlinie
         const hr = document.createElement('hr');
         hr.className = 'recent-file-header';
         dropdown.appendChild(hr);
 
-        // ÃƒÅ“berschrift
+        // Überschrift
         const header = document.createElement('span');
         header.className = 'recent-file-header';
-        header.textContent = 'Zuletzt Bearbeitet';
+        header.textContent = 'Recently Edited';
         header.style.cssText = 'display:block;padding:6px 12px 2px;font-size:0.75em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;pointer-events:none;';
         dropdown.appendChild(header);
 
-        // DateieintrÃƒÂ¤ge (jeder Eintrag ist ein {name, content}-Objekt)
+        // Dateieinträge (jeder Eintrag ist ein {name, content}-Objekt)
         recent.forEach(entry => {
             const a = document.createElement('a');
             a.href = '#';
@@ -659,7 +943,7 @@ const FileModule = {
             a.title = entry.name;
             a.addEventListener('click', (e) => {
                 e.preventDefault();
-                // PrÃƒÂ¼fen ob Datei bereits geÃƒÂ¶ffnet ist
+                // Prüfen ob Datei bereits geöffnet ist
                 const existing = this.files.find(f => f.name === entry.name);
                 if (existing) {
                     this.switchToTab(existing.id);
@@ -677,33 +961,14 @@ const FileModule = {
     // --- TXT-Import: BibTeX-Extraktion ---
 
     /**
-     * Extrahiert alle gÃƒÂ¼ltigen BibTeX-BlÃƒÂ¶cke (@type{...}) aus einem Rohtext.
-     * Verwendet Klammertiefe-ZÃƒÂ¤hlung, um verschachtelte {} korrekt zu behandeln.
-     * Gibt den bereinigten String zurÃƒÂ¼ck, oder '' wenn nichts gefunden wurde.
+     * Extrahiert alle BibTeX-Einträge (@typ{...} bzw. @typ(...)) aus einem Rohtext.
+     * Gibt den bereinigten String zurück, oder '' wenn kein Eintrag gefunden wurde.
      */
     extractBibtex(rawText) {
-        const blocks = [];
-        // Finde jedes @type{-Vorkommen
-        const headerRegex = /@\w+\s*\{/g;
-        let match;
-        while ((match = headerRegex.exec(rawText)) !== null) {
-            const start = match.index;
-            // Ab der ÃƒÂ¶ffnenden { die passende schlieÃƒÅ¸ende } per TiefenzÃƒÂ¤hlung finden
-            const braceStart = start + match[0].length - 1; // Position der {
-            let depth = 1;
-            let i = braceStart + 1;
-            while (i < rawText.length && depth > 0) {
-                if (rawText[i] === '{') depth++;
-                else if (rawText[i] === '}') depth--;
-                i++;
-            }
-            if (depth === 0) {
-                blocks.push(rawText.substring(start, i));
-            }
-            // Regex-Index hinter den Block setzen, damit wir nicht innerhalb suchen
-            headerRegex.lastIndex = i;
-        }
-        return blocks.length > 0 ? blocks.join('\n\n') : '';
+        const entries = BibTeXParser.findEntries(rawText).filter(e =>
+            e.special || (e.validKey && rawText.slice(e.fieldsStart, e.bodyEnd).includes("=")));
+        if (!entries.some(e => !e.special)) return '';
+        return entries.map(e => rawText.slice(e.start, e.end)).join('\n\n');
     }
 };
 
@@ -718,7 +983,7 @@ const EditorModule = {
 
     init() {
         const textarea = document.getElementById("editor-textarea");
-        if (!textarea) return;
+        if (!textarea || typeof CodeMirror === "undefined") return;
 
         // Felix: Integration von CodeMirror 5 mit stex-Modus und Linter-Anbindung
         this.editorInstance = CodeMirror.fromTextArea(textarea, {
@@ -737,15 +1002,14 @@ const EditorModule = {
             }
         });
 
-        // FIX: BUG-1 behoben – Defensiver Guard: prüfe ob Funktion existiert
-        this.editorInstance.on("change", (cm) => {
+        // Jede Benutzeränderung an Datei, Liste und Lösch-Schaltflächen weitergeben
+        this.editorInstance.on("changes", (cm, changes) => {
             if (this.isProgrammaticUpdate) return;
-            if (typeof FileModule.updateActiveFileContent === 'function') {
-                FileModule.updateActiveFileContent(cm.getValue());
-            }
-            // Dirty-Flag setzen: Datei hat ungespeicherte Änderungen
+            // Dirty-Flag zuerst setzen, damit es mit dem Inhalt in der Sitzung landet
             FileModule.markActiveDirty();
-            this.reapplySearchHighlights();
+            // Beim Tippen wird die Liste erst nach einer kurzen Pause neu aufgebaut
+            const typing = changes.every(change => /^(\+input|\+delete|\*compose)$/.test(change.origin || ""));
+            FileModule.updateActiveFileContent(cm.getValue(), typing);
             this.scheduleUpdateDeleteButtons();
         });
 
@@ -757,7 +1021,7 @@ const EditorModule = {
             this.cursorTimeout = setTimeout(() => {
                 const cursor = cm.getCursor();
                 const key = this.findBibtexKeyAtCursor(cm, cursor);
-                if (key && typeof SidebarModule.highlightKey === 'function') {
+                if (key) {
                     SidebarModule.highlightKey(key);
                 }
             }, 150);
@@ -778,7 +1042,7 @@ const EditorModule = {
             undoBtn.addEventListener("click", (e) => {
                 e.preventDefault();
                 this.undo();
-                // Alexandros: Dropdown nach Klick schlieÃƒÅ¸en
+                // Alexandros: Dropdown nach Klick schließen
                 document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
             });
         }
@@ -787,21 +1051,21 @@ const EditorModule = {
             redoBtn.addEventListener("click", (e) => {
                 e.preventDefault();
                 this.redo();
-                // Alexandros: Dropdown nach Klick schlieÃƒÅ¸en
+                // Alexandros: Dropdown nach Klick schließen
                 document.querySelectorAll(".dropdownEditClass").forEach(el => el.classList.remove("show"));
             });
         }
     },
 
-    // Felix: Manuelles AuslÃƒÂ¶sen der RÃƒÂ¼ckgÃƒÂ¤ngig-Funktion
+    // Felix: Manuelles Auslösen der Rückgängig-Funktion
     undo() {
         if (this.editorInstance) {
             this.editorInstance.undo();
-            this.editorInstance.focus(); // Fokus zurÃƒÂ¼ck in den Editor
+            this.editorInstance.focus(); // Fokus zurück in den Editor
         }
     },
 
-    // Felix: Manuelles AuslÃƒÂ¶sen der Wiederholen-Funktion
+    // Felix: Manuelles Auslösen der Wiederholen-Funktion
     redo() {
         if (this.editorInstance) {
             this.editorInstance.redo();
@@ -823,13 +1087,10 @@ const EditorModule = {
         this.scheduleUpdateDeleteButtons();
     },
 
+    // Sortierter Text als reguläre, rückgängig machbare Änderung (markiert die Datei als geändert)
     updateSortedContent(text) {
         if (!this.editorInstance) return;
-        this.isProgrammaticUpdate = true;
         this.editorInstance.setValue(text);
-        this.isProgrammaticUpdate = false;
-        this.reapplySearchHighlights();
-        this.scheduleUpdateDeleteButtons();
     },
 
     /**
@@ -876,13 +1137,21 @@ const EditorModule = {
     findBibtexKeyAtCursor(cm, cursor) {
         // Sucht vom aktuellen Cursor nach oben nach dem nächsten BibTeX-Eintrag
         for (let i = cursor.line; i >= 0; i--) {
-            const line = cm.getLine(i);
-            const match = line.match(/@\w+\s*\{\s*([^,]*),/);
+            const match = cm.getLine(i).match(/@([a-zA-Z]\w*)\s*[{(]\s*([^\s,{}()]+)\s*,/);
             if (match) {
-                return match[1].trim();
+                return BibTeXParser.SPECIAL_TYPES.includes(match[1].toLowerCase()) ? null : match[2];
             }
         }
         return null;
+    },
+
+    // Erster Eintrag mit genau diesem Schlüssel (optional mit Kopfzeile in der angegebenen Zeile)
+    findEntry(keyName, headerLine = null) {
+        const cm = this.editorInstance;
+        const text = cm.getValue();
+        const candidates = BibTeXParser.findEntries(text).filter(e => !e.special && e.key === keyName);
+        const entry = (headerLine !== null && candidates.find(e => cm.posFromIndex(e.start).line === headerLine)) || candidates[0];
+        return entry ? { entry, text } : null;
     },
 
     /**
@@ -891,76 +1160,15 @@ const EditorModule = {
      * und fokussiert den Editor, sodass der Eintrag direkt per Strg+C / Strg+V kopiert werden kann.
      */
     jumpToKey(keyName, selectWholeBlock = true) {
-        if (!this.editorInstance) return;
-        this.isJumping = true; // Ping-Pong Effekt verhindern
         const cm = this.editorInstance;
-        const totalLines = cm.lineCount();
-        const escapedKey = keyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const headerRegex = new RegExp(`^\\s*@\\w+\\s*\\{\\s*${escapedKey}\\s*(?:,|$)`, 'i');
+        if (!cm) return;
+        const found = this.findEntry(keyName);
+        if (!found) return;
+        const { entry } = found;
+        this.isJumping = true; // Ping-Pong Effekt verhindern
 
-        // 1. Suche die Header-Zeile des Eintrags (@type{key,)
-        let blockStart = -1;
-        for (let i = 0; i < totalLines; i++) {
-            if (headerRegex.test(cm.getLine(i))) {
-                blockStart = i;
-                break;
-            }
-        }
-
-        // Fallback: Suche über getSearchCursor, falls Header mehrzeilig umbrochen ist oder Whitespace abweicht
-        if (blockStart === -1) {
-            const cursor = cm.getSearchCursor(keyName);
-            while (cursor.findNext()) {
-                const matchLine = cursor.from().line;
-                for (let i = matchLine; i >= 0; i--) {
-                    if (cm.getLine(i).trim().startsWith('@')) {
-                        const snippet = cm.getRange({ line: i, ch: 0 }, { line: matchLine + 1, ch: 0 });
-                        if (new RegExp(`@\\w+\\s*\\{\\s*${escapedKey}\\s*[,\\s]`, 'i').test(snippet)) {
-                            blockStart = i;
-                        }
-                        break;
-                    }
-                }
-                if (blockStart !== -1) break;
-            }
-        }
-
-        // Letzter Fallback: Erstes Vorkommen von keyName
-        if (blockStart === -1) {
-            const cursor = cm.getSearchCursor(keyName);
-            if (!cursor.findNext()) {
-                setTimeout(() => this.isJumping = false, 300);
-                return;
-            }
-            const matchLine = cursor.from().line;
-            blockStart = matchLine;
-            for (let i = matchLine; i >= 0; i--) {
-                if (cm.getLine(i).trim().startsWith('@')) {
-                    blockStart = i;
-                    break;
-                }
-            }
-        }
-
-        // 2. Finde das Ende des Blocks (vorwärts per Klammertiefe)
-        let blockEnd = blockStart;
-        let depth = 0;
-        let foundOpenBrace = false;
-        for (let i = blockStart; i < totalLines; i++) {
-            const line = cm.getLine(i);
-            for (const ch of line) {
-                if (ch === '{' || ch === '(') {
-                    depth++;
-                    foundOpenBrace = true;
-                } else if (ch === '}' || ch === ')') {
-                    depth--;
-                }
-            }
-            if (foundOpenBrace && depth <= 0) {
-                blockEnd = i;
-                break;
-            }
-        }
+        const blockStart = cm.posFromIndex(entry.start).line;
+        const blockEnd = cm.posFromIndex(entry.end).line;
 
         if (selectWholeBlock) {
             cm.setSelection(
@@ -968,28 +1176,22 @@ const EditorModule = {
                 { line: blockEnd, ch: cm.getLine(blockEnd).length }
             );
         } else {
-            // Selektion nur auf den Key setzen
-            const keyCursor = cm.getSearchCursor(keyName, { line: blockStart, ch: 0 });
-            if (keyCursor.findNext()) {
-                cm.setSelection(keyCursor.from(), keyCursor.to());
-            }
+            // Selektion auf den Key setzen
+            cm.setSelection(cm.posFromIndex(entry.keyStart), cm.posFromIndex(entry.keyEnd));
         }
 
         // Scroll: Eintrag bündig oben am Bildschirmrand
         const topCoord = cm.charCoords({ line: blockStart, ch: 0 }, 'local').top;
         cm.scrollTo(null, topCoord);
 
-        // Farbliches Highlighting des gesamten Blocks (temporär)
-        const markers = [];
+        // Farbliches Highlighting des gesamten Blocks (temporär); Zeilen-Handles bleiben auch
+        // gültig, wenn sich die Zeilennummern zwischenzeitlich verschieben
+        const handles = [];
         for (let i = blockStart; i <= blockEnd; i++) {
-            cm.addLineClass(i, 'background', 'jumptokey-highlight');
-            markers.push(i);
+            handles.push(cm.addLineClass(i, 'background', 'jumptokey-highlight'));
         }
-        // Highlight nach 3.5s wieder entfernen
         setTimeout(() => {
-            markers.forEach(line => {
-                cm.removeLineClass(line, 'background', 'jumptokey-highlight');
-            });
+            handles.forEach(handle => cm.removeLineClass(handle, 'background', 'jumptokey-highlight'));
         }, 3500);
 
         cm.focus();
@@ -1002,100 +1204,34 @@ const EditorModule = {
     },
 
     /**
-     * Löscht einen BibTeX-Eintrag anhand seines Keys aus dem CodeMirror-Editor.
-     * Nutzt präzises Klammer-Matching und cm.replaceRange(), wodurch das change-Event
-     * automatisch gefeuert wird und der Undo-Verlauf (Strg+Z) erhalten bleibt.
+     * Löscht einen BibTeX-Eintrag anhand seines Keys aus dem CodeMirror-Editor (bei doppelten
+     * Schlüsseln den Eintrag, dessen Kopf in headerLine steht). cm.replaceRange() löst das
+     * change-Event aus, und der Undo-Verlauf (Strg+Z) bleibt erhalten.
      */
-    deleteEntryByKey(keyName) {
-        if (!this.editorInstance) {
-            if (FileModule.activeFileId) {
-                const file = FileModule.files.find(f => f.id === FileModule.activeFileId);
-                if (file) {
-                    const escaped = keyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const regex = new RegExp(`@\\w+\\s*\\{\\s*${escaped}\\s*,[\\s\\S]*?\\n\\}\\n?`, 'i');
-                    const updated = file.content.replace(regex, '');
-                    FileModule.updateActiveFileContent(updated);
-                    FileModule.markActiveDirty();
-                    return true;
-                }
-            }
-            return false;
-        }
-
+    deleteEntryByKey(keyName, headerLine = null) {
         const cm = this.editorInstance;
-        const totalLines = cm.lineCount();
-        const escapedKey = keyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const headerRegex = new RegExp(`^\\s*@\\w+\\s*\\{\\s*${escapedKey}\\s*,`, 'i');
+        if (!cm) return false;
+        const found = this.findEntry(keyName, headerLine);
+        if (!found) return false;
+        const { entry, text } = found;
 
-        // 1. Suche die Header-Zeile des Eintrags (@type{key,)
-        let blockStart = -1;
-        for (let i = 0; i < totalLines; i++) {
-            if (headerRegex.test(cm.getLine(i))) {
-                blockStart = i;
-                break;
+        // Ganze Zeilen entfernen, dazu eine folgende Leerzeile (am Dateiende den Zeilenumbruch davor)
+        let from = entry.start;
+        let to = entry.end;
+        const lineStart = text.lastIndexOf("\n", from - 1) + 1;
+        if (/^[ \t]*$/.test(text.slice(lineStart, from))) from = lineStart;
+        const rest = /^[ \t]*(\n|$)/.exec(text.slice(to));
+        if (rest) {
+            to += rest[0].length;
+            if (rest[1] === "\n") {
+                const blank = /^[ \t]*(\n|$)/.exec(text.slice(to));
+                if (blank) to += blank[0].length;
+            } else if (from > 0 && text[from - 1] === "\n") {
+                from--;
             }
         }
 
-        // Fallback: Suche über getSearchCursor, falls Header mehrzeilig umbrochen wurde
-        if (blockStart === -1) {
-            const cursor = cm.getSearchCursor(keyName);
-            while (cursor.findNext()) {
-                const matchLine = cursor.from().line;
-                for (let i = matchLine; i >= 0; i--) {
-                    if (cm.getLine(i).trim().startsWith('@')) {
-                        const snippet = cm.getRange({ line: i, ch: 0 }, { line: matchLine + 1, ch: 0 });
-                        if (headerRegex.test(snippet)) {
-                            blockStart = i;
-                        }
-                        break;
-                    }
-                }
-                if (blockStart !== -1) break;
-            }
-        }
-
-        if (blockStart === -1) return false;
-
-        // 2. Finde das Ende des Eintrags per Klammertiefe (Brace Depth)
-        let blockEnd = blockStart;
-        let depth = 0;
-        let foundOpenBrace = false;
-
-        for (let i = blockStart; i < totalLines; i++) {
-            const line = cm.getLine(i);
-            for (const ch of line) {
-                if (ch === '{') {
-                    depth++;
-                    foundOpenBrace = true;
-                } else if (ch === '}') {
-                    depth--;
-                }
-            }
-            if (foundOpenBrace && depth <= 0) {
-                blockEnd = i;
-                break;
-            }
-        }
-
-        // 3. Zu löschenden Zeilenbereich ermitteln (inklusive nachfolgender/vorangehender Leerzeile)
-        let fromLine = blockStart;
-        let toLine = blockEnd;
-        let fromCh = 0;
-        let toCh = cm.getLine(blockEnd).length;
-
-        if (blockEnd + 1 < totalLines) {
-            toLine = blockEnd + 1;
-            toCh = 0;
-            if (toLine < totalLines && cm.getLine(toLine).trim() === '') {
-                toLine = toLine + 1;
-            }
-        } else if (blockStart > 0) {
-            fromLine = blockStart - 1;
-            fromCh = cm.getLine(blockStart - 1).length;
-        }
-
-        // 4. In CodeMirror ersetzen (löst on("change") aus -> aktualisiert File & Sidebar automatisch)
-        cm.replaceRange("", { line: fromLine, ch: fromCh }, { line: toLine, ch: toCh });
+        cm.replaceRange("", cm.posFromIndex(from), cm.posFromIndex(to));
         cm.focus();
         return true;
     },
@@ -1119,57 +1255,50 @@ const EditorModule = {
         const cm = this.editorInstance;
 
         // Vorherige Marker bereinigen
-        if (this.deleteMarkers && this.deleteMarkers.length > 0) {
-            this.deleteMarkers.forEach(m => {
-                if (m && typeof m.clear === 'function') {
-                    m.clear();
-                }
-            });
-        }
+        this.deleteMarkers.forEach(m => m.clear());
         this.deleteMarkers = [];
 
-        const totalLines = cm.lineCount();
-        const headerRegex = /^\s*@(\w+)\s*[{(]\s*([^,\s]*)/;
+        const text = cm.getValue();
+        const linesWithButton = new Set();
+        cm.operation(() => {
+            BibTeXParser.findEntries(text).forEach(entry => {
+                if (entry.special || !entry.validKey) return;
+                const line = cm.posFromIndex(entry.start).line;
+                if (linesWithButton.has(line)) return;
+                linesWithButton.add(line);
 
-        for (let i = 0; i < totalLines; i++) {
-            const lineText = cm.getLine(i);
-            const match = lineText.match(headerRegex);
-            if (match) {
-                const type = match[1];
-                const key = match[2];
-
+                const type = text.slice(entry.typeStart, entry.typeStart + entry.type.length);
+                const key = entry.key;
                 const btn = document.createElement("button");
                 btn.className = "cm-entry-delete-btn";
                 btn.type = "button";
                 btn.title = `Delete entry @${type}{${key}}`;
                 btn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
 
+                const marker = cm.setBookmark(
+                    { line, ch: cm.getLine(line).length },
+                    { widget: btn, insertLeft: false, handleMouseEvents: true }
+                );
+                this.deleteMarkers.push(marker);
+
                 btn.addEventListener("click", (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-
-                    const entryObj = (SidebarModule.allEntries || []).find(ent => ent.key === key) || {
-                        type: type,
-                        key: key,
-                        title: "",
-                        author: "",
-                        year: ""
-                    };
-
-                    SidebarModule.openDeleteModal(entryObj);
+                    // Aktuelle Zeile des Eintrags, damit bei doppelten Schlüsseln der richtige gelöscht wird
+                    const pos = marker.find();
+                    const headerLine = pos ? pos.line : null;
+                    const found = this.findEntry(key, headerLine);
+                    const entryObj = found
+                        ? SidebarModule.describeEntry(found.text, found.entry)
+                        : { type: entry.type, key, title: "", author: "Unknown", year: "????" };
+                    SidebarModule.openDeleteModal(entryObj, headerLine);
                 });
 
                 btn.addEventListener("mousedown", (e) => {
                     e.stopPropagation();
                 });
-
-                const marker = cm.setBookmark(
-                    { line: i, ch: lineText.length },
-                    { widget: btn, insertLeft: false, handleMouseEvents: true }
-                );
-                this.deleteMarkers.push(marker);
-            }
-        }
+            });
+        });
     }
 };
 
@@ -1183,10 +1312,12 @@ const SidebarModule = {
     confirmDeleteBtn: null,
     cancelDeleteBtn: null,
     entryToDelete: null,
+    deleteHeaderLine: null,
+    activeKey: null,
     allEntries: [],
-    currentSearch: "",
     searchTerms: [],
     currentSort: "original",
+    headerText: "",
     trailingText: "",
 
     init() {
@@ -1235,69 +1366,6 @@ const SidebarModule = {
     parseAndRefresh(text) {
         this.allEntries = this.parseBibtexEntries(text);
         this.updateView();
-        if (typeof EditorModule.highlightSearchMatches === 'function') {
-            EditorModule.highlightSearchMatches(this.searchTerms);
-        }
-    },
-
-    /**
-     * Extrahiert den Wert eines BibTeX-Feldes verschachtelungssicher (Brace Matching).
-     * Unterstützt geschweifte Klammern {...}, Anführungszeichen "..." und unquotierte Werte.
-     * Bilanziert Klammern per Depth-Zählung, damit verschachtelte Klammern wie z.B.
-     * {{FF}itts Law: Modeling Finger Touch with {F}itts' {L}aw} vollständig
-     * bis zur schließenden Hauptklammer extrahiert werden.
-     */
-    extractFieldValue(content, fieldName) {
-        // Suche nach "fieldName =" bzw. "(?:OPT)?fieldName =" (case-insensitive)
-        const regex = new RegExp(`(?:\\b(?:OPT)?${fieldName}\\s*=\\s*)`, 'i');
-        const match = regex.exec(content);
-        if (!match) return null;
-
-        let startIdx = match.index + match[0].length;
-
-        // Führende Leerzeichen/Umbruche überspringen
-        while (startIdx < content.length && /\s/.test(content[startIdx])) {
-            startIdx++;
-        }
-
-        if (startIdx >= content.length) return null;
-
-        const firstChar = content[startIdx];
-        let value = "";
-
-        if (firstChar === '{') {
-            // Klammertiefen-Zählung für verschachtelte geschweifte Klammern
-            let depth = 1;
-            let i = startIdx + 1;
-            while (i < content.length && depth > 0) {
-                if (content[i] === '{') depth++;
-                else if (content[i] === '}') depth--;
-                if (depth > 0) i++;
-            }
-            if (depth === 0) {
-                // Extrahierter Inhalt zwischen den äußeren Hauptklammern
-                value = content.substring(startIdx + 1, i);
-            }
-        } else if (firstChar === '"') {
-            // Anführungszeichen: Bis zum schließenden Anführungszeichen lesen (unter Beachtung von Escapes)
-            let i = startIdx + 1;
-            while (i < content.length) {
-                if (content[i] === '"' && content[i - 1] !== '\\') {
-                    break;
-                }
-                i++;
-            }
-            value = content.substring(startIdx + 1, i);
-        } else {
-            // Unquotierte Werte (z.B. Zahlen `year = 2024` oder Makros)
-            let i = startIdx;
-            while (i < content.length && content[i] !== ',' && content[i] !== '\n' && content[i] !== '}') {
-                i++;
-            }
-            value = content.substring(startIdx, i);
-        }
-
-        return value;
     },
 
     /**
@@ -1366,69 +1434,6 @@ const SidebarModule = {
     },
 
     /**
-     * Extrahiert alle Felder eines BibTeX-Eintrags verschachtelungssicher (Brace Matching).
-     * Erfasst beliebige Standard- und benutzerdefinierte Felder wie address, location, ort,
-     * publisher, journal, booktitle, pages, abstract usw.
-     */
-    extractAllFields(content) {
-        const fields = {};
-        if (!content) return fields;
-
-        const fieldRegex = /(?:^|[\s,;])(?:OPT)?([a-zA-Z0-9_-]+)\s*=\s*/g;
-        let match;
-
-        while ((match = fieldRegex.exec(content)) !== null) {
-            const fieldName = match[1].toLowerCase();
-            let startIdx = match.index + match[0].length;
-
-            while (startIdx < content.length && /\s/.test(content[startIdx])) {
-                startIdx++;
-            }
-            if (startIdx >= content.length) continue;
-
-            const firstChar = content[startIdx];
-            let value = "";
-            let endIdx = startIdx;
-
-            if (firstChar === '{') {
-                let depth = 1;
-                let i = startIdx + 1;
-                while (i < content.length && depth > 0) {
-                    if (content[i] === '{') depth++;
-                    else if (content[i] === '}') depth--;
-                    if (depth > 0) i++;
-                }
-                if (depth === 0) {
-                    value = content.substring(startIdx + 1, i);
-                    endIdx = i + 1;
-                }
-            } else if (firstChar === '"') {
-                let i = startIdx + 1;
-                while (i < content.length) {
-                    if (content[i] === '"' && content[i - 1] !== '\\') {
-                        break;
-                    }
-                    i++;
-                }
-                value = content.substring(startIdx + 1, i);
-                endIdx = i + 1;
-            } else {
-                let i = startIdx;
-                while (i < content.length && content[i] !== ',' && content[i] !== '\n' && content[i] !== '}') {
-                    i++;
-                }
-                value = content.substring(startIdx, i);
-                endIdx = i;
-            }
-
-            fields[fieldName] = this.cleanValueForUI(value);
-            fieldRegex.lastIndex = endIdx;
-        }
-
-        return fields;
-    },
-
-    /**
      * Bereinigt einen extrahierten Feldwert für die UI-Anzeige in der Cite-Liste.
      * Entfernt geschweifte Klammern (auch innere Klammern wie {FF}) und normalisiert Whitespaces,
      * ohne den Rohtext im Editor zu verändern.
@@ -1438,166 +1443,123 @@ const SidebarModule = {
         return rawVal.replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
     },
 
-    // Martin: Parser zur Extraktion von Key, Typ, Titel, Autor, Jahr, Link und aller Felder
+    // Klickbarer Verweis: DOI hat Vorrang, URLs nur mit http(s), damit kein javascript: o. Ä. als Link landet
+    buildLink(fields) {
+        const doi = (fields.doi || "").replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "").replace(/^doi:\s*/i, "").trim();
+        if (doi) return { link: `https://doi.org/${doi}`, linkType: 'doi' };
+        let url = (fields.url || "").trim();
+        if (/^www\./i.test(url)) url = "https://" + url;
+        if (/^https?:\/\//i.test(url)) return { link: url, linkType: 'url' };
+        return { link: null, linkType: null };
+    },
+
+    // Martin: Aufbereitung von Typ, Titel, Autor, Jahr, Link und aller Felder eines Eintrags
+    describeEntry(text, entry) {
+        const fields = {};
+        BibTeXParser.scanFields(text, entry.fieldsStart, entry.bodyEnd).fields.forEach(field => {
+            // Wie BibTeX gilt bei doppelten Feldern das erste Vorkommen
+            if (!(field.name in fields)) fields[field.name] = this.cleanValueForUI(BibTeXParser.valueText(field.parts));
+        });
+        const yearMatch = (fields.year || "").match(/\d{4}/);
+        return {
+            type: entry.type,
+            key: entry.key,
+            title: fields.title || "",
+            author: fields.author || "Unknown",
+            year: yearMatch ? yearMatch[0] : "????",
+            ...this.buildLink(fields),
+            fields
+        };
+    },
+
+    /**
+     * Martin: Parser für die Eintragsliste. Zerlegt den Text verlustfrei in Kopf (@string,
+     * @preamble und @comment vor dem ersten Eintrag), Einträge mit vorangehendem Text und Rest.
+     */
     parseBibtexEntries(text) {
         const entries = [];
         const seenKeys = new Set();
         const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-        const headerRegex = /@(\w+)\s*\{\s*([^,]*),/g;
-        let headerMatch;
         let lastEnd = 0;
+        let headerEnd = 0;
 
-        while ((headerMatch = headerRegex.exec(normalizedText)) !== null) {
-            const type = headerMatch[1].toLowerCase();
-            const key = headerMatch[2].trim();
-
-            if (seenKeys.has(key)) continue;
-            seenKeys.add(key);
-
-            const bodyStart = headerMatch.index + headerMatch[0].length;
-            let depth = 1;
-            let i = bodyStart;
-            while (i < normalizedText.length && depth > 0) {
-                if (normalizedText[i] === '{') depth++;
-                else if (normalizedText[i] === '}') depth--;
-                if (depth > 0) i++;
+        BibTeXParser.findEntries(normalizedText).forEach(entry => {
+            if (entry.special) {
+                // Makros und Präambel am Dateianfang bleiben beim Sortieren oben stehen
+                if (entries.length === 0) headerEnd = entry.end;
+                return;
             }
+            if (!entry.validKey || seenKeys.has(entry.key)) return;
+            seenKeys.add(entry.key);
 
-            if (depth === 0) {
-                const content = normalizedText.substring(bodyStart, i);
+            entries.push({
+                ...this.describeEntry(normalizedText, entry),
+                precedingText: normalizedText.substring(entries.length === 0 ? headerEnd : lastEnd, entry.start),
+                rawText: normalizedText.substring(entry.start, entry.end),
+                originalIndex: entries.length
+            });
+            lastEnd = entry.end;
+        });
 
-                // Verschachtelungssicheres Parsing aller Felder (inkl. Ort, Address, Journal etc.)
-                const allFields = this.extractAllFields(content);
-
-                const rawTitle = allFields['title'] || this.extractFieldValue(content, 'title');
-                const title = this.cleanValueForUI(rawTitle);
-
-                const rawAuthor = allFields['author'] || this.extractFieldValue(content, 'author');
-                const author = rawAuthor ? this.cleanValueForUI(rawAuthor) : "Unbekannt";
-
-                const rawYear = allFields['year'] || this.extractFieldValue(content, 'year');
-                const yearMatch = rawYear ? rawYear.match(/\d{4}/) : null;
-                const year = yearMatch ? yearMatch[0] : "????";
-
-                // Extrahiert URL oder DOI für einen klickbaren Link (mit Unterstützung für OPT-Präfixe)
-                const rawDoi = allFields['doi'] || this.extractFieldValue(content, 'doi');
-                const rawUrl = allFields['url'] || this.extractFieldValue(content, 'url');
-                let link = null;
-                let linkType = null; // 'doi' oder 'url'
-
-                if (rawDoi) {
-                    // DOI hat Priorität (wissenschaftlicher Standard)
-                    let doi = this.cleanValueForUI(rawDoi);
-                    // Falls die DOI bereits als URL (z.B. https://doi.org/) formatiert ist, bereinigen wir sie
-                    doi = doi.replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "");
-                    link = `https://doi.org/${doi}`;
-                    linkType = 'doi';
-                } else if (rawUrl) {
-                    // Fallback zur URL, wenn keine DOI vorhanden ist
-                    link = this.cleanValueForUI(rawUrl);
-                    linkType = 'url';
-                }
-
-                const entryStart = headerMatch.index;
-                const entryEnd = i + 1;
-                const precedingText = normalizedText.substring(lastEnd, entryStart);
-                const rawText = normalizedText.substring(entryStart, entryEnd);
-
-                entries.push({ 
-                    type, key, title, author, year, link, linkType,
-                    fields: allFields,
-                    precedingText, rawText,
-                    originalIndex: entries.length
-                });
-
-                lastEnd = entryEnd;
-                headerRegex.lastIndex = entryEnd;
-            }
-        }
-        
+        this.headerText = entries.length > 0 ? normalizedText.substring(0, headerEnd) : "";
         this.trailingText = normalizedText.substring(lastEnd);
         return entries;
     },
 
     setSearchTerm(term) {
-        this.currentSearch = (term || "").trim().toLowerCase();
         this.searchTerms = this.getSearchTerms(term || "");
-        if (typeof EditorModule.highlightSearchMatches === 'function') {
-            EditorModule.highlightSearchMatches(this.searchTerms);
-        }
+        EditorModule.highlightSearchMatches(this.searchTerms);
         this.updateView();
     },
 
     setSortMode(mode) {
         this.currentSort = mode;
-        this.sortAndSyncEditor();
-        this.updateView();
+        // Wird der Text umsortiert, aktualisiert das change-Ereignis die Liste bereits
+        if (!this.sortAndSyncEditor()) this.updateView();
     },
 
+    getComparator(mode) {
+        const byTitle = (a, b) => (a.title || a.key).localeCompare(b.title || b.key);
+        const yearOf = (entry) => parseInt(entry.year, 10) || 0;
+        switch (mode) {
+            case 'title-asc': return byTitle;
+            case 'title-desc': return (a, b) => byTitle(b, a);
+            case 'author-asc': return (a, b) => a.author.localeCompare(b.author);
+            case 'author-desc': return (a, b) => b.author.localeCompare(a.author);
+            case 'year-desc': return (a, b) => yearOf(b) - yearOf(a);
+            case 'year-asc': return (a, b) => yearOf(a) - yearOf(b);
+            case 'type': return (a, b) => a.type.localeCompare(b.type) || byTitle(a, b);
+            default: return (a, b) => a.originalIndex - b.originalIndex;
+        }
+    },
+
+    // Überträgt die gewählte Sortierung in den Editortext; liefert true, wenn sich der Text geändert hat
     sortAndSyncEditor() {
-        let editorEntries = [...this.allEntries];
-        switch (this.currentSort) {
-            case 'title-asc':
-                editorEntries.sort((a, b) => (a.title || a.key).localeCompare(b.title || b.key));
-                break;
-            case 'title-desc':
-                editorEntries.sort((a, b) => (b.title || b.key).localeCompare(a.title || a.key));
-                break;
-            case 'author-asc':
-                editorEntries.sort((a, b) => a.author.localeCompare(b.author));
-                break;
-            case 'author-desc':
-                editorEntries.sort((a, b) => b.author.localeCompare(a.author));
-                break;
-            case 'year-desc':
-                editorEntries.sort((a, b) => {
-                    const aY = parseInt(a.year, 10) || 0;
-                    const bY = parseInt(b.year, 10) || 0;
-                    return bY - aY;
-                });
-                break;
-            case 'year-asc':
-                editorEntries.sort((a, b) => {
-                    const aY = parseInt(a.year, 10) || 0;
-                    const bY = parseInt(b.year, 10) || 0;
-                    return aY - bY;
-                });
-                break;
-            case 'type':
-                editorEntries.sort((a, b) => a.type.localeCompare(b.type) || (a.title || a.key).localeCompare(b.title || b.key));
-                break;
-            case 'original':
-            default:
-                editorEntries.sort((a, b) => a.originalIndex - b.originalIndex);
-                break;
-        }
+        if (!EditorModule.editorInstance) return false;
+        // Aktuellen Editortext zugrunde legen (die Liste wird beim Tippen verzögert aktualisiert)
+        this.allEntries = this.parseBibtexEntries(EditorModule.editorInstance.getValue());
+        const sorted = [...this.allEntries].sort(this.getComparator(this.currentSort));
+        if (sorted.every((entry, idx) => entry.originalIndex === idx)) return false;
 
-        let newText = "";
-        editorEntries.forEach(entry => {
-            newText += entry.precedingText + entry.rawText;
+        let newText = this.headerText;
+        sorted.forEach((entry, idx) => {
+            let preceding = entry.precedingText;
+            // Einträge nicht zusammenkleben und die Datei nicht mit Leerzeilen beginnen lassen
+            if (idx === 0 && !newText) preceding = preceding.replace(/^\s+/, "");
+            else if (!preceding.includes("\n")) preceding = "\n\n" + preceding.trimStart();
+            newText += preceding + entry.rawText;
         });
-        newText += this.trailingText || "";
+        newText += this.trailingText;
 
-        if (EditorModule.editorInstance && EditorModule.editorInstance.getValue() !== newText) {
-            EditorModule.updateSortedContent(newText);
-            
-            if (FileModule.activeFileId) {
-                const file = FileModule.files.find(f => f.id === FileModule.activeFileId);
-                if (file) {
-                    file.content = newText;
-                }
-            }
-            
-            this.allEntries = editorEntries;
-            this.allEntries.forEach((e, idx) => e.originalIndex = idx);
-        }
+        if (EditorModule.editorInstance.getValue() === newText) return false;
+        EditorModule.updateSortedContent(newText);
+        return true;
     },
 
     // Martin: Verarbeitet Sortierung und Filterung der BibTeX-Liste über alle Felder
     updateView() {
         // Umfassende Suche: durchsucht alle Felder (Author, Title, Ort/Address, Location, Publisher, Type, Key etc.)
-        let processed = this.allEntries;
+        let processed = [...this.allEntries];
         if (this.searchTerms && this.searchTerms.length > 0) {
             const queryTerms = this.searchTerms.map(t => t.toLowerCase());
             processed = processed.filter(entry => {
@@ -1629,39 +1591,8 @@ const SidebarModule = {
             });
         }
 
-        // Konsistente Sortierung mit bidirektionalen Optionen
-        switch (this.currentSort) {
-            case 'title-asc':
-                processed.sort((a, b) => (a.title || a.key).localeCompare(b.title || b.key));
-                break;
-            case 'title-desc':
-                processed.sort((a, b) => (b.title || b.key).localeCompare(a.title || a.key));
-                break;
-            case 'author-asc':
-                processed.sort((a, b) => a.author.localeCompare(b.author));
-                break;
-            case 'author-desc':
-                processed.sort((a, b) => b.author.localeCompare(a.author));
-                break;
-            case 'year-desc':
-                processed.sort((a, b) => {
-                    const aY = parseInt(a.year, 10) || 0;
-                    const bY = parseInt(b.year, 10) || 0;
-                    return bY - aY;
-                });
-                break;
-            case 'year-asc':
-                processed.sort((a, b) => {
-                    const aY = parseInt(a.year, 10) || 0;
-                    const bY = parseInt(b.year, 10) || 0;
-                    return aY - bY;
-                });
-                break;
-            case 'type':
-                processed.sort((a, b) => a.type.localeCompare(b.type) || (a.title || a.key).localeCompare(b.title || b.key));
-                break;
-            // 'original' - keine Sortierung
-        }
+        // Konsistente Sortierung mit bidirektionalen Optionen (gleiche Kriterien wie im Editor)
+        processed.sort(this.getComparator(this.currentSort));
         this.renderList(processed);
     },
 
@@ -1671,10 +1602,11 @@ const SidebarModule = {
         this.citationListUl.innerHTML = "";
 
         // Statistik und Treffer-Anzahl
+        const isSearching = this.searchTerms && this.searchTerms.length > 0;
         if (this.countDisplay) {
             const total = this.allEntries.length;
             const shown = entriesArray.length;
-            if (this.searchTerms && this.searchTerms.length > 0) {
+            if (isSearching) {
                 this.countDisplay.textContent = shown + (shown === 1 ? " match found" : " matches found");
             } else {
                 this.countDisplay.textContent = "Total: " + total + (total === 1 ? " entry" : " entries");
@@ -1686,7 +1618,7 @@ const SidebarModule = {
             emptyLi.setAttribute("data-empty", "true");
             emptyLi.style.padding = "10px";
             emptyLi.style.color = "var(--text-muted)";
-            emptyLi.textContent = "No matches found";
+            emptyLi.textContent = isSearching ? "No matches found" : "No entries";
             this.citationListUl.appendChild(emptyLi);
             return;
         }
@@ -1696,6 +1628,8 @@ const SidebarModule = {
         entriesArray.forEach(entry => {
             const li = document.createElement("li");
             li.setAttribute("data-key", entry.key); // Für Reverse-Nav & Jump
+            // Markierung des Eintrags unter dem Cursor beim Neuaufbau der Liste beibehalten
+            if (entry.key === this.activeKey) li.classList.add("active-cite");
 
             const infoDiv = document.createElement("div");
             infoDiv.className = "entry-info";
@@ -1802,26 +1736,25 @@ const SidebarModule = {
 
     highlightKey(key) {
         if (!this.citationListUl) return;
-        
-        const items = this.citationListUl.querySelectorAll("li:not([data-empty])");
+        const changed = key !== this.activeKey;
+        this.activeKey = key;
+
         let targetLi = null;
-        
-        items.forEach(li => {
-            if (li.getAttribute("data-key") === key) {
-                li.classList.add("active-cite");
-                targetLi = li;
-            } else {
-                li.classList.remove("active-cite");
-            }
+        this.citationListUl.querySelectorAll("li:not([data-empty])").forEach(li => {
+            const isActive = li.getAttribute("data-key") === key;
+            li.classList.toggle("active-cite", isActive);
+            if (isActive) targetLi = li;
         });
-        
-        if (targetLi) {
+
+        // Nur beim Wechsel des Eintrags rollen, damit die Liste beim Bewegen im selben Eintrag ruhig bleibt
+        if (targetLi && changed) {
             targetLi.scrollIntoView({ behavior: "smooth", block: "center" });
         }
     },
 
-    openDeleteModal(entry) {
+    openDeleteModal(entry, headerLine = null) {
         this.entryToDelete = entry;
+        this.deleteHeaderLine = headerLine;
         if (this.deletePreview) {
             const titleDisplay = entry.title ? `"${entry.title}"` : 'Untitled';
             this.deletePreview.textContent = `@${entry.type}{${entry.key}}\n${titleDisplay} (${entry.author}, ${entry.year})`;
@@ -1841,8 +1774,11 @@ const SidebarModule = {
     confirmDelete() {
         if (!this.entryToDelete) return;
         const key = this.entryToDelete.key;
+        const headerLine = this.deleteHeaderLine;
         this.closeDeleteModal();
-        EditorModule.deleteEntryByKey(key);
+        if (!EditorModule.deleteEntryByKey(key, headerLine)) {
+            ToastModule.show("Entry not found", `${key} is no longer in the file`, "error");
+        }
     }
 };
 
@@ -1853,7 +1789,7 @@ const ResizerModule = {
         const body = document.body;
         let isResizing = false;
         if (!resizer) return;
-        // Alexandros: Initialisierung des Resize-Vorgangs (Sidebar/Top-Bar HÃƒÂ¶he oder Breite)
+        // Alexandros: Initialisierung des Resize-Vorgangs (Sidebar/Top-Bar Höhe oder Breite)
         resizer.addEventListener("mousedown", (e) => {
             isResizing = true;
             const isSideBySide = body.classList.contains('layout-side-by-side');
@@ -1865,27 +1801,28 @@ const ResizerModule = {
             const isSideBySide = body.classList.contains('layout-side-by-side');
 
             if (isSideBySide) {
-                // Side-by-Side-Modus: X-Achse Ã¢â€ â€™ Sidebar-Breite ÃƒÂ¤ndern
+                // Side-by-Side-Modus: X-Achse → Sidebar-Breite ändern
                 let newSidebarWidth = e.clientX;
                 if (newSidebarWidth < 150) newSidebarWidth = 150;
                 if (newSidebarWidth > window.innerWidth * 0.5) newSidebarWidth = window.innerWidth * 0.5;
                 body.style.gridTemplateColumns = `${newSidebarWidth}px 5px 1fr`;
             } else {
-                // Standard-Modus: Y-Achse Ã¢â€ â€™ Sidebar-HÃƒÂ¶he ÃƒÂ¤ndern
+                // Standard-Modus: Y-Achse → Sidebar-Höhe ändern
                 const headerHeight = document.querySelector(".top-nav").offsetHeight;
                 let newSidebarHeight = e.clientY - headerHeight;
                 if (newSidebarHeight < 50) newSidebarHeight = 50;
                 if (newSidebarHeight > window.innerHeight * 0.8) newSidebarHeight = window.innerHeight * 0.8;
                 body.style.gridTemplateRows = `${headerHeight}px ${newSidebarHeight}px 5px 1fr`;
             }
-            // Felix: Refresh des Editors nach Layout-Ãƒâ€žnderung
+            // Felix: Refresh des Editors nach Layout-Änderung
             if (EditorModule.editorInstance) EditorModule.editorInstance.refresh();
         });
 
         window.addEventListener("mouseup", () => {
+            if (!isResizing) return;
             isResizing = false;
-            body.style.cursor = "default";
-            body.style.userSelect = "auto";
+            body.style.cursor = "";
+            body.style.userSelect = "";
         });
     }
 };
@@ -1896,7 +1833,7 @@ const SearchModule = {
         const form = document.querySelector("#search-form");
         const input = document.querySelector("#input1");
         if (form && input) {
-            // Martin: Reagiert auf Tastatureingaben fÃƒÂ¼r die Filterung
+            // Martin: Reagiert auf Tastatureingaben für die Filterung
             input.addEventListener("input", (e) => SidebarModule.setSearchTerm(e.target.value));
             form.addEventListener("submit", (e) => {
                 e.preventDefault();
@@ -1906,6 +1843,15 @@ const SearchModule = {
                     EditorModule.jumpToKey(key, true);
                 }
             });
+            // Strg+F / Cmd+F springt ins Suchfeld; die Suche erfasst anders als die Browsersuche das ganze Dokument
+            window.addEventListener("keydown", (e) => {
+                if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    input.focus();
+                    input.select();
+                }
+            }, true);
         }
     }
 };
@@ -2510,33 +2456,7 @@ const IdentifierImportModule = {
         }, 80);
 
         // 5. Toast-Benachrichtigung
-        this.showToast(
-            "Imported from Identifier",
-            `@${type}{${uniqueKey}} added to document`
-        );
-    },
-
-    showToast(title, message) {
-        if (typeof ClipboardModule !== 'undefined' && typeof ClipboardModule.showToast === 'function') {
-            ClipboardModule.showToast(title, message);
-            return;
-        }
-        const container = document.getElementById("toast-container");
-        if (!container) return;
-        const toast = document.createElement("div");
-        toast.className = "toast-notification";
-        toast.innerHTML = `
-            <span class="material-symbols-outlined toast-icon">fingerprint</span>
-            <div class="toast-content">
-                <div class="toast-title">${title}</div>
-                <div class="toast-message">${message}</div>
-            </div>
-        `;
-        container.appendChild(toast);
-        setTimeout(() => {
-            toast.classList.add("hide");
-            setTimeout(() => toast.remove(), 350);
-        }, 3800);
+        ToastModule.show("Imported from Identifier", `@${type}{${uniqueKey}} added to document`, "fingerprint");
     }
 };
 
@@ -2544,6 +2464,8 @@ const IdentifierImportModule = {
 const ImportModule = {
     pdfBtn: null,
     pdfInput: null,
+    // Einzige Stelle mit der PDF.js-Version (Hauptmodul und Worker müssen übereinstimmen)
+    PDFJS_BASE: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/",
 
     init() {
         this.pdfBtn = document.querySelector("#btn-import-pdf");
@@ -2571,18 +2493,19 @@ const ImportModule = {
 
     /**
      * Liest eine PDF-Datei aus, extrahiert den Text aller Seiten,
-     * filtert Kopf- und Fusszeilen heraus, isoliert das Literaturverzeichnis
-     * und konvertiert alle Referenzen in typisierte BibTeX-Eintraege.
+     * filtert Kopf- und Fußzeilen heraus, isoliert das Literaturverzeichnis
+     * und konvertiert alle Referenzen in typisierte BibTeX-Einträge.
      */
     async handlePdfFile(file) {
+        let pdf = null;
         try {
             const arrayBuffer = await file.arrayBuffer();
 
-            // pdf.js laden (dynamischer Import, da als ES-Modul eingebunden)
-            const pdfjsLib = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs");
-            pdfjsLib.GlobalWorkerOptions.workerSrc = window.PDFJS_WORKER_SRC || "";
+            // pdf.js erst bei Bedarf laden (dynamischer Import, da als ES-Modul ausgeliefert)
+            const pdfjsLib = await import(this.PDFJS_BASE + "pdf.min.mjs");
+            pdfjsLib.GlobalWorkerOptions.workerSrc = this.PDFJS_BASE + "pdf.worker.min.mjs";
 
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let fullText = "";
 
             for (let i = 1; i <= pdf.numPages; i++) {
@@ -2590,7 +2513,7 @@ const ImportModule = {
                 const viewport = page.getViewport({ scale: 1.0 });
                 const content = await page.getTextContent();
 
-                // Laufende Kopf- und Fusszeilen anhand der vertikalen Position herausfiltern
+                // Laufende Kopf- und Fußzeilen anhand der vertikalen Position herausfiltern
                 const items = content.items.filter(item => {
                     if (!item.transform) return true;
                     const y = item.transform[5];
@@ -2601,8 +2524,6 @@ const ImportModule = {
                 fullText += pageText + "\n";
             }
 
-            console.log("PDF-Text extrahiert, Laenge:", fullText.length);
-
             const bibtex = this.extractReferences(fullText);
 
             if (!bibtex || bibtex.trim().length === 0) {
@@ -2610,15 +2531,16 @@ const ImportModule = {
                 return;
             }
 
-            // Ergebnis als neuen Tab hinzufuegen
-            const tabName = "import_" + file.name.replace(/\.pdf$/i, ".bib");
-            FileModule.addFile(tabName, bibtex, null);
+            // Ergebnis als neuen, noch nicht gespeicherten Tab hinzufügen
+            const tabName = "import_" + file.name.replace(/\.pdf$/i, "") + ".bib";
+            FileModule.addFile(tabName, bibtex, null, true);
             FileModule.switchToTab(FileModule.files[FileModule.files.length - 1].id);
-            console.log("PDF-Import abgeschlossen:", tabName);
-
         } catch (err) {
             console.error("Fehler beim PDF-Import:", err);
             alert("Error reading PDF file: " + err.message);
+        } finally {
+            // Worker und Speicher des Dokuments wieder freigeben
+            if (pdf) pdf.destroy();
         }
     },
 
@@ -2695,9 +2617,9 @@ const ImportModule = {
         for (const pattern of refPatterns) {
             const matches = [...fullText.matchAll(new RegExp(pattern, 'gi'))];
             for (const m of matches) {
-                // Pruefen, ob nach der Ueberschrift Zitate wie [1] oder 1. folgen
+                // Prüfen, ob nach der Überschrift Zitate wie [1], [AB21] (Stil alpha) oder 1. folgen
                 const afterText = fullText.substring(m.index, m.index + 400);
-                if (/\[1\]|\b1\.\s+[A-Z]/.test(afterText)) {
+                if (/\[1\]|\[[A-Za-z][A-Za-z+\-]{0,10}\d{2}[a-z]?\]|\b1\.\s+[A-Z]/.test(afterText)) {
                     bestIndex = m.index;
                     matchLength = m[0].length;
                     break;
@@ -2745,6 +2667,13 @@ const ImportModule = {
             return parts.map(p => p.replace(/^\[\d+\]\s*/, "").trim());
         }
 
+        // Versuch 1b: Alphanumerische Marken des BibTeX-Stils alpha, z. B. [AB21], [Rob17], [AB+21]
+        const alphaLabel = /^\[[A-Za-z][A-Za-z+\-]{0,10}\d{2}[a-z]?\]/;
+        parts = refText.split(/(?=(?:^|\s+)\[[A-Za-z][A-Za-z+\-]{0,10}\d{2}[a-z]?\])/).map(p => p.trim()).filter(p => alphaLabel.test(p));
+        if (parts.length >= 2) {
+            return parts.map(p => p.replace(alphaLabel, "").trim());
+        }
+
         // Versuch 2: Nummerierung mit Punkt 1., 2., ...
         parts = refText.split(/(?=(?:^|\n)\s*\d{1,3}\.\s+[A-Z])/).map(p => p.trim()).filter(p => /^\d{1,3}\.\s+[A-Z]/.test(p));
         if (parts.length >= 2) {
@@ -2770,8 +2699,8 @@ const ImportModule = {
         // Bereinigung von Hyphenation, Ligaturen und Whitespaces
         let text = this.cleanHyphenation(refText).replace(/\s+/g, " ").trim();
 
-        // Fuehrende Zitationsnummern [1] oder 1. entfernen
-        text = text.replace(/^(?:\[\d+\]|\d{1,3}\.)\s*/, '').trim();
+        // Führende Zitationsmarken [1], [AB21] oder 1. entfernen
+        text = text.replace(/^(?:\[[^\]\s]{1,15}\]|\d{1,3}\.)\s*/, '').trim();
 
         // Eventuelle Reste von Kopf-/Fusszeilen am Anfang oder Ende entfernen
         text = text.replace(/Authorized licensed use limited to:.*$/i, "").trim();
@@ -2807,16 +2736,22 @@ const ImportModule = {
         }
 
         // --- 2. Jahr und Monat extrahieren ---
+        // DOI, URLs und arXiv-Kennungen ausblenden (gleiche Länge), damit ihre Ziffern nicht als Jahr gelten
+        const maskedText = text
+            .replace(/\b10\.\d{4,9}\/\S+/g, m => " ".repeat(m.length))
+            .replace(/https?:\/\/\S+/gi, m => " ".repeat(m.length))
+            .replace(/arXiv:\s*\S+/gi, m => " ".repeat(m.length));
         let year = '';
-        const yearMatches = [...text.matchAll(/\b((?:19|20)\d{2})\b/g)];
+        const yearMatches = [...maskedText.matchAll(/\b((?:19|20)\d{2})\b/g)];
         if (yearMatches.length > 0) {
             year = yearMatches[yearMatches.length - 1][1];
         }
 
+        // Monat nur direkt vor dem Jahr ("Mar. 2021"), sonst würden Vornamen wie "Jun" oder Wörter wie "May" erkannt
         let month = '';
-        const monthMatch = text.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/i);
+        const monthMatch = maskedText.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(?:\d{1,2}(?:\s*-+\s*\d{1,2})?,?\s+)?(?:19|20)\d{2}\b/i);
         if (monthMatch) {
-            month = monthMatch[1].toLowerCase().substring(0, 3);
+            month = monthMatch[1].toLowerCase();
         }
 
         // --- 3. Autoren, Titel und Venue extrahieren ---
@@ -2877,8 +2812,27 @@ const ImportModule = {
                 title = text;
             }
         } else {
-            // Fall C: Kein Titel in Anfuehrungszeichen (z. B. APA / Harvard)
-            if (yearMatches.length > 0) {
+            // Fall C: Kein Titel in Anführungszeichen
+            const apaMatch = text.match(/^(.{2,300}?)\s*\(\s*(?:19|20)\d{2}[a-z]?\s*\)\.?\s*(.*)$/);
+            // Sätze trennen, aber nicht nach Initialen wie "D."
+            const sentences = text.split(/(?<=[a-z0-9)\]"'’]{2})\.\s+(?=[A-Z0-9[])/);
+            if (apaMatch) {
+                // APA/Harvard: "Autoren (Jahr). Titel. Quelle"
+                author = apaMatch[1].replace(/[,;:\s]+$/, '');
+                const rest = apaMatch[2];
+                const dot = rest.indexOf('.');
+                if (dot > 5) {
+                    title = rest.substring(0, dot).trim();
+                    venuePart = rest.substring(dot + 1).trim();
+                } else {
+                    title = rest;
+                }
+            } else if (sentences.length >= 3) {
+                // BibTeX-Stile plain/alpha: "Autoren. Titel. Quelle, Jahr."
+                author = sentences[0].replace(/[,\s]+(?:19|20)\d{2}[a-z]?$/, '');
+                title = sentences[1];
+                venuePart = sentences.slice(2).join('. ');
+            } else if (yearMatches.length > 0) {
                 const firstYear = yearMatches[0];
                 author = text.substring(0, firstYear.index).trim().replace(/[\(\),;:\s]+$/, '');
                 const afterYear = text.substring(firstYear.index + firstYear[0].length).trim().replace(/^[\)\.,;:\s]+/, '');
@@ -2900,8 +2854,8 @@ const ImportModule = {
             }
         }
 
-        // Autoren und Titel saeubern
-        author = author.replace(/[\(\)\[\]]+/g, '').replace(/\s+/g, ' ').trim();
+        // Autoren und Titel säubern; Autoren in BibTeX-Syntax (mit "and" getrennt)
+        author = this.formatAuthors(author.replace(/[\(\)\[\]]+/g, ''));
         title = title.replace(/^[,\.\s]+|[,\.\s]+$/g, '').trim();
 
         // --- 4. Spezifische Felder extrahieren ---
@@ -2935,6 +2889,14 @@ const ImportModule = {
             if (artMatch) pages = artMatch[1];
         }
 
+        // Stile plain/alpha: "Journal, 78(3):1--32, 2021"
+        const plainVolume = venuePart.match(/,\s*(\d+)(?:\((\d+)\))?:\s*([a-zA-Z]?\d+)(?:\s*-+\s*([a-zA-Z]?\d+))?/);
+        if (plainVolume) {
+            if (!volume) volume = plainVolume[1];
+            if (!number && plainVolume[2]) number = plainVolume[2];
+            if (!pages) pages = plainVolume[4] ? `${plainVolume[3]}--${plainVolume[4]}` : plainVolume[3];
+        }
+
         // ArXiv
         const arxivMatch = text.match(/arXiv:\s*(\d{4}\.\d{4,5}(?:v\d+)?)/i);
         if (arxivMatch) {
@@ -2944,7 +2906,7 @@ const ImportModule = {
 
         if (type === 'article') {
             let jText = venuePart;
-            const jCutMatch = jText.match(/,\s*(?:vol\.|no\.|pp?\.|\d{4}|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i);
+            const jCutMatch = jText.match(/,\s*(?:vol\.|no\.|pp?\.|\d{4}|\d+(?:\(\d+\))?:|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i);
             if (jCutMatch) {
                 journal = jText.substring(0, jCutMatch.index).trim();
             } else {
@@ -2966,10 +2928,36 @@ const ImportModule = {
             booktitle = booktitle.replace(/^[,\.\s]+|[,\.\s]+$/g, '').trim();
         }
 
-        // --- 5. Zitationsschluessel (Key) erzeugen ---
+        // Hochschule bzw. Institution aus den durch Kommata getrennten Angaben nach dem Titel
+        const venueSegments = venuePart.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+        const reportMarker = /\b(?:Tech\.?\s*Rep\.?|Technical\s+Report|Std\.?|Standard)\b/i;
+        let school = '';
+        let institution = '';
+        if (type === 'phdthesis' || type === 'mastersthesis') {
+            const bracketMatch = text.match(/\[(?:Doctoral dissertation|Master's thesis|Dissertation|Masterarbeit)[^\],]*,\s*([^\]]+)\]/i);
+            // Hochschulen vor Instituten/Fakultäten bevorzugen ("School of ..., Stanford Univ.")
+            school = bracketMatch
+                ? bracketMatch[1].trim()
+                : (venueSegments.find(s => /\bUniv|Universit|Hochschule|College|Polytechn|\bETH\b|\bEPFL\b/i.test(s)) ||
+                   venueSegments.find(s => /\bInstitut|\bInst\.|\bSchool\b/i.test(s)) || '');
+        } else if (type === 'techreport') {
+            institution = venueSegments.find(s => !reportMarker.test(s) &&
+                /\b(?:Univ\w*|Institut\w*|Inst\.|Lab(?:s|orator\w*)?\b|Corp\w*|Inc\b|Ltd\b|GmbH\b|Cent(?:er|re)\b|Agency\b|Organi[sz]ation\b|Council\b|Committee\b|Consortium\b|Foundation\b|NASA\b|NIST\b|IETF\b|ETSI\b|3GPP\b|ITU\b|ISO\b|IEEE\b|ACM\b)/i.test(s)) || '';
+            const reportSegment = venueSegments.find(s => reportMarker.test(s)) || '';
+            if (!institution) {
+                const orgMatch = reportSegment.match(/^([A-Z][\w&.\- ]*?)\s+(?:Tech\.?\s*Rep|Technical\s+Report|Std|Standard)/);
+                if (orgMatch) institution = orgMatch[1].trim();
+            }
+            const reportNumber = reportSegment.match(/(?:Tech\.?\s*Rep\.?|Technical\s+Report|Std\.?|Standard)\s*(?:No\.?\s*)?([A-Z0-9][\w.\-\/:]*\d[\w.\-\/:]*)/i);
+            if (reportNumber && !number) number = reportNumber[1].replace(/[.,]+$/, '');
+        }
+        school = school.replace(/^[\s.]+|[\s,]+$/g, '');
+        institution = institution.replace(/^[\s.]+|[\s,]+$/g, '');
+
+        // --- 5. Zitationsschlüssel (Key) erzeugen ---
         let firstAuthor = 'ref';
         if (author) {
-            const firstA = author.split(/,|&|\band\b/i)[0].trim();
+            const firstA = this.asciiFold(author.split(/,|&|\band\b/i)[0].trim());
             const words = firstA.split(/\s+/).filter(w => {
                 const clean = w.replace(/[^a-zA-Z]/g, '').toLowerCase();
                 return clean.length > 1 && clean !== 'et' && clean !== 'al';
@@ -2985,7 +2973,7 @@ const ImportModule = {
         let titleWord = '';
         if (title) {
             const stopWords = new Set(['with', 'from', 'that', 'this', 'using', 'over', 'into', 'under', 'towards', 'through']);
-            const words = title.split(/\s+/).map(w => w.replace(/[^a-zA-Z]/g, '').toLowerCase()).filter(w => w.length > 3 && !stopWords.has(w));
+            const words = this.asciiFold(title).split(/\s+/).map(w => w.replace(/[^a-zA-Z]/g, '').toLowerCase()).filter(w => w.length > 3 && !stopWords.has(w));
             if (words.length > 0) titleWord = words[0];
         }
 
@@ -2999,27 +2987,64 @@ const ImportModule = {
         seenKeys.add(finalKey);
 
         // --- 6. BibTeX-Eintrag aufbauen ---
+        // Einzelne Klammern aus dem PDF-Text würden den Eintrag unbalanciert machen
+        const field = (name, value) => `  ${name.padEnd(12)} = {${value.replace(/[{}]/g, '')}},\n`;
         let entry = `@${type}{${finalKey},\n`;
-        if (author) entry += `  author       = {${author}},\n`;
-        if (title) entry += `  title        = {${title}},\n`;
-        if (type === 'article' && journal) entry += `  journal      = {${journal}},\n`;
-        if (type === 'inproceedings' && booktitle) entry += `  booktitle    = {${booktitle}},\n`;
-        if (type === 'book' && publisher) entry += `  publisher    = {${publisher}},\n`;
-        if (type === 'book' && address) entry += `  address      = {${address}},\n`;
-        if (year) entry += `  year         = {${year}},\n`;
-        if (month) entry += `  month        = {${month}},\n`;
-        if (volume) entry += `  volume       = {${volume}},\n`;
-        if (number) entry += `  number       = {${number}},\n`;
-        if (pages) entry += `  pages        = {${pages}},\n`;
-        if (doi) entry += `  doi          = {${doi}},\n`;
+        if (author) entry += field('author', author);
+        if (title) entry += field('title', title);
+        if (type === 'article' && journal) entry += field('journal', journal);
+        if (type === 'inproceedings' && booktitle) entry += field('booktitle', booktitle);
+        if (type === 'book' && publisher) entry += field('publisher', publisher);
+        if (type === 'book' && address) entry += field('address', address);
+        if (school) entry += field('school', school);
+        if (institution) entry += field('institution', institution);
+        if (year) entry += field('year', year);
+        // Monat als BibTeX-Makro (ohne Klammern), damit der Stil den Monatsnamen setzt
+        if (month) entry += `  ${'month'.padEnd(12)} = ${month},\n`;
+        if (volume) entry += field('volume', volume);
+        if (number) entry += field('number', number);
+        if (pages) entry += field('pages', pages);
+        if (doi) entry += field('doi', doi);
         if (eprint) {
-            entry += `  eprint       = {${eprint}},\n`;
-            entry += `  archiveprefix = {arXiv},\n`;
+            entry += field('eprint', eprint);
+            entry += field('archiveprefix', 'arXiv');
         }
-        if (note && type === 'misc') entry += `  note         = {${note}},\n`;
+        if (note && type === 'misc') entry += field('note', note);
         entry += `}`;
 
         return entry;
+    },
+
+    // Autorenliste in BibTeX-Syntax: Personen mit "and" trennen, "et al." wird zu "and others"
+    formatAuthors(raw) {
+        let text = raw.replace(/\s+/g, ' ').replace(/[,;\s]+$/, '').trim();
+        if (!text) return '';
+        let others = false;
+        text = text.replace(/,?\s*\bet\s+al\.?$/i, () => {
+            others = true;
+            return '';
+        }).trim();
+        const parts = text
+            .replace(/\s*,?\s*(?:\band\b|&)\s*/gi, ', ')
+            .split(/\s*[,;]\s*/)
+            .map(part => part.trim())
+            .filter(Boolean);
+        // APA/Harvard: "Smith, J. A., Jones, B." besteht abwechselnd aus Nachnamen und Initialen
+        const isInitials = (part) => /^(?:\p{Lu}{1,2}\.\s*-?\s*)+$/u.test(part);
+        const names = [];
+        if (parts.length % 2 === 0 && parts.every((part, i) => isInitials(part) === (i % 2 === 1))) {
+            for (let i = 0; i < parts.length; i += 2) names.push(`${parts[i]}, ${parts[i + 1]}`);
+        } else {
+            names.push(...parts);
+        }
+        if (others) names.push('others');
+        return names.join(' and ');
+    },
+
+    // Für Schlüssel: Umlaute umschreiben (ü -> ue) und übrige Akzente entfernen
+    asciiFold(str) {
+        const umlauts = { 'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue', 'ß': 'ss' };
+        return str.replace(/[äöüÄÖÜß]/g, ch => umlauts[ch]).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     },
 
     /**
@@ -3040,7 +3065,7 @@ const DropdownModule = {
             const btn = document.querySelector(id);
             const content = document.querySelector(contents[index]);
             if (btn && content) {
-                // Alexandros: Steuerung der Dropdown-MenÃƒÂ¼s im Header
+                // Alexandros: Steuerung der Dropdown-Menüs im Header
                 btn.addEventListener("click", (e) => {
                     e.stopPropagation();
                     contents.forEach((c, cIndex) => {
@@ -3055,6 +3080,9 @@ const DropdownModule = {
                 !e.target.closest('.dropdownDateiClass, .dropdownEditClass, .dropdownImportClass, .dropdownHelpClass')) {
                 contents.forEach(c => document.querySelector(c)?.classList.remove('show'));
             }
+        });
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") contents.forEach(c => document.querySelector(c)?.classList.remove('show'));
         });
     }
 };
@@ -3073,7 +3101,7 @@ const LinterModule = {
         "keywords", "eprint", "crossref", "annote", "month", "archiveprefix"
     ],
 
-    // Typspezifisches Feld-Mapping: welche Felder sind fuer welchen Typ ueblich
+    // Typspezifisches Feld-Mapping: welche Felder sind für welchen Typ üblich
     fieldsForType: {
         article: [
             "author", "title", "journal", "year", "volume", "number",
@@ -3133,19 +3161,20 @@ const LinterModule = {
 
     init() {
         // Felix: Integriert den Linter in die CodeMirror stex Umgebung
+        if (typeof CodeMirror === "undefined") return;
         CodeMirror.registerHelper("lint", "stex", (text) => {
             return this.validate(text);
         });
     },
 
     /**
-     * Prueft ob ein Feldname fuer den gegebenen Typ gueltig ist.
+     * Prüft ob ein Feldname für den gegebenen Typ gültig ist.
      * Erlaubt: typspezifische Felder + globale Felder.
      */
     isFieldValidForType(fieldName, typeName) {
         // Globale Felder sind immer erlaubt
         if (this.globalFields.includes(fieldName)) return true;
-        // Typspezifische Felder pruefen
+        // Typspezifische Felder prüfen
         const typeFields = this.fieldsForType[typeName];
         if (typeFields) return typeFields.includes(fieldName);
         // Unbekannter Typ: Alle Felder aus allen Typen als Fallback sammeln
@@ -3156,139 +3185,218 @@ const LinterModule = {
         return allFields.has(fieldName);
     },
 
+    // Ähnlichster gültiger Eintragstyp (Levenshtein-Distanz) als Korrekturvorschlag
+    suggestType(type) {
+        let best = null;
+        let bestDistance = Infinity;
+        this.validTypes.forEach(candidate => {
+            const distance = this.levenshtein(type, candidate);
+            if (distance < bestDistance) {
+                best = candidate;
+                bestDistance = distance;
+            }
+        });
+        return bestDistance <= Math.max(2, Math.floor(type.length / 3)) ? best : null;
+    },
+
+    levenshtein(a, b) {
+        let row = Array.from({ length: b.length + 1 }, (_, j) => j);
+        for (let i = 1; i <= a.length; i++) {
+            const next = [i];
+            for (let j = 1; j <= b.length; j++) {
+                next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+            }
+            row = next;
+        }
+        return row[b.length];
+    },
+
+    /**
+     * Prüft den Text zeichenweise mit dem gemeinsamen Parser. Mehrzeilige Werte, runde Klammern,
+     * @string/@preamble/@comment und eine schließende Klammer in der Zeile des letzten Felds
+     * werden dadurch korrekt behandelt; Klammerfehler werden an ihrer Ursache gemeldet.
+     */
     validate(text) {
         const errors = [];
-        const lines = text.split("\n");
-        const entryStartRegex = /^\s*@(\w+)\s*\{/;
-        const fieldRegex = /^\s*(OPT)?([a-zA-Z][a-zA-Z0-9_]*)\s*=/;
-        const keyExtractRegex = /^\s*@\w+\s*\{\s*([^,]+)/;
-        const seenKeys = new Set();
-
-        let openBraces = 0;
-        let currentType = null;     // Merkt sich den aktuellen @type
-        let insideEntry = false;
-
-        // Vorverarbeitung: naechste nicht-leere Zeile nach jeder Zeile finden
-        // (fuer praezise Komma-Pruefung)
-        const nextMeaningfulLine = (fromIndex) => {
-            for (let j = fromIndex + 1; j < lines.length; j++) {
-                const t = lines[j].trim();
-                if (t !== "" && !t.startsWith("%")) return t;
+        const lineStarts = [0];
+        for (let i = 0; i < text.length; i++) {
+            if (text[i] === "\n") lineStarts.push(i + 1);
+        }
+        const toPos = (index) => {
+            let lo = 0;
+            let hi = lineStarts.length - 1;
+            while (lo < hi) {
+                const mid = (lo + hi + 1) >> 1;
+                if (lineStarts[mid] <= index) lo = mid;
+                else hi = mid - 1;
             }
-            return null;
+            return CodeMirror.Pos(lo, index - lineStarts[lo]);
+        };
+        const report = (from, to, message, severity = "error") => {
+            from = Math.min(from, text.length);
+            to = Math.min(Math.max(to, from + 1), text.length);
+            errors.push({ from: toPos(from), to: toPos(to), message, severity });
         };
 
-        lines.forEach((line, i) => {
-            const trimmed = line.trim();
-            if (!trimmed) return;
-            if (trimmed.startsWith("%")) return;
+        const headerRegex = /@([a-zA-Z]\w*)\s*([{(])/g;
+        const seenKeys = new Set();
+        let outsideStart = 0;
+        let match;
+        while ((match = headerRegex.exec(text)) !== null) {
+            this.checkOutsideText(text, outsideStart, match.index, report);
+            const typeName = match[1];
+            const type = typeName.toLowerCase();
+            const special = BibTeXParser.SPECIAL_TYPES.includes(type);
+            const typeStart = match.index + 1;
+            const bodyStart = match.index + match[0].length;
+            const limit = special ? text.length : BibTeXParser.nextHeaderAtLineStart(text, bodyStart);
+            const close = BibTeXParser.findEntryEnd(text, bodyStart, match[2], limit);
 
-            // Prueft auf korrekte BibTeX-Eintragstypen
-            const typeMatch = trimmed.match(entryStartRegex);
-            if (typeMatch) {
-                const type = typeMatch[1].toLowerCase();
-                currentType = type;
-                insideEntry = true;
-
-                if (!this.validTypes.includes(type)) {
-                    errors.push({
-                        from: CodeMirror.Pos(i, line.indexOf(typeMatch[1])),
-                        to: CodeMirror.Pos(i, line.indexOf(typeMatch[1]) + typeMatch[1].length),
-                        message: "Unknown entry type: \"@" + type + "\". Did you mean \"@article\"?",
-                        severity: "error"
-                    });
-                }
-
-                // Duplikat-Handling
-                const keyMatch = trimmed.match(keyExtractRegex);
-                if (keyMatch) {
-                    const citationKey = keyMatch[1].trim();
-                    if (seenKeys.has(citationKey)) {
-                        const keyStart = line.indexOf(citationKey);
-                        errors.push({
-                            from: CodeMirror.Pos(i, keyStart),
-                            to: CodeMirror.Pos(i, keyStart + citationKey.length),
-                            message: "Duplicate BibTeX key: This citation key already exists above.",
-                            severity: "error"
-                        });
-                    } else {
-                        seenKeys.add(citationKey);
-                    }
-                }
+            // Prüft auf korrekte BibTeX-Eintragstypen
+            if (!special && !this.validTypes.includes(type)) {
+                const suggestion = this.suggestType(type);
+                report(typeStart, typeStart + typeName.length,
+                    `Unknown entry type: "@${type}".` + (suggestion ? ` Did you mean "@${suggestion}"?` : ""));
             }
 
-            // Ende eines Eintrags
-            if (trimmed === "}" && insideEntry) {
-                insideEntry = false;
-                currentType = null;
+            if (close === -1) {
+                this.reportUnclosed(text, match.index, bodyStart, limit, report);
+                outsideStart = limit;
+                headerRegex.lastIndex = limit;
+                continue;
             }
-
-            // Feld-Pruefung innerhalb eines Eintrags
-            if (insideEntry && !trimmed.startsWith("@") && trimmed.includes("=")) {
-                const fieldMatch = trimmed.match(fieldRegex);
-                if (fieldMatch) {
-                    const fieldName = fieldMatch[2].toLowerCase();
-
-                    // Typspezifische Feld-Validierung
-                    if (currentType && this.validTypes.includes(currentType)) {
-                        if (!this.isFieldValidForType(fieldName, currentType)) {
-                            const startCol = line.indexOf(fieldMatch[2]);
-                            errors.push({
-                                from: CodeMirror.Pos(i, startCol),
-                                to: CodeMirror.Pos(i, startCol + fieldName.length),
-                                message: "The field \"" + fieldName + "\" is unusual for type \"@" + currentType + "\".",
-                                severity: "warning"
-                            });
-                        }
-                    } else if (!this.isFieldValidForType(fieldName, null)) {
-                        // Fallback: komplett unbekanntes Feld
-                        const startCol = line.indexOf(fieldMatch[2]);
-                        errors.push({
-                            from: CodeMirror.Pos(i, startCol),
-                            to: CodeMirror.Pos(i, startCol + fieldName.length),
-                            message: "Unknown field: \"" + fieldName + "\".",
-                            severity: "warning"
-                        });
-                    }
-
-                    // Praezise Komma-Pruefung: Zeile muss mit Komma enden,
-                    // AUSSER die naechste nicht-leere Zeile ist }
-                    if (!trimmed.endsWith(",")) {
-                        const nextLine = nextMeaningfulLine(i);
-                        if (nextLine && nextLine !== "}") {
-                            errors.push({
-                                from: CodeMirror.Pos(i, line.length - 1),
-                                to: CodeMirror.Pos(i, line.length),
-                                message: "Missing comma at the end of the field assignment.",
-                                severity: "error"
-                            });
-                        }
-                    }
-                } else {
-                    errors.push({
-                        from: CodeMirror.Pos(i, 0),
-                        to: CodeMirror.Pos(i, line.length),
-                        message: "Syntax error: Unexpected format in assignment.",
-                        severity: "error"
-                    });
-                }
-            }
-
-            // Klammer-Balance pro Zeile
-            const opens = (line.match(/\{/g) || []).length;
-            const closes = (line.match(/\}/g) || []).length;
-            openBraces += (opens - closes);
-        });
-
-        if (openBraces !== 0) {
-            errors.push({
-                from: CodeMirror.Pos(lines.length - 1, 0),
-                to: CodeMirror.Pos(lines.length - 1, lines[lines.length - 1].length),
-                message: "Braces are unbalanced! (Open: " + openBraces + ")",
-                severity: "error"
-            });
+            if (!special) this.checkEntry(text, type, bodyStart, close, seenKeys, report);
+            outsideStart = close + 1;
+            headerRegex.lastIndex = close + 1;
         }
+        this.checkOutsideText(text, outsideStart, text.length, report);
         return errors;
+    },
+
+    // Schlüssel, Kommata und Feldzuweisungen eines geschlossenen Eintrags prüfen
+    checkEntry(text, type, bodyStart, bodyEnd, seenKeys, report) {
+        const isSpace = (index) => BibTeXParser.isSpace(text.charCodeAt(index));
+        const isNameChar = (index) => BibTeXParser.isNameChar(text.charCodeAt(index));
+        let i = bodyStart;
+        while (i < bodyEnd && isSpace(i)) i++;
+        const keyStart = i;
+        while (i < bodyEnd && isNameChar(i)) i++;
+        let j = i;
+        while (j < bodyEnd && isSpace(j)) j++;
+
+        if (i === keyStart || text[j] === "=") {
+            // Kein Schlüssel: Der Eintrag beginnt direkt mit einem Feld (oder einem Komma)
+            report(keyStart, keyStart + 1, "Missing citation key after the opening brace.");
+            i = text[keyStart] === "," ? keyStart + 1 : keyStart;
+        } else {
+            // Duplikat-Handling
+            const key = text.slice(keyStart, i);
+            if (seenKeys.has(key)) {
+                report(keyStart, i, "Duplicate BibTeX key: This citation key already exists above.");
+            } else {
+                seenKeys.add(key);
+            }
+            if (j < bodyEnd && text[j] === ",") {
+                i = j + 1;
+            } else if (j < bodyEnd) {
+                report(i - 1, i, "Missing comma after the citation key.");
+                i = j;
+            }
+        }
+
+        // Ende des letzten Werts, solange danach noch kein Komma kam
+        let missingCommaAt = -1;
+        while (i < bodyEnd) {
+            const ch = text[i];
+            if (isSpace(i)) { i++; continue; }
+            if (ch === ",") { missingCommaAt = -1; i++; continue; }
+            if (ch === "%") {
+                // Kommentarzeile, wie sie auch der Editor darstellt
+                while (i < bodyEnd && text[i] !== "\n") i++;
+                continue;
+            }
+            const nameStart = i;
+            while (i < bodyEnd && isNameChar(i)) i++;
+            const nameEnd = i;
+            let k = i;
+            while (k < bodyEnd && isSpace(k)) k++;
+            if (nameEnd === nameStart || text[k] !== "=") {
+                const lineEnd = text.indexOf("\n", nameStart);
+                report(nameStart, lineEnd === -1 ? bodyEnd : Math.min(lineEnd, bodyEnd),
+                    "Syntax error: Expected a field assignment like field = {value}.");
+                i = BibTeXParser.skipToComma(text, Math.max(k, nameStart + 1), bodyEnd);
+                missingCommaAt = -1;
+                continue;
+            }
+            // Präzise Komma-Prüfung: Zwischen zwei Feldern muss ein Komma stehen
+            if (missingCommaAt !== -1) {
+                report(missingCommaAt - 1, missingCommaAt, "Missing comma at the end of the field assignment.");
+            }
+            this.checkFieldName(text.slice(nameStart, nameEnd), nameStart, type, report);
+
+            i = k + 1;
+            while (i < bodyEnd && isSpace(i)) i++;
+            const value = BibTeXParser.scanValue(text, i, bodyEnd);
+            if (value.parts.length === 0) {
+                report(nameStart, k + 1, "Missing value: Expected a value in {…} or \"…\" after \"=\".");
+                missingCommaAt = -1;
+                continue;
+            }
+            if (!value.complete) {
+                report(i, i + 1, "This quotation mark is never closed.");
+            }
+            missingCommaAt = value.end;
+            i = value.end;
+        }
+    },
+
+    // Typspezifische Feld-Validierung (Warnungen)
+    checkFieldName(rawName, start, type, report) {
+        const fieldName = rawName.replace(/^OPT(?=[a-z])/, "").toLowerCase();
+        if (this.validTypes.includes(type)) {
+            if (!this.isFieldValidForType(fieldName, type)) {
+                report(start, start + rawName.length, `The field "${fieldName}" is unusual for type "@${type}".`, "warning");
+            }
+        } else if (!this.isFieldValidForType(fieldName, null)) {
+            report(start, start + rawName.length, `Unknown field: "${fieldName}".`, "warning");
+        }
+    },
+
+    /**
+     * Meldet einen nicht geschlossenen Eintrag. Beginnt innerhalb eines noch offenen {…}-Werts eine
+     * Zeile mit einer neuen Feldzuweisung, wird die Klammer dieses Werts als Ursache markiert.
+     */
+    reportUnclosed(text, entryStart, bodyStart, limit, report) {
+        const openBraces = [];
+        const fieldLine = /^[ \t]*[^\s"#%'(),={}]+[ \t]*=/;
+        for (let i = bodyStart; i < limit; i++) {
+            const ch = text[i];
+            if (ch === "{") openBraces.push(i);
+            else if (ch === "}") openBraces.pop();
+            else if (ch === "\n" && openBraces.length > 0 && fieldLine.test(text.slice(i + 1, i + 200))) {
+                const brace = openBraces[openBraces.length - 1];
+                report(brace, brace + 1, "This brace is never closed.");
+                return;
+            }
+        }
+        report(entryStart, bodyStart, "This entry is never closed: a closing brace is missing.");
+    },
+
+    // Text außerhalb von Einträgen ignoriert BibTeX; eine überzählige "}" deutet aber auf einen zu früh beendeten Eintrag hin
+    checkOutsideText(text, from, to, report) {
+        let depth = 0;
+        let inComment = false;
+        for (let i = from; i < to; i++) {
+            const ch = text[i];
+            if (ch === "\n") inComment = false;
+            else if (inComment) continue;
+            else if (ch === "%") inComment = true;
+            else if (ch === "{") depth++;
+            else if (ch === "}") {
+                if (depth > 0) depth--;
+                else report(i, i + 1, "Unexpected closing brace outside of an entry.");
+            }
+        }
     }
 };
 
@@ -3324,6 +3432,9 @@ const HelpModule = {
             this.shortcutsModal.addEventListener("click", (e) => {
                 if (e.target === this.shortcutsModal) this.shortcutsModal.classList.remove("show-modal");
             });
+            window.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") this.shortcutsModal.classList.remove("show-modal");
+            });
         }
     }
 };
@@ -3354,7 +3465,7 @@ const ThemeModule = {
     }
 };
 
-// --- 12. LAYOUT MODULE (Layout-Toggle: Top-Bar Ã¢â€ â€ Side-by-Side) ---
+// --- 12. LAYOUT MODULE (Layout-Toggle: Top-Bar ↔ Side-by-Side) ---
 const LayoutModule = {
     init() {
         const btn = document.getElementById('layout-toggle');
@@ -3379,7 +3490,7 @@ const LayoutModule = {
         // Icon anpassen: zeigt das jeweils andere Layout
         icon.textContent = isSideBySide ? 'horizontal_split' : 'vertical_split';
 
-        // Inline-Grid-Styles zurÃƒÂ¼cksetzen, damit das CSS-Grid sauber greift
+        // Inline-Grid-Styles zurücksetzen, damit das CSS-Grid sauber greift
         body.style.gridTemplateRows = '';
         body.style.gridTemplateColumns = '';
 
@@ -3397,24 +3508,14 @@ const LayoutModule = {
 const ClipboardModule = {
     isEnabled: true,
     isChecking: false,
-    hasPermissionFailed: false,
-    lastCheckTime: 0,
+    // Zuletzt gesehener Inhalt der Zwischenablage; derselbe Inhalt wird nicht erneut automatisch importiert
     lastClipboardText: "",
-    importedSignatures: new Set(),
-    toastContainer: null,
     toggleBtn: null,
 
     wasOutside: false,
 
     init() {
-        this.toastContainer = document.getElementById("toast-container");
         this.toggleBtn = document.getElementById("clipboard-toggle");
-
-        // Vorherige Sitzungssignaturen bereinigen
-        try {
-            sessionStorage.removeItem("bibstream_imported_signatures");
-        } catch (e) {}
-        this.importedSignatures.clear();
 
         // Gespeicherten Zustand laden (Standard: aktiv)
         const savedPref = localStorage.getItem("bibstream-clipboard-watcher");
@@ -3436,7 +3537,6 @@ const ClipboardModule = {
             });
         }
 
-
         // 1. Erkennung, wenn Benutzer den BibStream-Tab verlässt und zurückkehrt
         document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === "hidden") {
@@ -3445,7 +3545,7 @@ const ClipboardModule = {
                 if (this.wasOutside && this.isEnabled) {
                     this.wasOutside = false;
                     // Beim Zurückkehren von einer externen Seite (z.B. IEEE) sofort prüfen
-                    setTimeout(() => this.checkClipboard(false, true), 50);
+                    setTimeout(() => this.checkClipboard(), 50);
                 }
             }
         });
@@ -3458,7 +3558,7 @@ const ClipboardModule = {
         window.addEventListener("focus", () => {
             if (this.wasOutside && this.isEnabled) {
                 this.wasOutside = false;
-                setTimeout(() => this.checkClipboard(false, true), 60);
+                setTimeout(() => this.checkClipboard(), 60);
             }
         });
 
@@ -3466,30 +3566,37 @@ const ClipboardModule = {
         document.addEventListener("pointerdown", () => {
             if (this.wasOutside && this.isEnabled) {
                 this.wasOutside = false;
-                this.checkClipboard(true, true);
+                this.checkClipboard();
             }
         }, { capture: true });
 
-        // 4. Internes Kopieren in BibStream: Kopierten Text als bekannt markieren,
-        // damit dieser nicht unbeabsichtigt als neues Zitat auto-importiert wird
-        document.addEventListener("copy", () => {
-            const sel = window.getSelection ? window.getSelection().toString() : "";
+        // 4. Internes Kopieren/Ausschneiden in BibStream: Text als bekannt markieren, damit er nicht
+        // unbeabsichtigt als neues Zitat auto-importiert wird (Capture-Phase: vor CodeMirror)
+        const rememberCopiedText = () => {
+            const cm = EditorModule.editorInstance;
+            const sel = cm && cm.hasFocus() ? cm.getSelection() : (window.getSelection ? window.getSelection().toString() : "");
             if (sel) {
                 this.lastClipboardText = sel.trim();
             }
-        });
+        };
+        document.addEventListener("copy", rememberCopiedText, true);
+        document.addEventListener("cut", rememberCopiedText, true);
 
-        // 5. Normales Einfügen (Strg+V): Funktioniert IMMER ohne Browser-Berechtigungs-Prompt
+        // 5. Normales Einfügen (Strg+V): Funktioniert IMMER ohne Browser-Berechtigungs-Prompt.
+        // Capture-Phase, damit CodeMirror den Rohtext nicht zusätzlich an der Cursorposition einfügt.
         window.addEventListener("paste", (e) => {
+            // Einfügen in das Suchfeld oder andere Eingabefelder nicht abfangen
+            const target = e.target;
+            if (target instanceof Element && !target.closest(".CodeMirror") &&
+                target.matches("input, textarea, [contenteditable]")) return;
             const pastedText = e.clipboardData ? e.clipboardData.getData("text") : "";
-            if (pastedText) {
-                const entries = this.extractBibtexEntries(pastedText);
-                if (entries.length > 0) {
-                    e.preventDefault();
-                    this.processText(pastedText);
-                }
+            if (pastedText && this.extractBibtexEntries(pastedText).length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.lastClipboardText = pastedText.trim();
+                this.processText(pastedText);
             }
-        });
+        }, true);
 
         // Beim ersten Laden den aktuellen Clipboard-Inhalt initial synchronisieren
         this.syncCurrentClipboard();
@@ -3519,10 +3626,10 @@ const ClipboardModule = {
         localStorage.setItem("bibstream-clipboard-watcher", this.isEnabled ? "true" : "false");
         this.updateToggleBtnState();
         if (this.isEnabled) {
-            this.showToast("Auto-import active", "Checks for citations when switching to BibStream");
-            this.checkClipboard(true, true);
+            ToastModule.show("Auto-import active", "Checks for citations when switching to BibStream");
+            this.checkClipboard();
         } else {
-            this.showToast("Auto-import paused", "Automatic detection disabled");
+            ToastModule.show("Auto-import paused", "Automatic detection disabled");
         }
     },
 
@@ -3552,28 +3659,19 @@ const ClipboardModule = {
         }
     },
 
-    async checkClipboard(isUserGesture = false, forceCheck = false) {
+    // Liest die Zwischenablage und übernimmt enthaltene BibTeX-Einträge; derselbe Inhalt wird nur einmal verarbeitet
+    async checkClipboard() {
         if (!this.isEnabled) return;
         if (!navigator.clipboard || typeof navigator.clipboard.readText !== "function") return;
 
         // Keine parallelen Abfragen
         if (this.isChecking) return;
-
-        // Cooldown bei automatischen Fokus-Events (mindestens 300ms)
-        const now = Date.now();
-        if (!isUserGesture && !forceCheck && (now - this.lastCheckTime < 300)) return;
-        this.lastCheckTime = now;
-
         this.isChecking = true;
         try {
-            const text = await navigator.clipboard.readText();
-            if (text && typeof text === "string") {
-                const trimmed = text.trim();
-                if (trimmed) {
-                    this.lastClipboardText = trimmed;
-                    this.processText(trimmed);
-                }
-            }
+            const text = ((await navigator.clipboard.readText()) || "").trim();
+            if (!text || text === this.lastClipboardText) return;
+            this.lastClipboardText = text;
+            this.processText(text);
         } catch (err) {
             console.log("[ClipboardModule] readText:", err && err.message);
         } finally {
@@ -3582,168 +3680,53 @@ const ClipboardModule = {
     },
 
     /**
-     * Prüft, ob der gegebene Text einen oder mehrere BibTeX-Einträge enthält.
+     * Prüft, ob der gegebene Text einen oder mehrere BibTeX-Einträge enthält, und übernimmt sie.
      * Unterstützt IEEE (@INPROCEEDINGS{11404116, ...}), ACM, Springer, arXiv etc.
      */
     processText(rawText) {
         const entries = this.extractBibtexEntries(rawText);
-        if (!entries || entries.length === 0) return;
-
         entries.forEach(entry => {
             this.handleDetectedEntry(entry);
         });
+        return entries.length;
     },
 
     /**
-     * Robustes Parsing und Extrahieren von BibTeX-Zitaten aus Rohtext.
-     * Berücksichtigt Brace-Depth, Klammern, Quotes und IEEE-Besonderheiten.
+     * Extrahiert vollständige BibTeX-Einträge (geschweifte oder runde Klammern) aus beliebigem Text.
+     * Plausibilitätsprüfung: gültiger Schlüssel (ohne Leerraum, Klammern, spitze Klammern o. Ä.)
+     * und mindestens eine Feldzuweisung.
      */
     extractBibtexEntries(text) {
-        const results = [];
-        const regex = /@([a-zA-Z]+)\s*([{(])/g;
-        let match;
-
-        while ((match = regex.exec(text)) !== null) {
-            const type = match[1];
-            const openDelim = match[2];
-            const closeDelim = openDelim === '{' ? '}' : ')';
-            const startIndex = match.index;
-            const bodyStart = match.index + match[0].length;
-
-            let depth = 1;
-            let i = bodyStart;
-            let inQuotes = false;
-
-            while (i < text.length && depth > 0) {
-                const char = text[i];
-                const prevChar = i > 0 ? text[i - 1] : '';
-
-                if (char === '"' && prevChar !== '\\') {
-                    inQuotes = !inQuotes;
-                } else if (!inQuotes) {
-                    if (char === openDelim) {
-                        depth++;
-                    } else if (char === closeDelim) {
-                        depth--;
-                    }
-                }
-                if (depth > 0) i++;
-            }
-
-            if (depth === 0) {
-                const fullRaw = text.substring(startIndex, i + 1);
-                const afterDelim = text.substring(bodyStart, i);
-                
-                // Key extrahieren: alles bis zum ersten Komma
-                const firstComma = afterDelim.indexOf(',');
-                if (firstComma > 0) {
-                    const key = afterDelim.substring(0, firstComma).trim();
-                    const body = afterDelim.substring(firstComma + 1);
-
-                    // Validierung: Mindestens ein '=' Zeichen im Body
-                    if (key && body.includes('=')) {
-                        results.push({
-                            type: type,
-                            key: key,
-                            raw: fullRaw,
-                            openDelim: openDelim,
-                            closeDelim: closeDelim,
-                            body: body
-                        });
-                        regex.lastIndex = i + 1;
-                    }
-                }
-            }
-        }
-        return results;
+        return BibTeXParser.findEntries(text)
+            .filter(entry => !entry.special && entry.validKey)
+            .map(entry => ({
+                type: text.slice(entry.typeStart, entry.typeStart + entry.type.length),
+                key: entry.key,
+                fields: BibTeXParser.scanFields(text, entry.fieldsStart, entry.bodyEnd).fields.map(field => ({
+                    name: field.rawName,
+                    value: text.slice(field.valueStart, field.valueEnd),
+                    parts: field.parts
+                }))
+            }))
+            .filter(entry => entry.fields.length > 0);
     },
 
     /**
      * Formatiert den BibTeX-Eintrag sauber (Einrückung 2 Spaces, Ausrichtung '='-Zeichen,
-     * schließende Klammer auf eigener Zeile).
+     * schließende Klammer auf eigener Zeile). Zahlen werden geklammert; Makros wie
+     * "month = jan" bleiben unverändert, da sie sonst ihre Bedeutung verlören.
      */
     formatEntry(entryObj) {
-        const typeLower = entryObj.type.toLowerCase();
-        const key = entryObj.key;
-        const fields = this.parseFieldsFromBody(entryObj.body);
-
-        let formatted = `@${typeLower}{${key},\n`;
-        fields.forEach((f, idx) => {
-            const fieldName = f.name.toLowerCase().padEnd(12);
-            const valFormatted = (f.value.startsWith('{') || f.value.startsWith('"')) ? f.value : `{${f.value}}`;
-            const isLast = idx === fields.length - 1;
+        let formatted = `@${entryObj.type.toLowerCase()}{${entryObj.key},\n`;
+        entryObj.fields.forEach((f, idx) => {
+            const fieldName = BibTeXParser.formatFieldName(f.name).padEnd(12);
+            const isNumber = f.parts.length === 1 && f.parts[0].kind === "bare" && /^\d+$/.test(f.parts[0].text);
+            const valFormatted = isNumber ? `{${f.value}}` : f.value;
+            const isLast = idx === entryObj.fields.length - 1;
             formatted += `  ${fieldName} = ${valFormatted}${isLast ? '' : ','}\n`;
         });
         formatted += `}`;
         return formatted;
-    },
-
-    /**
-     * Zerlegt den Body eines BibTeX-Eintrags in einzelne Feld-Wert-Paare.
-     */
-    parseFieldsFromBody(body) {
-        const fields = [];
-        let i = 0;
-        const len = body.length;
-
-        while (i < len) {
-            // Whitespace & Kommas überspringen
-            while (i < len && (/\s/.test(body[i]) || body[i] === ',')) i++;
-            if (i >= len) break;
-
-            // Feldname lesen
-            const nameStart = i;
-            while (i < len && body[i] !== '=' && !/\s/.test(body[i]) && body[i] !== '}' && body[i] !== ')') i++;
-            const name = body.substring(nameStart, i).trim();
-            if (!name) break;
-
-            // Bis '=' laufen
-            while (i < len && body[i] !== '=') i++;
-            if (i >= len) break;
-            i++; // '=' überspringen
-
-            // Führende Whitespaces vor Wert überspringen
-            while (i < len && /\s/.test(body[i])) i++;
-            if (i >= len) break;
-
-            // Wert ermitteln
-            const valChar = body[i];
-            let value = "";
-            if (valChar === '{') {
-                let depth = 1;
-                const valStart = i;
-                i++;
-                while (i < len && depth > 0) {
-                    if (body[i] === '{') depth++;
-                    else if (body[i] === '}') depth--;
-                    if (depth > 0) i++;
-                }
-                value = body.substring(valStart, i + 1);
-                i++;
-            } else if (valChar === '"') {
-                const valStart = i;
-                i++;
-                while (i < len) {
-                    if (body[i] === '"' && body[i - 1] !== '\\') break;
-                    i++;
-                }
-                value = body.substring(valStart, i + 1);
-                i++;
-            } else {
-                // Unquoted Wert bis zum nächsten Komma oder Zeilenende
-                const valStart = i;
-                while (i < len && body[i] !== ',' && body[i] !== '\n' && body[i] !== '}' && body[i] !== ')') {
-                    i++;
-                }
-                value = body.substring(valStart, i).trim();
-            }
-
-            if (name && value) {
-                fields.push({ name, value: value.trim() });
-            }
-        }
-
-        return fields;
     },
 
     /**
@@ -3756,21 +3739,15 @@ const ClipboardModule = {
         const cm = EditorModule.editorInstance;
         const currentDoc = cm.getValue();
 
-        const escapedKey = entryObj.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const keyExistsRegex = new RegExp(`@\\w+\\s*\\{\\s*${escapedKey}\\s*,`, 'i');
-
         // 1. Prüfen, ob dieser Eintrag bereits im aktuellen Dokument vorhanden ist
-        if (keyExistsRegex.test(currentDoc)) {
-            console.log(`[ClipboardModule] Eintrag ${entryObj.key} existiert bereits in dieser Datei.`);
-            EditorModule.jumpToKey(entryObj.key, true);
-            if (typeof SidebarModule.highlightKey === "function") {
-                SidebarModule.highlightKey(entryObj.key);
-            }
-            this.showToast("Already exists", `@${entryObj.type}{${entryObj.key}} already exists`);
+        const keyLower = entryObj.key.toLowerCase();
+        const existing = BibTeXParser.findEntries(currentDoc).find(e => !e.special && e.key.toLowerCase() === keyLower);
+        if (existing) {
+            EditorModule.jumpToKey(existing.key, true);
+            SidebarModule.highlightKey(existing.key);
+            ToastModule.show("Already exists", `@${entryObj.type}{${entryObj.key}} already exists`);
             return;
         }
-
-        const finalKey = entryObj.key;
 
         // 2. Sauber formatieren
         const formatted = this.formatEntry(entryObj);
@@ -3780,54 +3757,18 @@ const ClipboardModule = {
             ? (currentDoc.endsWith('\n\n') ? '' : (currentDoc.endsWith('\n') ? '\n' : '\n\n'))
             : '';
         const insertionText = separator + formatted + '\n';
-        const lastLine = cm.lineCount();
-        const insertFrom = { line: lastLine, ch: 0 };
-
-        cm.replaceRange(insertionText, insertFrom);
+        cm.replaceRange(insertionText, { line: cm.lineCount(), ch: 0 });
 
         // 4. Zum neuen Eintrag springen, den gesamten Block markieren und fokussieren
         setTimeout(() => {
-            EditorModule.jumpToKey(finalKey, true);
-            if (typeof SidebarModule.highlightKey === "function") {
-                SidebarModule.highlightKey(finalKey);
-            }
+            EditorModule.jumpToKey(entryObj.key, true);
+            SidebarModule.highlightKey(entryObj.key);
         }, 80);
 
         // 5. Toast-Benachrichtigung anzeigen
-        this.showToast(
-            "New citation added from clipboard",
-            `@${entryObj.type}{${finalKey}}`
-        );
-        console.log(`[ClipboardModule] Neuer Eintrag hinzugefügt: ${finalKey}`);
-    },
-
-    showToast(title, message) {
-        if (!this.toastContainer) {
-            this.toastContainer = document.getElementById("toast-container");
-            if (!this.toastContainer) return;
-        }
-
-        const toast = document.createElement("div");
-        toast.className = "toast-notification";
-        toast.innerHTML = `
-            <span class="material-symbols-outlined toast-icon">content_paste_go</span>
-            <div class="toast-content">
-                <div class="toast-title">${title}</div>
-                <div class="toast-message">${message}</div>
-            </div>
-        `;
-
-        this.toastContainer.appendChild(toast);
-
-        setTimeout(() => {
-            toast.classList.add("hide");
-            setTimeout(() => toast.remove(), 350);
-        }, 3800);
+        ToastModule.show("New citation added from clipboard", `@${entryObj.type}{${entryObj.key}}`);
     }
 };
 
 // Starten
-document.addEventListener("DOMContentLoaded", () => {
-    LinterModule.init();
-    App.init();
-});
+document.addEventListener("DOMContentLoaded", () => App.init());

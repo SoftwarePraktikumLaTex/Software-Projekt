@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BibStream</title>
+    <link rel="icon" href="icon.ico">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,19 +14,28 @@
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
         rel="stylesheet">
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/stex/stex.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+    <!-- CodeMirror 5.65.16 mit Subresource Integrity: veränderte CDN-Dateien werden nicht ausgeführt -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css"
+        integrity="sha512-uf06llspW44/LZpHzHT6qBOIVODjWtv4MxCricRxkzvopAlSWnTf6hpZTFxuuZcuNE9CBQhqE0Seu1CoRk84nQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"
+        integrity="sha512-OeZ4Yrb/W7d2W4rAMOO0HQ9Ro/aWLtpW9BUSR2UOWnSV2hprXLkkYnnCGc9NeLUxxE4ZG7zN16UuT1Elqq8Opg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/stex/stex.min.js"
+        integrity="sha512-YJhRJtlj8qI8w/UrL7wX2ysIIDFFGLGkeCJOJh6RiCYWqIe3Xo4fEevUC6LoTp2uPrOzxRkmgGUwH8Aze41usA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"
+        integrity="sha512-+ZfZDC9gi1y9Xoxi9UUsSp+5k+AcFE0TRNjI0pfaAHQ7VZTaaoEpBZp9q9OvHdSomOze/7s5w27rcsYpT6xU6g=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/lint/lint.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/lint/lint.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/lint/lint.min.css"
+        integrity="sha512-jP1+o6s94WQS9boYeDP3Azh8ihI5BxGgBZNjkABhx05MqH5WuDzfzSnoPxGxVzWi/gxxVHZHvWkdRM6SMy5B0Q=="
+        crossorigin="anonymous" referrerpolicy="no-referrer">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/lint/lint.min.js"
+        integrity="sha512-pbCRN8TEb9NSIsKf10EkT4ZSfE2QxHjX8q6ajtMR8PQaDKcIGn2fo33U1BjYdXB76dri5dyhSlheQ2XoI/Lbaw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
-    <script>
-        // pdf.js Worker-Pfad global setzen (wird vom ImportModule genutzt)
-        var PDFJS_WORKER_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
-    </script>
+    <!-- PDF.js wird erst beim PDF-Import geladen (Version siehe ImportModule.PDFJS_BASE in script.js) -->
 
     <link href="style.css" rel="stylesheet">
     <script src="script.js" defer></script>
@@ -122,11 +132,11 @@
             <form id="search-form">
                 <div class="search-input-wrapper">
                     <span class="material-symbols-outlined search-icon">search</span>
-                    <input placeholder="Search..." id="input1">
+                    <input placeholder="Search..." id="input1" aria-label="Search entries">
                 </div>
                 <div class="dropdownSelektor selector-wrapper">
                     <span class="material-symbols-outlined selector-icon">sort</span>
-                    <select id="selektor" class="selektor-btn">
+                    <select id="selektor" class="selektor-btn" aria-label="Sort order">
                         <option value="original">Default</option>
                         <option value="title-asc">Title A–Z</option>
                         <option value="title-desc">Title Z–A</option>

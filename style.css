@@ -406,6 +406,8 @@ body {
     grid-area: editor;
     height: 100%;
     width: 100%;
+    /* Rahmen in die 100 % einrechnen, sonst ragt der Editor 1px über das Fenster (Seiten-Scrollbalken) */
+    box-sizing: border-box;
     background-color: var(--bg-editor);
     overflow: hidden;
     border-top: 1px solid var(--border);
@@ -1666,8 +1668,8 @@ body.layout-side-by-side .editor-container {
 }
 
 .toast-notification.hide {
-    opacity: 0;
-    transform: translateY(20px);
+    /* Eigene Ausblend-Animation: Die mit "forwards" gehaltene Einblend-Animation würde Werte aus Klassen überstimmen */
+    animation: toastSlideOut 0.3s ease forwards;
 }
 
 .toast-notification .toast-icon {
@@ -1702,5 +1704,17 @@ body.layout-side-by-side .editor-container {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes toastSlideOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(20px);
     }
 }
