@@ -1,0 +1,1507 @@
+% !TeX program = pdflatex
+% !BIB program = biber
+% ======================================================================
+%  Bachelorarbeit "BibStream"
+%  Alexandros Kremidas, Martin König, Felix Brunnbauer
+%  Alpen-Adria-Universität Klagenfurt
+%
+%  Übersetzen: pdflatex -> biber -> pdflatex -> pdflatex
+%  (Overleaf: Compiler "pdfLaTeX"; Biber läuft automatisch)
+%  Die Datei vor dem Übersetzen als "bachelorarbeit.tex" speichern.
+%  Rot mit \offen{...} markierte Stellen vor der Abgabe ergänzen.
+%  Optionale Bilddateien im Ordner "abbildungen/":
+%    aau-logo.png, bibstream-topbar.png, bibstream-sidebyside.png
+%  Fehlen sie, erscheint der Universitätsname bzw. ein Platzhalter.
+% ======================================================================
+
+\begin{filecontents*}[overwrite]{\jobname.bib}
+@manual{patashnik1988,
+  author  = {Patashnik, Oren},
+  title   = {{BibTeXing}},
+  date    = {1988-02-08},
+  url     = {https://ctan.org/pkg/bibtex},
+  urldate = {2026-11-06}
+}
+
+@online{wicg2025fsa,
+  editor       = {Chung, Ming-Ying},
+  title        = {File System Access},
+  organization = {Web Platform Incubator Community Group},
+  note         = {Draft Community Group Report},
+  date         = {2025-10-10},
+  url          = {https://wicg.github.io/file-system-access/},
+  urldate      = {2026-11-06}
+}
+
+@online{w3c2026clipboard,
+  editor       = {Goulikar, Rakesh and Raja, Rohan},
+  title        = {Clipboard {API} and Events},
+  organization = {W3C},
+  note         = {W3C Working Draft},
+  date         = {2026-06-24},
+  url          = {https://www.w3.org/TR/clipboard-apis/},
+  urldate      = {2026-11-06}
+}
+
+@online{w3c2016sri,
+  author       = {Akhawe, Devdatta and Braun, Frederik and Marier, François and Weinberger, Joel},
+  title        = {Subresource Integrity},
+  organization = {W3C},
+  note         = {W3C Recommendation},
+  date         = {2016-06-23},
+  url          = {https://www.w3.org/TR/SRI/},
+  urldate      = {2026-11-06}
+}
+
+@manual{haverbeke2026cm5,
+  author  = {Haverbeke, Marijn},
+  title   = {{CodeMirror} 5 User Manual},
+  url     = {https://codemirror.net/5/doc/manual.html},
+  urldate = {2026-11-06}
+}
+
+@online{mozilla2026pdfjs,
+  author  = {{Mozilla}},
+  title   = {{PDF.js}},
+  url     = {https://mozilla.github.io/pdf.js/},
+  urldate = {2026-11-06}
+}
+
+@inproceedings{lopez2009grobid,
+  author    = {Lopez, Patrice},
+  title     = {{GROBID}: Combining Automatic Bibliographic Data Recognition and Term Extraction for Scholarship Publications},
+  booktitle = {Research and Advanced Technology for Digital Libraries (ECDL 2009)},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {5714},
+  publisher = {Springer},
+  location  = {Berlin, Heidelberg},
+  year      = {2009},
+  pages     = {473--474},
+  doi       = {10.1007/978-3-642-04346-8_62}
+}
+
+@article{tkaczyk2015cermine,
+  author       = {Tkaczyk, Dominika and Szostek, Paweł and Fedoryszak, Mateusz and Dendek, Piotr Jan and Bolikowski, Łukasz},
+  title        = {{CERMINE}: Automatic Extraction of Structured Metadata from Scientific Literature},
+  journaltitle = {International Journal on Document Analysis and Recognition},
+  volume       = {18},
+  number       = {4},
+  pages        = {317--335},
+  year         = {2015},
+  doi          = {10.1007/s10032-015-0249-8}
+}
+
+@book{aho2006compilers,
+  author    = {Aho, Alfred V. and Lam, Monica S. and Sethi, Ravi and Ullman, Jeffrey D.},
+  title     = {Compilers: Principles, Techniques, and Tools},
+  edition   = {2},
+  publisher = {Pearson Addison-Wesley},
+  location  = {Boston},
+  year      = {2006}
+}
+
+@book{nielsen1993usability,
+  author    = {Nielsen, Jakob},
+  title     = {Usability Engineering},
+  publisher = {Academic Press},
+  location  = {Boston},
+  year      = {1993}
+}
+
+@online{owasp2026xss,
+  author  = {{OWASP Foundation}},
+  title   = {Cross Site Scripting Prevention Cheat Sheet},
+  url     = {https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html},
+  urldate = {2026-11-06}
+}
+
+@online{crossref2026api,
+  author  = {{Crossref}},
+  title   = {{REST API}},
+  url     = {https://www.crossref.org/documentation/retrieve-metadata/rest-api/},
+  urldate = {2026-11-06}
+}
+
+@online{datacite2026cn,
+  author  = {{DataCite}},
+  title   = {DataCite Content Negotiation},
+  url     = {https://support.datacite.org/docs/datacite-content-resolver},
+  urldate = {2026-11-06}
+}
+
+@online{openlibrary2026books,
+  author  = {{Internet Archive}},
+  title   = {Open Library: Books {API}},
+  url     = {https://openlibrary.org/dev/docs/api/books},
+  urldate = {2026-11-06}
+}
+
+@online{jabref2026,
+  author  = {{JabRef}},
+  title   = {{JabRef}},
+  url     = {https://www.jabref.org/},
+  urldate = {2026-11-06}
+}
+
+@online{zotero2026,
+  author  = {{Zotero}},
+  title   = {{Zotero}},
+  url     = {https://www.zotero.org/},
+  urldate = {2026-11-06}
+}
+
+@misc{lgmuenchen2022,
+  author    = {{LG München I}},
+  shorthand = {LG22},
+  title     = {Urteil vom 20.01.2022, Az. 3 O 17493/20},
+  note      = {Einbindung von Google Fonts und Weitergabe der IP-Adresse},
+  date      = {2022-01-20}
+}
+
+@manual{kime2026biber,
+  author  = {Kime, Philip and Charette, François},
+  title   = {Biber: A {BibTeX} Replacement for Users of {biblatex}},
+  url     = {https://ctan.org/pkg/biber},
+  urldate = {2026-11-06}
+}
+
+@manual{neugebauer2026bibtool,
+  author  = {Neugebauer, Gerd},
+  title   = {{BibTool}: A Tool for Manipulating {BibTeX} Files},
+  url     = {https://ctan.org/pkg/bibtool},
+  urldate = {2026-11-06}
+}
+
+@online{arxiv2026ids,
+  author  = {{arXiv}},
+  title   = {Understanding the {arXiv} Identifier},
+  url     = {https://info.arxiv.org/help/arxiv_identifier.html},
+  urldate = {2026-11-06}
+}
+\end{filecontents*}
+
+\documentclass[11pt,a4paper]{article}
+
+% ---------------------------------------------------------------------
+%  Pakete
+% ---------------------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english,ngerman]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[autostyle=true,german=quotes]{csquotes}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage[onehalfspacing]{setspace}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage[backend=biber,style=alphabetic,maxbibnames=99,maxalphanames=3,urldate=long]{biblatex}
+\addbibresource{\jobname.bib}
+\usepackage[hidelinks]{hyperref}
+
+\hypersetup{
+  pdftitle={BibStream: Webbasierter Smart-Editor zur assistierten Verwaltung von BibTeX-Dateien},
+  pdfauthor={Alexandros Kremidas, Martin König, Felix Brunnbauer},
+  pdfsubject={Bachelorarbeit, Alpen-Adria-Universität Klagenfurt},
+  pdfkeywords={BibTeX, LaTeX, Webanwendung, CodeMirror, Literaturverwaltung}
+}
+
+% ---------------------------------------------------------------------
+%  Allgemeine Einstellungen
+% ---------------------------------------------------------------------
+\setcounter{tocdepth}{2}
+\setlength{\emergencystretch}{3em}
+\hyphenation{Bib-Stream Code-Mirror Java-Script Ein-trags-lis-te}
+\setcounter{biburlnumpenalty}{9000}
+\setcounter{biburlucpenalty}{9000}
+\setcounter{biburllcpenalty}{9000}
+\DefineBibliographyStrings{ngerman}{urlseen = {Zugriff am}}
+\AtBeginEnvironment{tabular}{\small\setstretch{1.1}}
+\AtBeginEnvironment{tabularx}{\small\setstretch{1.1}}
+\AtBeginEnvironment{longtable}{\small\setstretch{1.1}}
+
+% ---------------------------------------------------------------------
+%  Farben, Makros und Platzhalter
+% ---------------------------------------------------------------------
+\definecolor{akfarbe}{RGB}{52,101,164}
+\definecolor{mkfarbe}{RGB}{78,154,6}
+\definecolor{fbfarbe}{RGB}{206,92,0}
+\definecolor{codehintergrund}{RGB}{248,248,248}
+\definecolor{codekommentar}{RGB}{0,120,0}
+\definecolor{codeschluesselwort}{RGB}{0,0,170}
+\definecolor{codezeichenkette}{RGB}{163,21,21}
+\definecolor{codeumbruch}{gray}{0.6}
+
+\newcommand{\AK}{Alexandros Kremidas}
+\newcommand{\MK}{Martin König}
+\newcommand{\FB}{Felix Brunnbauer}
+\makeatletter
+\newcommand{\verfasser}[1]{\par\noindent{\small\textcolor{black!60}{\textit{Verfasst von: #1}}}\par\nobreak\smallskip\@afterindentfalse\@afterheading}
+\makeatother
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+% Wie \code, aber mit Umbruchstellen nach . / - _ (lange Pfade und Methodennamen)
+\DeclareUrlCommand\pfad{\urlstyle{tt}\def\UrlBreaks{\do\.\do\/\do\-\do\_}}
+\newcommand{\offen}[1]{\textcolor{red}{[#1]}}
+
+% Angaben für das Deckblatt
+\newcommand{\betreuung}{Assoc.\ Prof.\ Mag.\ Dr.\ David Ahlström}
+\newcommand{\matrAK}{\offen{Matrikelnummer}}
+\newcommand{\matrMK}{\offen{Matrikelnummer}}
+\newcommand{\matrFB}{\offen{Matrikelnummer}}
+\newcommand{\abgabedatum}{\today}
+
+% Bindet einen Screenshot ein, falls vorhanden, sonst Platzhalter
+\newcommand{\screenshot}[2]{%
+  \IfFileExists{#1}{\includegraphics[width=#2]{#1}}{%
+    \fbox{\parbox[c][0.22\textheight][c]{\dimexpr#2-2\fboxsep-2\fboxrule\relax}{\centering\small\textit{Platzhalter für Screenshot}\\[0.5ex]\texttt{\detokenize{#1}}}}}}
+
+% ---------------------------------------------------------------------
+%  Quellcode-Darstellung
+% ---------------------------------------------------------------------
+\lstdefinelanguage{JavaScript}{
+  morekeywords={const,let,var,function,return,if,else,for,while,new,async,await,try,catch,finally,break,continue,typeof,of,true,false,null,undefined,this},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]",
+  morestring=[b]`
+}
+\lstdefinelanguage{BibTeX}{
+  alsoletter={@},
+  morekeywords={@article,@book,@inproceedings,@misc,@string},
+  sensitive=false,
+  morecomment=[l]{\%}
+}
+\lstdefinelanguage{CSS}{
+  alsoletter={-},
+  morekeywords={display,grid-template-areas,grid-template-rows,grid-template-columns,height},
+  sensitive=false,
+  morecomment=[s]{/*}{*/},
+  morestring=[b]"
+}
+\lstset{
+  basicstyle=\ttfamily\footnotesize\setstretch{1},
+  backgroundcolor=\color{codehintergrund},
+  keywordstyle=\color{codeschluesselwort}\bfseries,
+  commentstyle=\color{codekommentar}\itshape,
+  stringstyle=\color{codezeichenkette},
+  numbers=left,
+  numberstyle=\tiny\color{black!50},
+  numbersep=8pt,
+  frame=single,
+  rulecolor=\color{black!20},
+  xleftmargin=2em,
+  framexleftmargin=1.5em,
+  breaklines=true,
+  postbreak=\mbox{\textcolor{codeumbruch}{$\hookrightarrow$}\space},
+  showstringspaces=false,
+  columns=fullflexible,
+  keepspaces=true,
+  tabsize=2,
+  captionpos=b,
+  upquote=true,
+  literate={ä}{{\"a}}1 {ö}{{\"o}}1 {ü}{{\"u}}1 {Ä}{{\"A}}1 {Ö}{{\"O}}1 {Ü}{{\"U}}1 {ß}{{\ss}}1
+}
+\renewcommand{\lstlistingname}{Quellcode}
+
+% =====================================================================
+\begin{document}
+% =====================================================================
+
+% ---------------------------------------------------------------------
+%  Deckblatt
+% ---------------------------------------------------------------------
+\begin{titlepage}
+  \centering
+  \IfFileExists{abbildungen/aau-logo.png}{%
+    \includegraphics[width=7cm]{abbildungen/aau-logo.png}\par\vspace{1.8cm}%
+  }{%
+    \vspace*{1.5cm}{\large Alpen-Adria-Universität Klagenfurt\par}\vspace{2.5cm}%
+  }
+  {\large Bachelorarbeit\par}
+  \vspace{0.3cm}
+  zur Erlangung des akademischen Grades\par
+  Bachelor of Science (BSc)\par
+  \vspace{1.6cm}
+  {\huge\bfseries BibStream\par}
+  \vspace{0.5cm}
+  {\large Webbasierter Smart-Editor zur assistierten\\ Verwaltung von BibTeX-Dateien\par}
+  \vfill
+  \begin{tabular}{@{}ll@{}}
+    Vorgelegt von: & \AK{} (Matrikelnr.: \matrAK) \\
+                   & \MK{} (Matrikelnr.: \matrMK) \\
+                   & \FB{} (Matrikelnr.: \matrFB) \\[0.8ex]
+    Betreuer:      & \betreuung \\
+  \end{tabular}\par
+  \vspace{1.6cm}
+  Klagenfurt am Wörthersee, \abgabedatum
+\end{titlepage}
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% ---------------------------------------------------------------------
+%  Danksagung
+% ---------------------------------------------------------------------
+\section*{Danksagung}
+
+An dieser Stelle möchten wir uns bei allen bedanken, die uns während des Softwarepraktikums und beim Schreiben dieser Arbeit unterstützt haben. Unser besonderer Dank gilt unserem Betreuer, \betreuung, für die Begleitung des Projekts und die regelmäßigen Rückmeldungen zu Layout und Aufbau der Anwendung. Ebenso danken wir unseren Familien und Freunden für ihre Geduld und ihren Rückhalt während des Studiums.
+
+% ---------------------------------------------------------------------
+%  Eidesstattliche Erklärungen (Wortlaut nach Vorlage, je eine pro Person)
+% ---------------------------------------------------------------------
+\newcommand{\erklaerung}[1]{%
+  \newpage
+  \section*{Eidesstattliche Erklärung}
+  Ich versichere an Eides statt, dass ich
+  \begin{itemize}[label={-}, leftmargin=2em, itemsep=0.3ex, topsep=0.8ex]
+    \item die eingereichte wissenschaftliche Arbeit selbstständig verfasst und keine anderen als die angegebenen Hilfsmittel benutzt habe,
+    \item die während des Arbeitsvorganges von dritter Seite erfahrene Unterstützung, einschließlich signifikanter Betreuungshinweise, vollständig offengelegt habe,
+    \item die Inhalte, die ich aus Werken Dritter oder eigenen Werken wortwörtlich oder sinngemäß übernommen habe, in geeigneter Form gekennzeichnet und den Ursprung der Information durch möglichst exakte Quellenangaben (z.B. in Fußnoten) ersichtlich gemacht habe,
+    \item den Einsatz von generativen Modellen (Künstliche Intelligenz wie z.B. ChatGPT, Grammarly Go, Midjourney) vollständig und wahrheitsgetreu inkl. Produktversion ausgewiesen habe,
+    \item die eingereichte wissenschaftliche Arbeit bisher weder im Inland noch im Ausland einer Prüfungsbehörde vorgelegt habe und
+    \item bei der Weitergabe jedes Exemplars (z.B. in ausgedruckter oder digitaler Form) der wissenschaftlichen Arbeit sicherstelle, dass diese mit der eingereichten digitalen Version übereinstimmt.
+  \end{itemize}
+  Ich bin mir bewusst, dass eine tatsachenwidrige Erklärung rechtliche Folgen haben wird.
+
+  \vspace{3\baselineskip}
+  \noindent\makebox[0.6\textwidth][l]{\underline{\textit{#1}} e.\,h.}\underline{\textit{Ort, Datum}}\par
+}
+\erklaerung{\AK}
+\erklaerung{\MK}
+\erklaerung{\FB}
+
+% ---------------------------------------------------------------------
+%  Inhaltsverzeichnis
+% ---------------------------------------------------------------------
+\newpage
+\tableofcontents
+\newpage
+
+% =====================================================================
+\section{Einleitung}
+\label{sec:einleitung}
+% =====================================================================
+
+Dieses Kapitel beschreibt, warum BibStream entstanden ist, welche Forschungsfrage die Arbeit beantwortet und wie die Arbeit im Team aufgeteilt wurde.
+
+\subsection{Motivation}
+\label{sec:motivation}
+\verfasser{\FB}
+
+Wer wissenschaftliche Arbeiten mit LaTeX schreibt, pflegt die Literaturangaben meist in einer \code{.bib}-Datei, aus der BibTeX oder Biber beim Übersetzen das Literaturverzeichnis erzeugen~\cite{patashnik1988}. Das Format ist reiner Text. Es lässt sich mit jedem Editor bearbeiten, in Versionsverwaltungen ablegen und zwischen Projekten austauschen.
+
+Gerade diese Offenheit ist zugleich eine Schwäche. Bei der Pflege von Hand entstehen leicht fehlende Kommata zwischen Feldern, nicht geschlossene Klammern, doppelt vergebene Zitationsschlüssel oder falsch geschriebene Eintragstypen. Solche Fehler fallen oft erst beim Übersetzen des Dokuments auf, und die Meldungen im Protokoll verweisen nicht immer auf die eigentliche Ursache. Einträge, die aus Literaturdatenbanken wie IEEE Xplore oder der ACM Digital Library kopiert werden, sind außerdem unterschiedlich formatiert, und mit wachsender Dateigröße wird es mühsam, einen bestimmten Eintrag wiederzufinden.
+
+Ein einfacher Texteditor lässt den Rohtext vollständig unter der Kontrolle der Nutzerin oder des Nutzers, hilft aber weder bei der Fehlersuche noch bei der Navigation. Literaturverwaltungsprogramme sind dagegen für ganze Literatursammlungen gedacht und behandeln die \code{.bib}-Datei eher als Import- oder Exportformat (Abschnitt~\ref{sec:sdt-verwaltung}). Dazwischen fehlt aus Sicht des Teams ein leichtgewichtiges Werkzeug, das ohne Installation im Browser läuft, den Rohtext als zentrales Arbeitsobjekt beibehält und die Bearbeitung trotzdem durch Validierung, Formatierung, eine strukturierte Eintragsliste und den Import neuer Quellen unterstützt. Hier setzt BibStream an.
+
+\subsection{Forschungsfrage}
+\label{sec:forschungsfrage}
+\verfasser{\MK}
+
+Die zentrale Forschungsfrage dieser Arbeit lautet: Lässt sich die manuelle Pflege von BibTeX-Dateien mit einer rein clientseitigen Webanwendung ohne Build-Prozess so unterstützen, dass typische Fehler bereits während der Eingabe sichtbar werden, ohne dass der Rohtext seine Rolle als maßgebliche Datenquelle verliert?
+
+Zur Beantwortung wurden drei Teilfragen formuliert, die auch die Evaluation in den Kapiteln~\ref{sec:evaluierung} und~\ref{sec:ergebnisse} strukturieren:
+
+\begin{enumerate}
+  \item Welche typischen Fehler einer \code{.bib}-Datei lassen sich während der Eingabe zuverlässig erkennen, und wo liegen die Grenzen eines leichtgewichtigen, regelbasierten Ansatzes?
+  \item Wie lässt sich eine durchsuch- und sortierbare Sicht auf die Einträge mit dem Rohtext synchron halten, ohne dass beim Sortieren, Löschen oder Importieren Inhalte verloren gehen?
+  \item Bis zu welcher Dateigröße bleibt die Anwendung reaktionsschnell, wenn die strukturierte Sicht nach jeder Änderung vollständig neu aus dem Text berechnet wird?
+\end{enumerate}
+
+\subsection{Ziel der Arbeit}
+\label{sec:ziel}
+\verfasser{\AK}
+
+Im Rahmen des Softwarepraktikums war das Ziel zunächst die Konzeption und prototypische Implementierung von BibStream. Die Anwendung versteht sich nicht als Ersatz für Literaturverwaltungsprogramme, sondern als \enquote{Smart-Editor}: Der Rohtext bleibt jederzeit sichtbar und editierbar und wird um Funktionen ergänzt, die die fehleranfälligsten Tätigkeiten der manuellen Pflege absichern. Im Laufe der Arbeit kam als zweites Ziel hinzu, den Prototyp systematisch zu bewerten und so zu dokumentieren, dass er nach dem Praktikum weiter genutzt und gewartet werden kann. Kapitel~\ref{sec:bibliotheken} beschreibt deshalb alle externen Bibliotheken und Dienste, von denen der Betrieb abhängt.
+
+Die Arbeit ist wie folgt aufgebaut: Kapitel~\ref{sec:kontext} erklärt die Grundlagen, Kapitel~\ref{sec:sdt} ordnet BibStream gegenüber bestehenden Werkzeugen ein. Kapitel~\ref{sec:methodik} beschreibt Vorgehen, Anforderungen und Metriken, die Kapitel~\ref{sec:architektur} und~\ref{sec:implementierung} Architektur und Umsetzung. Die Kapitel~\ref{sec:evaluierung} und~\ref{sec:ergebnisse} enthalten Evaluation und Ergebnisse, Kapitel~\ref{sec:bibliotheken} die externen Abhängigkeiten und Kapitel~\ref{sec:schluss} die Schlussfolgerung.
+
+\subsection{Arbeitsaufteilung}
+\label{sec:aufteilung}
+\verfasser{\AK, \MK{} und \FB{} (gemeinsam)}
+
+Projekt und Arbeit sind eine Gemeinschaftsleistung von drei Personen. Damit die Einzelleistungen bewertet werden können, wurde die Anwendung in drei Verantwortungsbereiche mit vergleichbarem Aufwand gegliedert; die Zuordnung ist auch im Quellcode durch Kommentare an den Modulen vermerkt (Tabelle~\ref{tab:module}).
+
+\begin{itemize}
+  \item \textbf{\AK:} Oberfläche und Layout (CSS-Grid, Layout-Umschaltung, Resizer, Menüs), Dateiverwaltung mit Tabs, Sitzungswiederherstellung und Verlauf, Import aus der Zwischenablage sowie das Löschen von Einträgen.
+  \item \textbf{\MK:} Datenlogik mit Parser, Aufbereitung der Metadaten, Filterung und Sortierung mit Rückübertragung in den Editortext, Eintragsliste sowie der Import aus PDF-Dateien und über Kennungen wie DOI oder ISBN.
+  \item \textbf{\FB:} Editor-Umgebung mit CodeMirror, Navigation zwischen Editor und Liste, Linter, Formatierungswerkzeuge, feldübergreifende Suche mit Treffer-Hervorhebung, Farbschemata und Hilfedialog.
+\end{itemize}
+
+Anforderungsanalyse, Architektur, Schnittstellen zwischen den Modulen, Tests und die Überarbeitung des Textes wurden gemeinsam und zu gleichen Teilen erarbeitet. Jedes Teammitglied hat damit einen Anteil von einem Drittel an der Gesamtleistung. Die schriftliche Arbeit folgt derselben Aufteilung: Unter jeder Überschrift ist angegeben, wer den Abschnitt verfasst hat.
+
+% =====================================================================
+\section{Kontext}
+\label{sec:kontext}
+% =====================================================================
+
+Dieses Kapitel fasst zusammen, was zum Verständnis von BibStream nötig ist: das BibTeX-Format, persistente Kennungen wie DOI und ISBN, die genutzten Browser-Schnittstellen, die Editor-Komponente CodeMirror und die Frage, wie sich verschachtelte Klammern zuverlässig auswerten lassen. Zum Schluss werden die verwendeten Technologien aufgezählt.
+
+\subsection{Das BibTeX-Format}
+\label{sec:bibtex}
+\verfasser{\MK}
+
+Eine \code{.bib}-Datei besteht aus einer Folge von Einträgen. Jeder Eintrag beginnt mit \code{@} und dem Eintragstyp; im anschließenden Rumpf folgen der Zitationsschlüssel und, durch Kommata getrennt, Feldzuweisungen der Form \code{feld = wert}~\cite{patashnik1988}. Quellcode~\ref{lst:bibtex-beispiel} zeigt einen Eintrag, der in dieser Arbeit als Beispiel dient.
+
+\begin{lstlisting}[language=BibTeX, caption={Beispiel eines BibTeX-Eintrags}, label={lst:bibtex-beispiel}]
+@inproceedings{bi2013ffitts,
+  author    = {Bi, Xiaojun and Li, Yang and Zhai, Shumin},
+  title     = {{FF}itts Law: Modeling Finger Touch with {F}itts' {L}aw},
+  booktitle = {Proceedings of the SIGCHI Conference on Human Factors in Computing Systems},
+  year      = 2013,
+  pages     = {1363--1372},
+  doi       = {10.1145/2470654.2466180}
+}
+\end{lstlisting}
+
+Feldwerte stehen in geschweiften Klammern oder in doppelten Anführungszeichen; Zahlen und Makronamen wie \code{jan} dürfen ohne Begrenzer stehen. Geschweifte Klammern können beliebig tief verschachtelt werden. Innere Klammerpaare schützen etwa Großbuchstaben vor der Umwandlung durch den Bibliografiestil, wie bei \code{{FF}itts}. Mehrere Personen in \code{author} und \code{editor} werden mit \code{and} verbunden. Daneben gibt es die Befehle \code{@string}, \code{@preamble} und \code{@comment}, und Text außerhalb von Einträgen wird ignoriert~\cite{patashnik1988}. Umlaute werden im klassischen BibTeX als LaTeX-Befehle notiert, während Biber UTF-8 verarbeitet; in aktuellen Dateien kommen beide Schreibweisen vor.
+
+Die Standardstile kennen vierzehn Eintragstypen und legen für jeden Typ erforderliche und optionale Felder fest~\cite{patashnik1988}. Tabelle~\ref{tab:bibtex-typen} zeigt die wichtigsten. Alle übrigen Felder ignoriert BibTeX, weshalb Einträge in der Praxis oft zusätzliche Felder wie \code{doi}, \code{url} oder \code{abstract} enthalten. Für einen Linter folgt daraus, dass ein unbekanntes Feld kein Fehler ist, sondern höchstens ein Hinweis.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Ausgewählte Eintragstypen von BibTeX und ihre Pflichtfelder}
+  \label{tab:bibtex-typen}
+  \begin{tabularx}{\textwidth}{@{}lXl@{}}
+    \toprule
+    \textbf{Typ} & \textbf{Verwendung} & \textbf{Pflichtfelder} \\
+    \midrule
+    \code{article}       & Artikel in einer Zeitschrift & author, title, journal, year \\
+    \code{book}          & Buch mit Verlag              & author oder editor, title, publisher, year \\
+    \code{inproceedings} & Beitrag in einem Tagungsband & author, title, booktitle, year \\
+    \code{phdthesis}     & Dissertation                 & author, title, school, year \\
+    \code{techreport}    & Technischer Bericht          & author, title, institution, year \\
+    \code{misc}          & Sonstige Quellen             & keine \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Für die Validierung sind fünf Fehlerklassen maßgeblich: fehlende Kommata, unausgeglichene Klammern, doppelte Schlüssel, unbekannte Eintragstypen sowie unpassende oder falsch geschriebene Felder. Die ersten beiden verletzen die Syntax und können dazu führen, dass nachfolgende Einträge falsch gelesen werden; ein doppelter Schlüssel macht eine Quelle mehrdeutig. Die letzten beiden fallen kaum auf, weil BibTeX unbekannte Felder kommentarlos übergeht.
+
+\subsection{Persistente Kennungen}
+\label{sec:kennungen}
+\verfasser{\MK}
+
+Viele wissenschaftliche Quellen tragen eine Kennung, die sie unabhängig von ihrem Speicherort dauerhaft bezeichnet. Für BibStream sind drei solcher Kennungen von Bedeutung, weil sich zu ihnen strukturierte Metadaten abrufen lassen, die verlässlicher sind als jede Auswertung des Textes einer Referenz (Abschnitt~\ref{sec:sdt-pdf}).
+
+\paragraph{DOI.} Der Digital Object Identifier ist in der Norm ISO~26324 festgelegt. Er besteht aus dem festen Beginn \code{10.}, einem Präfix, einem Schrägstrich und einem Suffix, wie \pfad{10.1145/2470654.2466180} in Quellcode~\ref{lst:bibtex-beispiel}. Das Präfix ist einer registrierenden Organisation zugeordnet, etwa einem Verlag, die das Suffix frei wählt. Über \code{https://doi.org/} aufgerufen, führt eine DOI zur aktuellen Seite des Objekts, auch wenn sich deren Adresse geändert hat. Vergeben werden DOIs über Registrierungsagenturen, für Zeitschriften- und Tagungsbeiträge meist Crossref, für Forschungsdaten und Preprints häufig DataCite. Beide unterstützen die sogenannte Inhaltsaushandlung: Fordert ein Programm unter der Adresse einer DOI ausdrücklich ein Datenformat wie BibTeX an, erhält es statt der Webseite die hinterlegten Metadaten in diesem Format~\cite{datacite2026cn}.
+
+\paragraph{arXiv-Kennung.} Der Preprint-Server arXiv vergibt seit 2007 Kennungen der Form \code{JJMM.NNNN} aus Jahr und Monat der Einreichung und einer laufenden Nummer, die seit 2015 fünfstellig ist. Ältere Kennungen bestehen aus dem Kürzel eines Fachgebiets, einem Schrägstrich und sieben Ziffern, etwa \code{hep-th/9901001}. Ein angehängtes \code{v2} bezeichnet eine bestimmte Version~\cite{arxiv2026ids}. Inzwischen erhalten arXiv-Artikel zusätzlich eine bei DataCite registrierte DOI der Form \code{10.48550/arXiv.<Kennung>}.
+
+\paragraph{ISBN.} Die Internationale Standardbuchnummer bezeichnet eine bestimmte Ausgabe eines Buches. Seit 2007 hat sie 13 Stellen und beginnt mit 978 oder 979; ältere Bücher tragen die zehnstellige Form, deren letzte Stelle als Prüfziffer auch \code{X} sein kann. Bindestriche gliedern die Nummer nur für die Lesbarkeit und können fehlen.
+
+Die drei Arten lassen sich damit bereits an ihrer Form unterscheiden, bevor ein Dienst angefragt wird. Wie BibStream das nutzt, beschreibt Abschnitt~\ref{sec:impl-mk}; die abgefragten Dienste behandelt Abschnitt~\ref{sec:lib-dienste}.
+
+\subsection{Browser-Schnittstellen}
+\label{sec:browser}
+\verfasser{\AK}
+
+BibStream nutzt drei Gruppen von Browser-Schnittstellen, die sowohl die Umsetzung als auch den späteren Betrieb prägen.
+
+\paragraph{Dateizugriff.} Ohne Zusatzschnittstelle kann eine Webseite Dateien nur über ein Eingabeelement vom Typ \code{file} lesen und durch einen Download speichern; jede gespeicherte Version landet dann als neue Datei im Download-Ordner. Die File System Access API ergänzt \code{showOpenFilePicker()} und \code{showSaveFilePicker()}. Sie liefern ein Handle, über das eine Datei nach Zustimmung der Nutzerin oder des Nutzers direkt überschrieben werden kann. Die Spezifikation stammt von einer Community Group des W3C und ist ausdrücklich kein W3C-Standard~\cite{wicg2025fsa}; das direkte Überschreiben steht nur in Chromium-basierten Browsern zur Verfügung.
+
+\paragraph{Web Storage.} Der \code{localStorage} ist ein Schlüssel-Wert-Speicher für Zeichenketten, der an den Ursprung einer Seite gebunden ist und über das Schließen des Browsers hinaus erhalten bleibt. Sein Kontingent ist begrenzt, ein Schreibvorgang kann daher scheitern. Da der Ursprung zählt, sieht dieselbe Anwendung unter \code{file://} und unter \code{http://localhost} jeweils andere gespeicherte Daten.
+
+\paragraph{Zwischenablage.} Zum Lesen der Zwischenablage gibt es zwei Wege~\cite{w3c2026clipboard}. Das Ereignis \code{paste} liefert den Text, den die Nutzerin oder der Nutzer selbst einfügt. Die Methode \code{navigator.clipboard.readText()} liest die Zwischenablage auch ohne Einfügevorgang, steht aber nur in sicheren Kontexten und bei fokussiertem Dokument zur Verfügung; wann sie eine Berechtigung erfordert, entscheidet der Browser~\cite{w3c2026clipboard}. Die Ereignisse \code{visibilitychange}, \code{focus} und \code{blur} melden, wann ein Tab oder Fenster in den Vorder- oder Hintergrund wechselt. BibStream nutzt sie, um die Rückkehr von einer anderen Seite zu erkennen.
+
+\subsection{Die Editor-Komponente CodeMirror}
+\label{sec:codemirror}
+\verfasser{\FB}
+
+CodeMirror ist eine Editor-Komponente für den Browser, die in zwei Generationen existiert. CodeMirror~5 wird als klassische Skriptdatei eingebunden und über Modi, Addons und eine umfangreiche Programmierschnittstelle erweitert~\cite{haverbeke2026cm5}. CodeMirror~6 ist eine Neuentwicklung mit anderer Schnittstelle, die als ES-Module ausgeliefert und üblicherweise mit einem Build-Werkzeug gebündelt wird. BibStream verwendet CodeMirror~5 in der Version 5.65.16.
+
+Genutzt wird nur ein kleiner Ausschnitt. Da die Distribution keinen BibTeX-Modus enthält, übernimmt der LaTeX-Modus \code{stex} die Syntaxhervorhebung. Das Addon \code{searchcursor} stellt eine programmatische Suche bereit, das Addon \code{lint} ruft registrierte Prüffunktionen auf und zeigt deren Meldungen in einer Randspalte und als Unterstreichung~\cite{haverbeke2026cm5}. Hinzu kommen Methoden zum Lesen und Ändern des Inhalts, zum Hervorheben von Textbereichen und zum Einbetten eigener Elemente. CodeMirror erzeugt nur für die sichtbaren Zeilen DOM-Elemente. Die Darstellung bleibt dadurch auch bei vielen tausend Zeilen flüssig, die Textsuche des Browsers erfasst aber nur diesen Ausschnitt; eine Suche über das ganze Dokument muss die Schnittstelle des Editors verwenden.
+
+\subsection{Reguläre Ausdrücke und Klammerbilanzierung}
+\label{sec:klammern}
+\verfasser{\FB}
+
+Reguläre Ausdrücke eignen sich, um Ankerpunkte wie Eintragsköpfe oder Feldnamen zu finden, können aber verschachtelte Strukturen wie Klammerpaare nicht beschreiben~\cite{aho2006compilers}. Ein verbreitetes Muster wie \verb|\{[^}]*\}| endet bei \verb|{{FF}itts Law}| bereits an der ersten schließenden Klammer. BibStream bestimmt das Ende eines Werts oder Eintrags deshalb durch \emph{Klammerbilanzierung}: Ein Zähler steigt bei jeder öffnenden und sinkt bei jeder schließenden Klammer, und bei null ist das Ende erreicht (Abbildung~\ref{fig:klammertiefe}). Der Aufwand wächst linear mit der Länge des Textes.
+
+\begin{figure}[htbp]
+  \centering
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{r*{14}{c}}
+    \toprule
+    Zeichen & \texttt{\{} & \texttt{\{} & \texttt{F} & \texttt{F} & \texttt{\}} & \texttt{i} & \texttt{t} & \texttt{t} & \texttt{s} & \texttt{\textvisiblespace} & \texttt{L} & \texttt{a} & \texttt{w} & \texttt{\}} \\
+    Tiefe   & 1 & 2 & 2 & 2 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & \textbf{0} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Klammerbilanzierung beim Lesen des Feldwerts \texttt{\{\{FF\}itts Law\}}: Erst bei Tiefe 0 ist das Ende erreicht.}
+  \label{fig:klammertiefe}
+\end{figure}
+
+Diese Arbeitsteilung entspricht vereinfacht der in Compilern, in denen reguläre Muster Token bilden und erst die syntaktische Analyse verschachtelte Strukturen erkennt~\cite{aho2006compilers}. Parser, Linter und Zwischenablage-Import von BibStream folgen diesem hybriden Ansatz.
+
+\subsection{Verwendete Technologien}
+\label{sec:technologien}
+\verfasser{\AK}
+
+Im Projekt wurden folgende Technologien und Werkzeuge eingesetzt:
+
+\begin{itemize}
+  \item \textbf{HTML, CSS und JavaScript:} Die Anwendung besteht aus den drei Dateien \code{index.html}, \code{style.css} und \code{script.js} sowie einer Symboldatei. Es gibt weder ein Framework noch einen Paketmanager oder Build-Prozess.
+  \item \textbf{Externe Bibliotheken und Dienste:} CodeMirror~5 als Editor, PDF.js für den PDF-Import, die Schriftarten Inter und Material Symbols sowie Metadatendienste für den Import über Kennungen. Sie werden zur Laufzeit geladen bzw.\ abgefragt und in Kapitel~\ref{sec:bibliotheken} einzeln beschrieben.
+  \item \textbf{Visual Studio Code und IntelliJ IDEA:} Entwicklungsumgebungen; in Visual Studio Code lieferte die Erweiterung Live Server das Projekt über einen lokalen Webserver aus.
+  \item \textbf{Git und GitHub:} Versionsverwaltung mit einem Branch pro Funktion, die nach gemeinsamer Durchsicht in den Hauptzweig übernommen wurden.
+  \item \textbf{Entwicklerwerkzeuge Chromium-basierter Browser:} Konsole, Debugger und Netzwerkanalyse; die Zeitmessung mit \code{performance.now()} war Grundlage der Performanzmessung.
+\end{itemize}
+
+% =====================================================================
+\section{Stand der Technik}
+\label{sec:sdt}
+% =====================================================================
+
+Dieses Kapitel ordnet BibStream gegenüber bestehenden Werkzeugen ein. Ein vollständiger Funktionsvergleich ist nicht das Ziel, weil sich die Produkte laufend ändern; es geht um die grundsätzlichen Ansätze und darum, welche Lücke BibStream füllt.
+
+\subsection{Literaturverwaltungsprogramme}
+\label{sec:sdt-verwaltung}
+\verfasser{\AK}
+
+JabRef ist ein quelloffenes Literaturverwaltungsprogramm, das BibTeX- und biblatex-Dateien als eigenes Dateiformat verwendet~\cite{jabref2026}. Einträge werden in einer Tabelle angezeigt und über Eingabemasken bearbeitet; die Datei selbst schreibt das Programm beim Speichern. Zotero sammelt Literatur über eine Browser-Erweiterung, verwaltet sie in einer eigenen Datenbank und kann sie unter anderem als BibTeX exportieren~\cite{zotero2026}. Im deutschsprachigen Raum ist an Hochschulen außerdem das kommerzielle Programm Citavi verbreitet, das ebenfalls eine eigene Datenhaltung nutzt.
+
+Gemeinsam ist diesen Programmen, dass eine strukturierte Sicht auf einzelne Einträge im Mittelpunkt steht. Der Rohtext der \code{.bib}-Datei ist entweder ein Export oder wird vom Programm erzeugt. Das ist für große Sammlungen sinnvoll, passt aber schlecht zu Arbeitsweisen, in denen die \code{.bib}-Datei direkt im LaTeX-Projekt gepflegt wird und Kommentare, eigene Formatierungen oder unvollständige Einträge erhalten bleiben sollen. BibStream setzt deshalb umgekehrt an: Der Rohtext ist das einzige Arbeitsobjekt, und die strukturierte Sicht wird daraus abgeleitet (Abschnitt~\ref{sec:datenmodell}).
+
+\subsection{LaTeX-Editoren}
+\label{sec:sdt-editoren}
+\verfasser{\FB}
+
+Viele LaTeX-Umgebungen, etwa die Online-Plattform Overleaf oder der Desktop-Editor TeXstudio, öffnen \code{.bib}-Dateien als Text und bieten Syntaxhervorhebung, zum Teil auch Vorlagen für neue Einträge. Eine Prüfung der Datei während der Eingabe, eine durchsuchbare Liste der Einträge oder Importfunktionen sind dort aber nicht der Schwerpunkt; Fehler zeigen sich in der Regel erst im Protokoll beim Übersetzen des Dokuments. Allgemeine Texteditoren bieten noch weniger Unterstützung.
+
+BibStream liegt damit zwischen beiden Welten: Wie ein Editor arbeitet es auf dem Rohtext, wie ein Literaturverwaltungsprogramm bietet es eine strukturierte Sicht, Prüfungen und Importfunktionen. Es ist bewusst auf eine einzelne Datei zugeschnitten und verzichtet auf eine eigene Datenhaltung.
+
+\subsection{Prüfwerkzeuge für BibTeX-Dateien}
+\label{sec:sdt-pruefung}
+\verfasser{\FB}
+
+Die erste Prüfinstanz ist BibTeX selbst. Stößt es beim Einlesen auf einen Syntaxfehler, schreibt es eine Meldung mit Zeilennummer in seine Protokolldatei und überspringt den Rest des betroffenen Eintrags. Fehlende Pflichtfelder melden die Standardstile als Warnungen, allerdings nur für Einträge, die im Dokument zitiert werden~\cite{patashnik1988}. Beide Rückmeldungen erscheinen erst nach dem Übersetzen und getrennt vom Text der \code{.bib}-Datei.
+
+Biber, das Standard-Backend von biblatex, kann mit der Option \code{--validate-datamodel} alle Einträge gegen das Datenmodell von biblatex prüfen und meldet dann etwa fehlende Pflichtfelder oder Felder, die für einen Typ nicht vorgesehen sind~\cite{kime2026biber}. In einem eigenen Werkzeugmodus verarbeitet Biber eine \code{.bib}-Datei auch ohne Dokument, zum Beispiel um sie umzuformatieren oder in eine andere Kodierung zu überführen. BibTool ist ein Kommandozeilenprogramm, das \code{.bib}-Dateien sortiert, einheitlich formatiert und zusammenführt, Schlüssel nach einstellbaren Regeln erzeugt und syntaktische wie inhaltliche Prüfungen durchführt~\cite{neugebauer2026bibtool}. JabRef bietet schließlich eine Integritätsprüfung, die die Einträge einer Datei auf typische Probleme wie doppelte Schlüssel oder ungültige Werte untersucht~\cite{jabref2026}.
+
+Diese Werkzeuge prüfen entweder beim Übersetzen oder auf Anforderung die ganze Datei und geben ihre Ergebnisse als Protokoll oder Liste aus, oder sie arbeiten wie JabRef auf einer strukturierten Sicht der Einträge. BibStream prüft dagegen fortlaufend während der Eingabe und markiert jede Meldung an der betroffenen Stelle im Rohtext. Der Preis ist ein kleineres Regelwerk: Der Linter kennt nur die klassischen BibTeX-Typen und eine überschaubare Zuordnung von Feldern zu Typen (Abschnitt~\ref{sec:impl-fb}). Er ersetzt eine Prüfung mit Biber daher nicht, verlagert aber die häufigsten Fehler aus dem Übersetzungsprotokoll an den Zeitpunkt ihrer Entstehung.
+
+\subsection{Extraktion von Literaturangaben aus PDF-Dateien}
+\label{sec:sdt-pdf}
+\verfasser{\MK}
+
+Das Zerlegen von Literaturverzeichnissen in Autoren, Titel und weitere Bestandteile ist ein eigenes Forschungsgebiet. GROBID kombiniert Verfahren des maschinellen Lernens, um bibliografische Daten aus wissenschaftlichen PDF-Dokumenten zu erkennen~\cite{lopez2009grobid}. CERMINE extrahiert Metadaten und Literaturangaben ebenfalls mit überwachten Lernverfahren und arbeitet auf dem Layout der Seite~\cite{tkaczyk2015cermine}. Beide Systeme benötigen trainierte Modelle und laufen als eigenständige Programme oder Dienste.
+
+Für eine rein clientseitige Anwendung ohne Server kam ein solcher Ansatz nicht in Frage. BibStream verwendet stattdessen eine regelbasierte Heuristik, die auf verbreitete Zitierstile, vor allem den nummerierten IEEE-Stil, zugeschnitten ist (Abschnitt~\ref{sec:impl-mk}). Für Quellen mit DOI, arXiv-Kennung oder ISBN gibt es zusätzlich einen genaueren Weg: Die Metadaten werden direkt bei den zuständigen Registrierungsdiensten abgefragt (Abschnitt~\ref{sec:kennungen}).
+
+% =====================================================================
+\section{Methodik}
+\label{sec:methodik}
+% =====================================================================
+
+In diesem Kapitel wird beschrieben, wie das Team vorgegangen ist, welche Anwendungsszenarien und Anforderungen der Entwicklung zugrunde liegen und mit welchen Metriken der Prototyp bewertet wird.
+
+\subsection{Vorgehensmodell}
+\label{sec:vorgehen}
+\verfasser{\AK}
+
+Zu Projektbeginn standen die Kernziele fest, viele Details ergaben sich aber erst im Umgang mit den ersten Prototypen. Das Team orientierte sich deshalb an agilen Prinzipien und übernahm ausgewählte Elemente von Scrum: Ein gemeinsames Anforderungs-Backlog hielt Funktionen als kurze, nutzerorientierte Einträge fest, die in Iterationen von einigen Wochen umgesetzt, gemeinsam begutachtet und in den Hauptzweig übernommen wurden. Auf eigene Rollen wie Product Owner oder Scrum Master wurde verzichtet, weil sie in einem Team aus drei Personen, die zugleich Entwickler und Anwender sind, mehr Aufwand als Nutzen gebracht hätten. Zu Beginn fand etwa alle drei Wochen ein Treffen mit dem Betreuer statt, in dem Layout und Grundstruktur schrittweise festgelegt wurden.
+
+Das Projekt lief von November 2025 bis Oktober 2026. Auf eine Aufbauphase mit Grundlayout und Einbindung von CodeMirror folgte im Jänner 2026 die Umstellung der Eintragsliste auf eine Leiste oberhalb des Editors. Die umfangreichste Iteration lag im März 2026 mit PDF-Import, neuem Design, Linter mit typspezifischer Feldprüfung und der Aufteilung der ursprünglichen Pretty-Print-Funktion. Im Juli und September folgten die Synchronisation zwischen Editor und Liste, die Rückübertragung der Sortierung, die Löschfunktion und der Import aus der Zwischenablage. Die im Praktikum abgegebene Fassung vom 10.09.2026 ist Gegenstand der Evaluation; spätere Änderungen beschreibt Abschnitt~\ref{sec:behebung}.
+
+\subsection{Anwendungsszenarien}
+\label{sec:szenarien}
+\verfasser{\AK}
+
+Zielgruppe sind Studierende sowie Wissenschaftlerinnen und Wissenschaftler, die in LaTeX schreiben und ihre Literatur in \code{.bib}-Dateien mit einigen Dutzend bis mehreren hundert Einträgen pflegen. Da das Team selbst dazugehört, wurden die Szenarien aus eigener Erfahrung abgeleitet:
+
+\begin{description}[leftmargin=2.2em, style=nextline, itemsep=0.2ex]
+  \item[S1 Quelle übernehmen] Ein in einer Literaturdatenbank kopierter BibTeX-Eintrag soll ohne weitere Schritte, einheitlich formatiert und ohne Duplikat in die eigene Datei gelangen.
+  \item[S2 Datei bereinigen] Vor der Abgabe soll eine über Monate gewachsene Datei geprüft, einheitlich formatiert und von nicht benötigten Feldern wie \code{abstract} befreit werden.
+  \item[S3 Quelle wiederfinden] Eine Quelle, an deren Autor, Jahr oder Erscheinungsort man sich erinnert, soll gefunden, im Editor angesprungen und über die DOI geöffnet werden.
+  \item[S4 Literaturverzeichnis übernehmen] Die Referenzen eines gelesenen Artikels im PDF-Format sollen als Ausgangspunkt für eine eigene Recherche übernommen werden.
+  \item[S5 Mehrere Projekte] Zwischen mehreren Dateien soll gewechselt werden können, ohne sie nach einem Neuladen des Browsers erneut öffnen zu müssen.
+\end{description}
+
+Allen Szenarien ist gemeinsam, dass die \code{.bib}-Datei das eigentliche Arbeitsergebnis bleibt. BibStream muss sich daher in bestehende Abläufe einfügen und Dateien aus dem Dateisystem öffnen und dorthin zurückschreiben, ohne eigenes Datenformat und ohne Benutzerkonto.
+
+\subsection{Funktionale Anforderungen}
+\label{sec:fa}
+\verfasser{\MK}
+
+Aus Zielen und Szenarien wurden die funktionalen Anforderungen in Tabelle~\ref{tab:fa} abgeleitet. \emph{Muss}-Anforderungen sind für das Projektziel unverzichtbar, \emph{Soll}-Anforderungen steigern den Nutzen deutlich, \emph{Kann}-Anforderungen sind Ergänzungen. Die Kennungen werden in Abschnitt~\ref{sec:ergebnisse-abgleich} wieder aufgegriffen.
+
+\begin{longtable}{@{}l>{\raggedright\arraybackslash}p{10.6cm}ll@{}}
+  \caption{Funktionale Anforderungen}
+  \label{tab:fa} \\
+  \toprule
+  \textbf{ID} & \textbf{Anforderung} & \textbf{Prio.} & \textbf{Szen.} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{ID} & \textbf{Anforderung} & \textbf{Prio.} & \textbf{Szen.} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endlastfoot
+  FA-01 & Neue, leere \code{.bib}-Datei anlegen & Muss & S5 \\
+  FA-02 & Einzelne \code{.bib}- und \code{.txt}-Dateien sowie ganze Ordner öffnen; aus Textdateien nur BibTeX-Einträge übernehmen & Muss & S2, S5 \\
+  FA-03 & In die geöffnete Datei speichern und unter neuem Namen speichern & Muss & S2 \\
+  FA-04 & Mehrere Dateien in Tabs mit Kennzeichnung ungespeicherter Änderungen & Soll & S5 \\
+  FA-05 & Rohtext mit Zeilennummern und Syntaxhervorhebung bearbeiten & Muss & alle \\
+  FA-06 & Änderungen rückgängig machen und wiederherstellen & Muss & alle \\
+  FA-07 & Validierung während der Eingabe mit Markierung von Fehlern und Warnungen & Muss & S2 \\
+  FA-08 & Einheitliche Formatierung auf Knopfdruck, ohne Inhalte zu entfernen & Muss & S1, S2 \\
+  FA-09 & Konfigurierbare Felder aus allen Einträgen entfernen & Soll & S2 \\
+  FA-10 & Vorlage für einen neuen Eintrag einfügen & Kann & -- \\
+  FA-11 & Liste aller Einträge mit Titel, Autoren, Jahr, Typ und Schlüssel & Muss & S3 \\
+  FA-12 & Suche über alle Felder mit Hervorhebung der Treffer & Muss & S3 \\
+  FA-13 & Sortierung nach Titel, Autor, Jahr und Typ & Soll & S2, S3 \\
+  FA-14 & Wechselseitige Navigation zwischen Liste und Editor & Muss & S3 \\
+  FA-15 & DOI bzw.\ URL eines Eintrags im Browser öffnen & Kann & S3 \\
+  FA-16 & BibTeX-Einträge aus der Zwischenablage übernehmen, mit Prüfung auf Duplikate & Soll & S1 \\
+  FA-17 & Referenzen aus dem Literaturverzeichnis einer PDF-Datei extrahieren & Kann & S4 \\
+  FA-18 & Einzelne Einträge mit Sicherheitsabfrage löschen & Soll & S2 \\
+  FA-19 & Geöffnete Dateien nach einem Neuladen der Seite wiederherstellen & Soll & S5 \\
+  FA-20 & Umschaltbares Layout und Farbschema & Kann & -- \\
+\end{longtable}
+
+FA-01 bis FA-14 bilden den Kern eines Smart-Editors, FA-15 bis FA-17 betreffen das Einpflegen neuer Quellen. FA-18 und FA-19 entstanden aus Beobachtungen während der Entwicklung: Einträge wurden bis dahin durch manuelles Markieren gelöscht, und ein versehentliches Neuladen hätte ungespeicherte Arbeit verworfen. FA-08 legt ausdrücklich fest, dass das Formatieren keine Inhalte entfernt; das Entfernen von Feldern ist als eigene Anforderung FA-09 formuliert. Diese Trennung geht auf die Erfahrung mit der ursprünglichen Pretty-Print-Funktion zurück, die beides vermischte.
+
+\subsection{Nicht-funktionale Anforderungen}
+\label{sec:nfa}
+\verfasser{\FB}
+
+Tabelle~\ref{tab:nfa} fasst die Qualitätsanforderungen zusammen; sie orientieren sich an den Qualitätsmerkmalen der Norm ISO/IEC~25010.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Nicht-funktionale Anforderungen}
+  \label{tab:nfa}
+  \begin{tabularx}{\textwidth}{@{}lX>{\raggedright\arraybackslash}p{2.8cm}@{}}
+    \toprule
+    \textbf{ID} & \textbf{Anforderung} & \textbf{Merkmal} \\
+    \midrule
+    NFA-01 & Literaturdaten werden nur lokal im Browser verarbeitet und gespeichert; es gibt keine eigene Serverkomponente. & Sicherheit \\
+    NFA-02 & Lauffähig in einem aktuellen Desktop-Browser ohne Installation, Build-Schritt oder Benutzerkonto. & Übertragbarkeit \\
+    NFA-03 & Bei Dateien mit bis zu 1.000 Einträgen Reaktion auf Eingaben innerhalb von 0,1\,s. & Leistungseffizienz \\
+    NFA-04 & Vertraute Bedienmuster (Menüs, Tabs, Tastenkürzel) und sichtbare Rückmeldung zu allen Aktionen. & Benutzbarkeit \\
+    NFA-05 & Kein Datenverlust beim Neuladen; unvollständige Einträge brechen die Verarbeitung nicht ab. & Zuverlässigkeit \\
+    NFA-06 & Alle Funktionen in Chromium-basierten Browsern, Kernfunktionen über Rückfallmechanismen auch in Firefox und Safari. & Kompatibilität \\
+    NFA-07 & Gliederung des Codes in Module mit klar abgegrenzten Verantwortlichkeiten. & Wartbarkeit \\
+    NFA-08 & Inhalte aus Dateien und Zwischenablage werden angezeigt, ohne dass eingebettetes Markup ausgeführt wird. & Sicherheit \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Die Schwelle von 0,1\,s in NFA-03 geht auf die von Nielsen beschriebenen Grenzwerte zurück: Bis etwa 0,1\,s wird die Reaktion eines Systems als unmittelbar empfunden, bis etwa 1\,s bleibt der Gedankenfluss erhalten, und ab etwa 10\,s wandert die Aufmerksamkeit ab~\cite{nielsen1993usability}. Da Tastatureingaben im Editor am häufigsten sind, muss ein einzelner Tastendruck innerhalb der ersten Grenze verarbeitet werden. 1.000 Einträge sind bewusst großzügig gewählt, weil Literaturdateien von Abschlussarbeiten meist deutlich kleiner sind. NFA-08 berücksichtigt, dass BibStream Inhalte aus nicht vertrauenswürdigen Quellen anzeigt, etwa kopierte Einträge von Webseiten.
+
+\subsection{Metriken}
+\label{sec:metriken}
+\verfasser{\FB}
+
+Bewertet wird der Prototyp mit funktionalen Testfällen und mit Laufzeitmessungen. Ein Testfall legt eine Eingabe und das erwartete Verhalten fest und gilt als \emph{bestanden}, wenn das beobachtete Verhalten dem erwarteten entspricht, als \emph{teilweise bestanden}, wenn die Anwendung grundsätzlich richtig reagiert, aber in einem Detail abweicht, und sonst als \emph{nicht bestanden}. Für die Laufzeit werden folgende Operationen in Abhängigkeit von der Zahl der Einträge gemessen:
+
+\begin{itemize}
+  \item \textbf{Parsen, Validieren, Formatieren:} reine Laufzeit des Parsers, des Linters bzw.\ der Formatierung für den gesamten Text.
+  \item \textbf{Tab öffnen:} Wechsel zu einer Datei, also Editorinhalt setzen, parsen, Liste aufbauen und Sitzung sichern.
+  \item \textbf{Tastendruck:} Einfügen eines Zeichens einschließlich der gesamten Verarbeitung im Änderungsbehandler; die verzögert laufende Validierung ist nicht enthalten. Diese Metrik zeigt die Sicht der Nutzerin oder des Nutzers und ist für NFA-03 entscheidend.
+  \item \textbf{Suche:} Eingabe eines Begriffs, der auf rund 10\,\% der Einträge zutrifft, mit Filterung, Aufbau der Liste und Hervorhebung im Editor.
+  \item \textbf{Sortieren:} Wechsel der Sortierung einschließlich der Rückübertragung in den Editortext.
+\end{itemize}
+
+% =====================================================================
+\section{Architektur}
+\label{sec:architektur}
+% =====================================================================
+
+Dieses Kapitel beschreibt die Entwurfsentscheidungen hinter BibStream, die Gliederung in Module, das Datenmodell mit dem Datenfluss sowie das Oberflächen- und Interaktionskonzept.
+
+\subsection{Architekturentscheidungen}
+\label{sec:entscheidungen}
+\verfasser{\AK}
+
+\paragraph{Rein clientseitige Anwendung.} BibStream besteht aus statischen Dateien und läuft vollständig im Browser. Es gibt keinen eigenen Server; die Anwendung kann direkt aus dem Dateisystem geöffnet oder von einem beliebigen statischen Webserver ausgeliefert werden. Die Literaturdaten verlassen dadurch den Rechner nicht, es entstehen weder Infrastruktur noch laufende Kosten, und eine Installation ist nicht nötig (NFA-01, NFA-02). Dem steht gegenüber, dass Daten nur in lokalen Dateien und im Browser-Speicher abgelegt werden können und keine Synchronisation zwischen Geräten möglich ist.
+
+\paragraph{Kein Framework, kein Build-Prozess.} Das Team entschied sich bewusst gegen Frameworks wie React, Angular oder Vue. Die Oberfläche ist überschaubar, CodeMirror~5 lässt sich mit direktem DOM-Zugriff ohne Adapter einbinden, und die Browser-Schnittstellen sollten ohne zusätzliche Abstraktionsschicht erarbeitet werden. Der Preis ist, dass Aktualisierungen der Oberfläche von Hand programmiert werden müssen; ein differenzielles Neuzeichnen, das nur geänderte Teile ersetzt, steht nicht zur Verfügung. Die Folgen zeigt die Performanzmessung in Abschnitt~\ref{sec:ergebnisse-performanz}.
+
+\paragraph{Wahl der Editor-Komponente.} Neben CodeMirror~5 wurden CodeMirror~6 und der Monaco Editor betrachtet. Den Ausschlag gab, dass sich CodeMirror~5 ohne Build-Schritt mit wenigen \code{script}-Elementen laden lässt und mit den Addons \code{lint} und \code{searchcursor} genau die benötigten Erweiterungspunkte bietet~\cite{haverbeke2026cm5}. Dass damit die ältere Generation der Komponente zum Einsatz kommt, wurde für den Prototyp als vertretbar eingestuft; die Folgen für die Wartung behandelt Abschnitt~\ref{sec:lib-codemirror}.
+
+\paragraph{Externe Ressourcen und Persistenz.} CodeMirror, PDF.js und die Schriftarten werden zur Laufzeit von externen Servern geladen. Das vereinfacht die Entwicklung, macht BibStream aber von einer Internetverbindung und von Drittanbietern abhängig (Kapitel~\ref{sec:bibliotheken}). PDF.js wird nur für den PDF-Import gebraucht und deshalb erst bei Bedarf angefordert. Für die Speicherung gibt es zwei Ebenen: Die Literaturdateien werden über die File System Access API bzw.\ als Download im Dateisystem abgelegt, und zusätzlich sichert BibStream den Arbeitszustand im \code{localStorage}. Diese zweite Ebene ersetzt das Speichern nicht, sondern schützt vor Datenverlust beim Neuladen (NFA-05).
+
+\subsection{Komponenten}
+\label{sec:module}
+\verfasser{\MK}
+
+Die Logik in \code{script.js} ist in Objekte gegliedert: ein steuerndes Objekt \code{App} und Module in Form von Objektliteralen, die ihren Zustand in Eigenschaften halten und ihre Funktionen in Methoden bündeln. Eine Methode \code{init()} ermittelt jeweils die benötigten DOM-Elemente und registriert die Ereignisbehandler. Tabelle~\ref{tab:module} gibt einen Überblick über den aktuellen Stand.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Module von BibStream und ihre Aufgaben (* nach der Evaluation hinzugekommen)}
+  \label{tab:module}
+  \begin{tabularx}{\textwidth}{@{}lXc@{}}
+    \toprule
+    \textbf{Modul} & \textbf{Aufgabe} & \textbf{Bereich} \\
+    \midrule
+    \code{App}                     & Initialisierung in fester Reihenfolge, Wiederherstellung der Sitzung & gemeinsam \\
+    \code{DropdownModule}          & Menüs der Kopfleiste & AK \\
+    \code{ResizerModule}           & Größenänderung von Eintragsliste und Editor & AK \\
+    \code{LayoutModule}            & Umschaltung zwischen Top-Bar- und Side-by-Side-Layout & AK \\
+    \code{FileModule}              & Öffnen und Speichern, Tabs, Sitzung, zuletzt bearbeitete Dateien & AK \\
+    \code{ClipboardModule}         & Import von BibTeX-Einträgen aus der Zwischenablage & AK \\
+    \code{ToastModule}*            & Benachrichtigungen, Inhalte nur als Text & AK \\
+    \code{SidebarModule}           & Aufbereitung, Filterung, Sortierung und Darstellung der Eintragsliste & MK \\
+    \code{SearchModule}            & Anbindung des Suchfelds & MK \\
+    \code{ImportModule}            & Extraktion von Referenzen aus PDF-Dateien & MK \\
+    \code{IdentifierImportModule}* & Import über DOI, arXiv-Kennung, ISBN oder URL & MK \\
+    \code{BibTeXParser}*           & Gemeinsamer, zeichenweise arbeitender Parser für alle Module & MK \\
+    \code{EditorModule}            & Einbindung von CodeMirror, Navigation, Hervorhebungen & FB \\
+    \code{LinterModule}            & Syntax-Validierung & FB \\
+    \code{FormatterModule}         & Formatieren, Felder entfernen, Eintragsvorlage & FB \\
+    \code{ThemeModule}             & Dunkles und helles Farbschema & FB \\
+    \code{HelpModule}              & Hilfedialog mit Tastenkürzeln & FB \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Die Module kommunizieren über direkte Methodenaufrufe und über Ereignisse des DOM. Da alle Module globale Objekte sind, sind Aufrufe über Modulgrenzen hinweg ohne weitere Infrastruktur möglich. So ruft das \code{EditorModule} bei jeder Änderung \pfad{FileModule.updateActiveFileContent()} auf, das wiederum \pfad{SidebarModule.parseAndRefresh()} anstößt. Einzelne Funktionen liegen dort, wo sie auf die benötigten Daten zugreifen: Die Löschfunktion von \AK{} ist etwa auf \code{EditorModule} und \code{SidebarModule} verteilt. Die Zuordnung in Abschnitt~\ref{sec:aufteilung} bezieht sich daher auf Funktionen und nicht ausschließlich auf Module.
+
+Diese Struktur ermöglichte paralleles Arbeiten und macht Verantwortlichkeiten im Code sichtbar. Ihre Grenzen liegen in der fehlenden Kapselung, denn jedes Modul kann den Zustand jedes anderen verändern, und darin, dass alle Module in einer einzigen Datei liegen.
+
+\subsection{Datenmodell und Datenfluss}
+\label{sec:datenmodell}
+\verfasser{\MK}
+
+Jede geöffnete Datei wird im \code{FileModule} durch ein Objekt mit Kennung, Dateiname, Rohtext, dem Handle der File System Access API (oder \code{null}) und einem Kennzeichen für ungespeicherte Änderungen repräsentiert. Der Parser erzeugt für jeden Eintrag ein Objekt mit Typ, Schlüssel, den für die Anzeige bereinigten Werten von Titel, Autorenangabe und Jahr, dem aufgelösten DOI- oder URL-Verweis, allen Feldern als Name-Wert-Paaren sowie dem Originaltext und seiner Position in der Datei.
+
+\paragraph{Der Rohtext als einzige Quelle der Wahrheit.} Eine zentrale Entscheidung ist, dass ausschließlich der Text im Editor maßgeblich ist. Die Eintragsliste ist eine abgeleitete Sicht, die nach jeder Änderung neu aus dem Text erzeugt wird. Ein strukturiertes Modell, aus dem der Text bei Bedarf erzeugt wird, hätte Kommentare, eigene Formatierungen oder gerade unvollständige Einträge beim Zurückschreiben verlieren können. Der Preis ist der Aufwand, den Text nach jeder Änderung erneut zu analysieren.
+
+\paragraph{Verlustfreie Zerlegung.} Damit Operationen wie das Sortieren den Text umordnen können, ohne Inhalte zu verlieren, speichert jeder Eintrag neben seinem eigenen Text $r_i$ auch den Text $p_i$ zwischen dem Ende des vorherigen und dem Beginn des eigenen Eintrags, also Leerzeilen oder Kommentare. Der Text nach dem letzten Eintrag wird als $t$ gehalten. Für eine Datei mit $n$ erkannten Einträgen gilt dann:
+\begin{equation}
+  T = p_1\, r_1\; p_2\, r_2\; \dots\; p_n\, r_n\; t
+\end{equation}
+Werden die Paare $(p_i, r_i)$ in anderer Reihenfolge verkettet, entsteht eine umsortierte Datei, in der jeder Kommentar bei seinem Eintrag bleibt. Einträge, die der Parser nicht erkennt, etwa weil ihre Klammer noch fehlt, werden Teil des nachfolgenden $p_i$ bzw.\ von $t$ und gehen ebenfalls nicht verloren.
+
+\paragraph{Datenfluss.} Abbildung~\ref{fig:datenfluss} zeigt, was bei einem Tastendruck geschieht. CodeMirror löst das Ereignis \code{change} aus, und der Behandler im \code{EditorModule} übergibt den Text an das \code{FileModule}, das den Dateiinhalt aktualisiert, den Parser anstößt und die Sitzung sichert. Parallel wird die Datei als geändert markiert, und unabhängig davon ruft das \code{lint}-Addon nach einer kurzen Pause den Linter auf. Der Datenfluss verläuft damit immer vom Rohtext zu den abgeleiteten Sichten; auch Löschen, Importieren und Sortieren sind Änderungen des Editortexts.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+      schritt/.style={draw, rounded corners=2pt, fill=white, text width=2.8cm, align=center, font=\scriptsize, minimum height=0.75cm},
+      ak/.style={schritt, draw=akfarbe, fill=akfarbe!8},
+      mk/.style={schritt, draw=mkfarbe, fill=mkfarbe!8},
+      fb/.style={schritt, draw=fbfarbe, fill=fbfarbe!8},
+      pfeil/.style={-{Latex[length=1.8mm]}, black!65}
+    ]
+    \node[schritt, fill=black!6] (taste) at (0,0) {Tastendruck im Editor};
+    \node[fb] (change) at (0,-1.1) {CodeMirror löst \texttt{change} aus};
+    \node[fb] (handler) at (0,-2.2) {\texttt{EditorModule}: Änderungsbehandler};
+    \node[fb] (lint) at (4.6,-1.1) {\texttt{lint}-Addon (nach 500\,ms Pause)};
+    \node[fb] (validate) at (4.6,-2.2) {\texttt{LinterModule}: Meldungen im Editor};
+    \node[ak] (update) at (-4.6,-3.4) {\texttt{FileModule}: Dateiinhalt aktualisieren};
+    \node[ak] (dirty) at (0,-3.4) {\texttt{FileModule}: Datei als geändert markieren};
+    \node[mk] (parse) at (-4.6,-4.6) {\texttt{SidebarModule}: parsen, filtern, sortieren, Liste zeichnen};
+    \node[ak] (session) at (0,-4.6) {\texttt{FileModule}: Sitzung im \texttt{localStorage} sichern};
+    \draw[pfeil] (taste) -- (change);
+    \draw[pfeil] (change) -- (handler);
+    \draw[pfeil] (change) -- (lint);
+    \draw[pfeil] (lint) -- (validate);
+    \draw[pfeil] (handler.south) -- ++(0,-0.3) -| (update.north);
+    \draw[pfeil] (handler) -- (dirty);
+    \draw[pfeil] (update) -- (parse);
+    \draw[pfeil] (update.east) -- ++(0.35,0) |- (session.west);
+  \end{tikzpicture}
+  \caption[Datenfluss bei einem Tastendruck]{Datenfluss bei einem Tastendruck (blau: A.~Kremidas, grün: M.~König, orange: F.~Brunnbauer)}
+  \label{fig:datenfluss}
+\end{figure}
+
+Dass nach jedem Tastendruck die gesamte Datei neu geparst und die Liste neu aufgebaut wird, ist für die Konsistenz zwischen Text und Liste die einfachste und sicherste Lösung, weil keine inkrementelle Aktualisierung mit eigenen Fehlerquellen nötig ist. Ob dieser Ansatz auch bei großen Dateien genügt, untersucht Abschnitt~\ref{sec:ergebnisse-performanz}.
+
+\subsection{Oberfläche und Interaktion}
+\label{sec:oberflaeche}
+\verfasser{\FB}
+
+Die Oberfläche gliedert sich in Kopfleiste, Eintragsliste und Editor. Die Kopfleiste enthält das Logo, die Menüs \emph{File}, \emph{Edit}, \emph{Import} und \emph{Help}, die Tabs der geöffneten Dateien sowie Schalter für den automatischen Import aus der Zwischenablage, das Layout und das Farbschema. Die Eintragsliste beginnt mit Suchfeld, Sortierauswahl und Zähler; jeder Eintrag zeigt Titel, Autoren mit Jahr, den Schlüssel mit einem anklickbaren DOI- oder URL-Verweis, ein Typ-Etikett und eine Schaltfläche zum Löschen. Der Titel steht bewusst vor dem Schlüssel, weil man eine Quelle eher am Inhalt erkennt. Der Editor zeigt in einer Randspalte die Meldungen des Linters und am Ende jeder Kopfzeile ein Symbol zum Löschen.
+
+In den ersten Prototypen lag die Liste als Seitenleiste links neben dem Editor. Im Jänner 2026 wanderte sie in eine Leiste oberhalb des Editors (\emph{Top-Bar}), damit lange BibTeX-Zeilen die volle Fensterbreite nutzen können. Weil auf Breitbildmonitoren dadurch seitlich Platz ungenutzt blieb, kam im März 2026 ein Schalter für die Anordnung nebeneinander (\emph{Side-by-Side}) hinzu. In beiden Varianten lässt sich die Aufteilung mit einer Trennleiste stufenlos verändern (Abbildung~\ref{fig:layouts}).
+
+\begin{figure}[htbp]
+  \centering
+  \begin{minipage}[b]{0.49\textwidth}
+    \centering
+    \screenshot{abbildungen/bibstream-topbar.png}{\linewidth}\\[0.5ex]
+    {\small (a) Top-Bar-Layout, dunkles Farbschema}
+  \end{minipage}\hfill
+  \begin{minipage}[b]{0.49\textwidth}
+    \centering
+    \screenshot{abbildungen/bibstream-sidebyside.png}{\linewidth}\\[0.5ex]
+    {\small (b) Side-by-Side-Layout, helles Farbschema}
+  \end{minipage}
+  \caption{Benutzeroberfläche von BibStream in den beiden Layout-Varianten}
+  \label{fig:layouts}
+\end{figure}
+
+Leitprinzip der Interaktion ist, dass alle Funktionen als sichtbare und umkehrbare Änderungen des Rohtexts umgesetzt werden. Formatieren, Entfernen von Feldern, Sortieren, Löschen und Importieren verändern den Text im Editor und lassen sich mit \texttt{Strg+Z} zurücknehmen. Beim Wechsel des Tabs wird dagegen der Änderungsverlauf geleert, damit ein Rückgängig-Schritt nicht den Inhalt einer anderen Datei wiederherstellt. Funktionen, die Inhalte verändern, laufen nur auf ausdrücklichen Wunsch. Ausnahme ist der Import aus der Zwischenablage, der sich jederzeit abschalten lässt und jeden Import mit einer Benachrichtigung quittiert; die Ergebnisse des PDF-Imports landen in einem eigenen Tab. Rückmeldungen sind abgestuft: Modale Dialoge sichern Aktionen ab, die Daten entfernen, nicht blockierende Benachrichtigungen melden Statusänderungen, und ein angesprungener Eintrag wird im Editor kurz farbig hervorgehoben~\cite{nielsen1993usability}.
+
+% =====================================================================
+\section{Implementierung}
+\label{sec:implementierung}
+% =====================================================================
+
+Dieses Kapitel beschreibt die Umsetzung der drei Verantwortungsbereiche. Die Quellcodeauszüge stammen aus der evaluierten Fassung vom 10.09.2026; sie sind gekürzt, Auslassungen sind mit \code{// ...} gekennzeichnet. Änderungen nach der Evaluation fasst Abschnitt~\ref{sec:behebung} zusammen. Abschnitt~\ref{sec:erweiterung} beschreibt abschließend den Aufbau des Quellcodes in der aktuellen Fassung und die Stellen, an denen sich BibStream erweitern lässt.
+
+\subsection{Oberfläche, Dateiverwaltung und Zwischenablage}
+\label{sec:impl-ak}
+\verfasser{\AK}
+
+\paragraph{Layout.} Das Grundgerüst bildet ein CSS-Grid auf dem \code{body}-Element mit den benannten Bereichen Kopfleiste, Liste, Trennleiste und Editor (Quellcode~\ref{lst:grid}). Im Standard-Layout liegen sie untereinander; die Klasse \code{layout-side-by-side} definiert ein zweites Raster, in dem Liste, Trennleiste und Editor nebeneinander unter der Kopfleiste liegen.
+
+\begin{lstlisting}[language=CSS, caption={Die beiden Layout-Varianten mit CSS Grid (gekürzt)}, label={lst:grid}]
+body {
+    display: grid;
+    grid-template-areas: "header" "sidebar" "resizer" "editor";
+    grid-template-rows: 50px 200px 5px 1fr;
+    height: 100vh;
+}
+body.layout-side-by-side {
+    grid-template-areas: "header  header  header"
+                         "sidebar resizer editor";
+    grid-template-rows: 50px 1fr;
+    grid-template-columns: 280px 5px 1fr;
+}
+\end{lstlisting}
+
+Das \code{ResizerModule} registriert den Behandler für Mausbewegungen am ganzen Fenster, weil der Mauszeiger die 5\,px schmale Trennleiste bei schnellen Bewegungen sofort verlässt. Je nach Layout schreibt es die neue Breite oder Höhe der Liste als Inline-Stil an das \code{body}-Element, begrenzt auf sinnvolle Mindest- und Höchstwerte, und ruft anschließend \code{refresh()} des Editors auf, weil CodeMirror die Abmessungen seines Containers zwischenspeichert. \code{LayoutModule.toggle()} schaltet die Layout-Klasse um, setzt vorher die Inline-Stile des Resizers zurück und speichert die Wahl im \code{localStorage}. Die vier Menüs der Kopfleiste steuert ein einziger generischer Behandler im \code{DropdownModule}.
+
+\paragraph{Dateien und Tabs.} Sofern der Browser \code{showOpenFilePicker()} anbietet, öffnet das \code{FileModule} Dateien über diese Schnittstelle. Das zurückgegebene Handle wird im Datei-Objekt gespeichert und erlaubt später das direkte Überschreiben mit \code{createWritable()}; ein abgebrochener Dialog wird ohne Meldung übergangen. Ohne die Schnittstelle dienen ein verborgenes Eingabeelement und beim Speichern ein Download als Rückfall. Ein zweites Eingabeelement mit dem Attribut \code{webkitdirectory} öffnet alle passenden Dateien eines Ordners. Aus Textdateien übernimmt \code{extractBibtex()} nur die Einträge: Ein regulärer Ausdruck findet die Köpfe, die Klammerbilanzierung das jeweilige Ende. Die Tab-Leiste wird bei jeder Zustandsänderung neu aufgebaut; Dateinamen werden über \code{textContent} gesetzt und daher nie als HTML interpretiert.
+
+\paragraph{Sitzung und Verlauf.} \code{saveSession()} sichert Kennung, Name und Inhalt aller geöffneten Dateien sowie die aktive Datei als JSON im \code{localStorage}, und zwar nach jeder Änderung und bei jedem Tab-Wechsel. Datei-Handles lassen sich nicht als JSON serialisieren; nach einem Neuladen ist deshalb zunächst \enquote{Speichern unter} nötig. Scheitert das Sichern, etwa weil das Kontingent erschöpft ist, entfällt nur die Sicherung. Das Menü \emph{File} führt zusätzlich die fünf zuletzt bearbeiteten Dateien mit Name und Inhalt.
+
+\paragraph{Import aus der Zwischenablage.} Das \code{ClipboardModule} setzt Szenario~S1 um. Weil Browser das Lesen der Zwischenablage einschränken (Abschnitt~\ref{sec:browser}), kombiniert es mehrere Auslöser: die Rückkehr in den Tab (\code{visibilitychange}), den Fokuswechsel des Fensters, den ersten Klick nach der Rückkehr, der als Benutzerinteraktion zählt, das Einfügen mit \texttt{Strg+V} und das Einschalten des Auto-Imports. Ein Kennzeichen sorgt dafür, dass die Zwischenablage nur nach einer tatsächlichen Rückkehr gelesen wird. Eine frühere Version fragte zusätzlich in festen Abständen ab; das wurde entfernt, weil es beim Öffnen über \code{file://} wiederholt Berechtigungsdialoge auslöste. \code{extractBibtexEntries()} erkennt Einträge mit geschweiften und runden Klammern, ignoriert Klammern innerhalb von Anführungszeichen und akzeptiert einen Block nur, wenn er einen Schlüssel und mindestens eine Feldzuweisung enthält. So lösen E-Mail-Adressen oder Programmcode keinen Import aus. \code{formatEntry()} bringt den Eintrag in das Format von BibStream, und \code{handleDetectedEntry()} prüft, ob der Schlüssel schon existiert: Dann springt der Editor zum vorhandenen Eintrag, sonst wird der neue Eintrag mit \code{replaceRange()} angefügt und lässt sich wie jede Eingabe rückgängig machen.
+
+\paragraph{Löschen.} Einträge lassen sich über die Liste oder über ein Papierkorbsymbol am Ende jeder Kopfzeile löschen. Die Symbole verankert \code{setBookmark()} im Editor; nach Änderungen werden sie mit 80\,ms Verzögerung neu erzeugt. Beide Wege öffnen denselben Bestätigungsdialog. \code{EditorModule.deleteEntryByKey()} bestimmt dann Anfang und Ende des Eintrags und entfernt ihn mit \code{replaceRange("")}, sodass auch das Löschen umkehrbar bleibt.
+
+\subsection{Parser, Eintragsliste und Import}
+\label{sec:impl-mk}
+\verfasser{\MK}
+
+\paragraph{Parser.} Der Parser im \code{SidebarModule} folgt dem hybriden Ansatz aus Abschnitt~\ref{sec:klammern}. Nach dem Vereinheitlichen der Zeilenenden findet ein regulärer Ausdruck die Eintragsköpfe; ab dem Ende des Kopfes bestimmt die Klammerbilanzierung das Ende des Eintrags (Quellcode~\ref{lst:parser}). Danach wird die Suchposition des regulären Ausdrucks hinter das Ende gesetzt, damit ein \code{@} in einem Feldwert, etwa in einer E-Mail-Adresse, nicht als neuer Eintrag gilt. Einträge mit nicht geschlossenen Klammern erreichen nie die Tiefe~0; während der Eingabe ist das der Normalfall, und ihr Text bleibt als Teil des folgenden Zwischentexts erhalten (Abschnitt~\ref{sec:datenmodell}).
+
+\begin{lstlisting}[language=JavaScript, caption={Kern des Parsers im \texttt{SidebarModule} (gekürzt)}, label={lst:parser}]
+const headerRegex = /@(\w+)\s*\{\s*([^,]*),/g;
+while ((headerMatch = headerRegex.exec(normalizedText)) !== null) {
+    const bodyStart = headerMatch.index + headerMatch[0].length;
+    let depth = 1;               // die öffnende Klammer gehört zum Kopf
+    let i = bodyStart;
+    while (i < normalizedText.length && depth > 0) {
+        if (normalizedText[i] === '{') depth++;
+        else if (normalizedText[i] === '}') depth--;
+        if (depth > 0) i++;
+    }
+    if (depth === 0) {
+        // ... Felder lesen, precedingText und rawText speichern
+        lastEnd = i + 1;
+        headerRegex.lastIndex = i + 1;
+    }
+}
+\end{lstlisting}
+
+\paragraph{Feldwerte.} \code{extractAllFields()} findet Feldnamen vor einem Gleichheitszeichen, übergeht ein vorangestelltes \code{OPT} und liest den Wert je nach erstem Zeichen per Klammerbilanzierung, bis zum nächsten nicht maskierten Anführungszeichen oder bis zum nächsten Komma. Für die Anzeige entfernt \code{cleanValueForUI()} alle geschweiften Klammern; aus \verb|{{FF}itts Law}| wird so \enquote{FFitts Law}, während der Text im Editor unverändert bleibt. Als Jahr dient die erste vierstellige Zahl des Felds \code{year}, sodass auch \enquote{2019a} erkannt wird. Für den Verweis hat die DOI als dauerhafte Kennung Vorrang vor der URL und wird einheitlich als \code{https://doi.org/...} aufgelöst.
+
+\paragraph{Sortierung mit Rückübertragung.} \code{updateView()} filtert die Einträge nach dem Suchbegriff und sortiert sie nach einer von acht Varianten (Reihenfolge in der Datei, Titel, Autor und Jahr jeweils auf- und absteigend, Typ). Eine Besonderheit ist, dass die gewählte Sortierung auch die Datei selbst umordnet: \code{sortAndSyncEditor()} baut den Editortext aus den Bestandteilen der verlustfreien Zerlegung neu auf (Quellcode~\ref{lst:sortierung}). Kommentare und Leerzeilen wandern mit dem Eintrag, dem sie vorausgehen, und das Sortieren lässt sich mit \texttt{Strg+Z} rückgängig machen. Eine nur in der Liste sichtbare Sortierung hätte eine zweite, vom Text abweichende Ordnung eingeführt.
+
+\begin{lstlisting}[language=JavaScript, caption={Rückübertragung der Sortierung in den Editortext (gekürzt)}, label={lst:sortierung}]
+let newText = "";
+editorEntries.forEach(entry => {
+    newText += entry.precedingText + entry.rawText;
+});
+newText += this.trailingText || "";
+if (EditorModule.editorInstance.getValue() !== newText) {
+    EditorModule.updateSortedContent(newText);
+}
+\end{lstlisting}
+
+\paragraph{Eintragsliste.} \code{renderList()} baut die Liste bei jedem Aufruf vollständig neu auf. Jedes Element trägt den Schlüssel im Attribut \code{data-key}; ein Klick ruft \code{EditorModule.jumpToKey()} auf. Verweise öffnen sich mit \code{rel="noopener noreferrer"} in einem neuen Tab, sodass die geöffnete Seite keinen Zugriff auf BibStream erhält. Für die Gegenrichtung hebt \code{highlightKey()} den Eintrag unter dem Cursor hervor und rollt ihn in den sichtbaren Bereich. Im Suchfeld führt die Eingabetaste direkt zum ersten Treffer.
+
+\paragraph{PDF-Import.} Das \code{ImportModule} setzt Szenario~S4 in den in Abbildung~\ref{fig:pdf} gezeigten Schritten um. PDF.js wird erst beim Import über einen dynamischen \code{import()} geladen. Für jede Seite liefert \code{getTextContent()} Textelemente mit Position; Elemente in den obersten 40 und untersten 35 Punkten einer Seite werden als Kopf- und Fußzeilen verworfen~\cite{mozilla2026pdfjs}. \code{findReferencesSection()} sucht Überschriften wie \enquote{References} oder \enquote{Literaturverzeichnis}, auch in gesperrter Form, und prüft, ob kurz danach eine erste Referenz wie \enquote{[1]} folgt. \code{splitReferences()} probiert vier Trennstrategien, von nummerierten Referenzen bis zu einzelnen Zeilen.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+      schritt/.style={draw=mkfarbe, fill=mkfarbe!8, rounded corners=2pt, text width=1.95cm, align=center, font=\scriptsize, minimum height=1.15cm},
+      pfeil/.style={-{Latex[length=1.8mm]}, black!65},
+      node distance=0.38cm
+    ]
+    \node[schritt, draw=black!50, fill=black!5] (pdf) {PDF-Datei};
+    \node[schritt, right=of pdf] (text) {Text je Seite, Kopf- und Fußzeilen filtern};
+    \node[schritt, right=of text] (abschnitt) {Literatur\-verzeichnis finden};
+    \node[schritt, right=of abschnitt] (trennen) {Referenzen trennen};
+    \node[schritt, right=of trennen] (parsen) {Typ, Felder und Schlüssel bestimmen};
+    \node[schritt, draw=black!50, fill=black!5, right=of parsen] (tab) {BibTeX in neuem Tab};
+    \draw[pfeil] (pdf) -- (text);
+    \draw[pfeil] (text) -- (abschnitt);
+    \draw[pfeil] (abschnitt) -- (trennen);
+    \draw[pfeil] (trennen) -- (parsen);
+    \draw[pfeil] (parsen) -- (tab);
+  \end{tikzpicture}
+  \caption{Verarbeitungsschritte des PDF-Imports}
+  \label{fig:pdf}
+\end{figure}
+
+Jede Referenz wird bereinigt: Silbentrennungen werden zusammengefügt, durch Ligaturen zerrissene Wörter wie \enquote{e ffi ciency} repariert und typografische Zeichen vereinheitlicht. Eine Kaskade regulärer Ausdrücke bestimmt den Eintragstyp, wobei spezifische Merkmale wie \enquote{Ph.D. dissertation} vor allgemeinen wie \enquote{Conference} geprüft werden (Quellcode~\ref{lst:pdftyp}). Als Jahr gilt die letzte vierstellige Zahl zwischen 1900 und 2099, weil im IEEE-Stil das Erscheinungsjahr am Ende steht. Steht der Titel in Anführungszeichen, bildet der Text davor die Autorenangabe und der Text danach den Erscheinungsort, aus dem Band, Heft und Seiten gelesen werden; DOI und arXiv-Kennung werden im ganzen Text gesucht. Der Schlüssel setzt sich aus dem Nachnamen der ersten Person, dem Jahr und dem ersten aussagekräftigen Titelwort zusammen. Das Ergebnis aller Referenzen öffnet sich in einem neuen Tab \code{import_<Dateiname>.bib}, aus dem die gewünschten Einträge übernommen werden.
+
+\begin{lstlisting}[language=JavaScript, caption={Bestimmung des Eintragstyps einer Referenz (gekürzt)}, label={lst:pdftyp}]
+const isThesis = /\b(?:Ph\.?D\.?\s+(?:dissertation|thesis)|Dissertation)\b/i.test(text);
+const isMasters = /\b(?:Master(?:'s)?\s+thesis|Masterarbeit|Bachelorarbeit)\b/i.test(text);
+const isTechReport = /\b(?:Tech\.?\s+Rep\.?|Technical\s+Report)\b/i.test(text);
+const isConference = /\b(?:in\s+Proc|Proceedings|Conference|Symposium|Workshop)\b/i.test(text);
+// ... isBook (Verlagsnamen) und isArxiv
+if (isThesis) type = 'phdthesis';
+else if (isMasters) type = 'mastersthesis';
+else if (isTechReport) type = 'techreport';
+else if (isConference) type = 'inproceedings';
+else if (isBook) type = 'book';
+else if (isArxiv) type = 'misc';
+\end{lstlisting}
+
+\paragraph{Import über Kennungen.} Im Oktober 2026 kam mit dem \code{IdentifierImportModule} ein genauerer Weg für einzelne Quellen hinzu. Ein Dialog erkennt aus der Eingabe, ob es sich um eine DOI, eine arXiv-Kennung, eine ISBN oder eine URL handelt. Die Muster werden in dieser Reihenfolge geprüft und folgen den Formen aus Abschnitt~\ref{sec:kennungen}; eine arXiv-DOI wird wie eine arXiv-Kennung behandelt, und bei einer ISBN prüft das Modul Länge und Präfix, nicht aber die Prüfziffer. Für eine DOI fragt das Modul nacheinander die BibTeX-Darstellung bei Crossref~\cite{crossref2026api}, bei DataCite~\cite{datacite2026cn} und über die Inhaltsaushandlung von \code{doi.org} ab; arXiv-Kennungen werden über die zugehörige DOI aufgelöst, ISBNs über die Books API von Open Library~\cite{openlibrary2026books}. Für eine URL ohne erkennbare Kennung entsteht ein \code{@misc}-Eintrag mit Zugriffsdatum. Das Ergebnis erscheint in einem bearbeitbaren Vorschaufeld; besteht der Schlüssel schon, wird ein Zähler angehängt, bevor der Eintrag am Ende der Datei eingefügt wird.
+
+\subsection{Editor, Validierung und Werkzeuge}
+\label{sec:impl-fb}
+\verfasser{\FB}
+
+\paragraph{Editor.} Das \code{EditorModule} erzeugt die Editorinstanz aus einem verborgenen Textfeld (Quellcode~\ref{lst:editor}). Der Modus \code{stex} hebt Klammern, LaTeX-Befehle und Kommentare hervor und ist damit eine brauchbare Näherung für BibTeX. \code{lineWrapping} bricht lange Zeilen wie Zusammenfassungen sichtbar um, und die Kürzel für Rückgängig und Wiederholen sind für Windows und macOS ausdrücklich hinterlegt.
+
+\begin{lstlisting}[language=JavaScript, caption={Erzeugung der CodeMirror-Instanz im \texttt{EditorModule}}, label={lst:editor}]
+this.editorInstance = CodeMirror.fromTextArea(textarea, {
+    lineNumbers: true,
+    mode: "stex",
+    lineWrapping: true,
+    gutters: ["CodeMirror-lint-markers"],
+    lint: true,
+    extraKeys: {
+        "Ctrl-Z": (cm) => cm.undo(), "Ctrl-Y": (cm) => cm.redo(),
+        "Cmd-Z": (cm) => cm.undo(), "Cmd-Shift-Z": (cm) => cm.redo()
+    }
+});
+\end{lstlisting}
+
+Der Behandler für das Ereignis \code{change} verbindet den Editor mit den übrigen Modulen. Ein Kennzeichen \code{isProgrammaticUpdate} verhindert, dass Änderungen durch die Anwendung selbst die Logik für Benutzereingaben ein zweites Mal auslösen. \code{setContent()}, das beim Tab-Wechsel aufgerufen wird, leert zusätzlich den Änderungsverlauf, während \code{updateSortedContent()} ihn für das Sortieren bewahrt.
+
+\paragraph{Navigation.} Für die Richtung vom Editor zur Liste wertet das Modul das Ereignis \code{cursorActivity} aus: Nach 150\,ms ohne weitere Bewegung sucht \code{findBibtexKeyAtCursor()} von der Cursorzeile nach oben den nächsten Eintragskopf und übergibt dessen Schlüssel an die Liste. \code{jumpToKey()} sucht in der Gegenrichtung den Eintrag, wählt ihn aus, rollt ihn an den oberen Rand und hebt seine Zeilen für 3,5\,s farbig hervor. Weil der Sprung den Cursor bewegt und damit wieder \code{cursorActivity} auslöst, unterdrückt ein Kennzeichen \code{isJumping} die Rückmeldung zur Liste für 300\,ms.
+
+\paragraph{Linter.} Das \code{LinterModule} registriert seine Prüffunktion beim \code{lint}-Addon für den Modus \code{stex}; das Addon ruft sie nach einer Pause von 500\,ms auf und zeigt die Meldungen an. Die Wissensbasis besteht aus der Liste der vierzehn Standardtypen, dreizehn global zulässigen Feldern wie \code{doi}, \code{url} oder \code{note} und einer Zuordnung der üblichen Felder zu jedem Typ, die auf den Feldern nach~\cite{patashnik1988} beruht und um häufig exportierte Felder wie \code{articleno} ergänzt ist. Als Fehler gelten unbekannte Eintragstypen, doppelte Schlüssel, fehlende Kommata zwischen Feldern, Zeilen mit unerwartetem Zuweisungsformat und eine unausgeglichene Klammerbilanz; ein für den Typ unübliches Feld ergibt eine Warnung. Die evaluierte Fassung prüfte zeilenweise: Fehlt am Ende einer Feldzeile das Komma, blickt die Prüfung auf die nächste nicht leere Zeile und meldet nur dann einen Fehler, wenn diese nicht die schließende Klammer des Eintrags ist. Dieser Ansatz ist schnell und passt genau zu dem Format, das BibStream selbst erzeugt, setzt aber ein Feld pro Zeile voraus (Abschnitt~\ref{sec:ergebnisse-tests}).
+
+\paragraph{Linter in der aktuellen Fassung.} Nach der Evaluation wurde die Prüfung auf den gemeinsamen Parser umgestellt (Abschnitt~\ref{sec:behebung}). \code{validate()} sucht mit einem regulären Ausdruck die Eintragsköpfe mit geschweifter oder runder Klammer und bestimmt das Ende jedes Eintrags durch Klammerbilanzierung. Als Grenze dieser Suche gilt der nächste Eintragskopf am Zeilenanfang, sodass eine fehlende Klammer nicht die folgenden Einträge verschluckt. \code{checkEntry()} liest anschließend Schlüssel, Feldnamen und Werte Zeichen für Zeichen. Ein fehlendes Komma wird erst gemeldet, wenn auf einen vollständigen Wert ein weiteres Feld folgt, und zwar am Ende dieses Werts; mehrzeilige Werte und eine schließende Klammer in der Zeile des letzten Felds sind damit kein Sonderfall mehr. Bleibt ein Eintrag offen, sucht \code{reportUnclosed()} die Ursache: Beginnt innerhalb eines noch offenen Werts eine Zeile mit einer neuen Feldzuweisung, wird die öffnende Klammer dieses Werts markiert, sonst der Eintragskopf. \code{checkOutsideText()} meldet schließlich überzählige schließende Klammern zwischen den Einträgen, die auf einen zu früh beendeten Eintrag hindeuten.
+
+\paragraph{Formatierung.} Die ursprüngliche Pretty-Print-Funktion formatierte die Datei und entfernte dabei zugleich alle im Einstellungsdialog nicht ausgewählten Felder, sodass schon das bloße Formatieren unbemerkt Inhalte löschen konnte. Im März 2026 wurde sie in drei Werkzeuge im Menü \emph{Edit} aufgeteilt. \code{formatIndentation()} rückt Feldzeilen mit zwei Leerzeichen ein, schreibt Feldnamen klein und füllt sie auf zwölf Zeichen auf, sodass die Gleichheitszeichen untereinander stehen; alle übrigen Zeilen bleiben unverändert. Das zweite Werkzeug entfernt Felder anhand der Auswahl im Einstellungsdialog, das dritte fügt eine Vorlage für einen neuen Eintrag an der Cursorposition ein. Alle drei schreiben ihr Ergebnis als gewöhnliche Änderung in den Editor.
+
+\paragraph{Suche und Hervorhebung.} Die Suche durchsucht Schlüssel, Typ, alle Felder und als Rückfall den Rohtext eines Eintrags. Mehrere Begriffe lassen sich mit \code{|} verknüpfen; ein Eintrag gilt als Treffer, wenn mindestens einer davon vorkommt. Trifft ein Begriff ein Feld außerhalb von Titel, Autor und Jahr, zeigt die Liste dieses Feld unter dem Eintrag an. Für die Hervorhebung in der Liste werden Treffer mit dem Element \code{mark} umschlossen. Weil dafür HTML erzeugt wird, maskiert \code{highlightTextToHTML()} vorher jeden Textteil (Quellcode~\ref{lst:highlight}); nur das selbst erzeugte \code{mark}-Element gelangt als Markup in die Seite~\cite{owasp2026xss}. Im Editor markiert \code{highlightSearchMatches()} die Treffer über das \code{searchcursor}-Addon und erfasst damit anders als die Seitensuche des Browsers das ganze Dokument.
+
+\begin{lstlisting}[language=JavaScript, caption={Sichere Treffer-Hervorhebung in der Eintragsliste (gekürzt)}, label={lst:highlight}]
+const escapedTerms = validTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+const regex = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+String(text).split(regex).forEach(part => {
+    if (!part) return;
+    const isMatch = validTerms.some(t => t.toLowerCase() === part.toLowerCase());
+    html += isMatch
+        ? `<mark class="search-match">${this.escapeHTML(part)}</mark>`
+        : this.escapeHTML(part);
+});
+\end{lstlisting}
+
+\paragraph{Farbschema und Hilfe.} Farben, Schatten und Eckenradien sind als CSS-Variablen definiert; das \code{ThemeModule} wechselt nur das Attribut \code{data-theme} am Wurzelelement, speichert die Wahl und lässt den Editor neu zeichnen. Das \code{HelpModule} zeigt einen Dialog mit den wichtigsten Tastenkürzeln.
+
+\subsection{Aufbau des Quellcodes und Erweiterungspunkte}
+\label{sec:erweiterung}
+\verfasser{\AK}
+
+Dieser Abschnitt bezieht sich auf die aktuelle Fassung und soll die Einarbeitung in den Code erleichtern. \code{index.html} enthält das gesamte Markup einschließlich der vier Dialoge für Einstellungen, Tastenkürzel, das Löschen und den Import über Kennungen, die bis zu ihrem Aufruf verborgen sind. \code{style.css} beginnt mit den Farbvariablen beider Farbschemata; es folgen das Grundlayout und die Stile der einzelnen Bereiche. In \code{script.js} stehen die Module nacheinander, jeweils eingeleitet von einem nummerierten Kopfkommentar, der den Zweck und bei den meisten Modulen die verantwortliche Person nennt. Die letzte Zeile meldet \code{App.init()} für das Ereignis \code{DOMContentLoaded} an. Die Reihenfolge der Module in der Datei ist daher beliebig, nicht aber die Reihenfolge in \code{App.init()}: Der Linter wird vor dem Editor registriert, damit bereits der erste Inhalt geprüft wird, und die Sitzung wird erst wiederhergestellt, wenn alle Module bereit sind. Kommentare und Konsolenmeldungen sind deutsch, die Texte der Oberfläche englisch.
+
+Typische Erweiterungen betreffen wenige, klar abgegrenzte Stellen:
+
+\begin{description}[leftmargin=2.2em, style=nextline, itemsep=0.2ex]
+  \item[Eintragstypen und Felder des Linters] Die Wissensbasis besteht aus drei Datenstrukturen im \code{LinterModule}: \code{validTypes}, \code{globalFields} und \code{fieldsForType}. Ein neuer Typ wie \code{@online} wird in \code{validTypes} und mit seinen üblichen Feldern in \code{fieldsForType} eingetragen; die Korrekturvorschläge für falsch geschriebene Typen berücksichtigen ihn dann von selbst.
+  \item[Felder im Einstellungsdialog] Es genügt ein Kontrollkästchen mit dem Attribut \code{data-field} im Bereich \code{checkbox-grid} von \code{index.html}; das \code{FormatterModule} übernimmt das Feld für das Entfernen von Feldern und für die Eintragsvorlage. Wer bereits eine Auswahl gespeichert hat, findet ein neues Feld allerdings abgewählt vor, und es würde beim nächsten Entfernen von Feldern mit entfernt. \code{loadSettings()} sollte neue Felder deshalb als ausgewählt ergänzen.
+  \item[Sortierungen] Eine neue Variante braucht ein \code{option}-Element in der Sortierauswahl und einen Fall mit demselben Wert in \pfad{SidebarModule.getComparator()}. Die Rückübertragung in den Editortext funktioniert ohne weitere Änderung.
+  \item[Kennungen für den Import] \code{detectIdentifier()} liefert Art, bereinigten Wert und eine Beschriftung für die Anzeige, eine Fallunterscheidung ruft dann die passende Abfragemethode auf. Eine neue Art braucht ein Erkennungsmuster, einen Fall und eine Methode, die BibTeX-Text zurückgibt.
+  \item[Farben] Alle Farben sind als Variablen in \code{:root} für das dunkle und in \code{[data-theme="light"]} für das helle Schema von \code{style.css} definiert. Eine fest eingetragene Farbe würde beim Wechsel des Schemas nicht angepasst.
+  \item[Meldungen] Rückmeldungen neuer Funktionen sollten über \pfad{ToastModule.show()} laufen, das Inhalte nur als Text einsetzt; HTML-Text aus Eingaben zusammenzusetzen, würde die in Abschnitt~\ref{sec:ergebnisse-sicherheit} beschriebene Lücke wieder öffnen.
+\end{description}
+
+Erweiterungen, die Inhalte verändern, sollten wie die bestehenden Werkzeuge über die Schnittstelle des Editors schreiben, etwa mit \code{replaceRange()}. Dann bleibt die Änderung mit \texttt{Strg+Z} umkehrbar, und Eintragsliste, Sitzung und Linter-Meldungen werden wie bei einer Eingabe automatisch aktualisiert. Nach jeder Erweiterung sollten die Testfälle aus Tabelle~\ref{tab:testfaelle} wiederholt werden.
+
+% =====================================================================
+\section{Evaluierung}
+\label{sec:evaluierung}
+% =====================================================================
+
+Dieses Kapitel beschreibt die Umgebung, in der getestet wurde, die Testfälle, die Messmethodik und die Durchführung. Untersucht wurde die im Praktikum abgegebene Fassung vom 10.09.2026.
+
+\subsection{Umgebung}
+\label{sec:umgebung}
+\verfasser{\FB}
+
+Alle Tests und Messungen fanden auf einem einzigen Notebook statt. Tabelle~\ref{tab:hardware} zeigt Hardware und Software.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Hardware- und Software-Spezifikationen der Testumgebung}
+  \label{tab:hardware}
+  \begin{tabularx}{\textwidth}{@{}lX@{}}
+    \toprule
+    \textbf{Komponente} & \textbf{Spezifikation} \\
+    \midrule
+    Prozessor        & Intel Core i5-1245U (12.~Generation, 10 Kerne, 12 Threads) \\
+    Arbeitsspeicher  & 16\,GB \\
+    Betriebssystem   & Windows 11 Enterprise (64 Bit) \\
+    Browser          & Chromium-basierter Browser, Engine-Version 150 \\
+    Bibliotheken     & CodeMirror 5.65.16, PDF.js 4.4.168 \\
+    Stand des Codes  & abgegebene Fassung vom 10.09.2026 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Testfälle}
+\label{sec:testfaelle}
+\verfasser{\FB}
+
+Die 23 Testfälle wurden aus den Anforderungen und den Fehlerklassen aus Abschnitt~\ref{sec:bibtex} abgeleitet und folgen dem Black-Box-Prinzip: Sie prüfen das beobachtbare Verhalten an den Schnittstellen der Module, nicht deren interne Umsetzung. Neben typischen Eingaben wurden gezielt Grenzfälle berücksichtigt, etwa Feldwerte über mehrere Zeilen, Makrodefinitionen mit \code{@string} oder Einträge mit runden Klammern. Die Fälle T01 bis T09 betreffen den Linter, T10 bis T14 den Parser und den Import von Textdateien, T15 bis T17 die Formatierung, T18 bis T20 den Import aus der Zwischenablage und T21 bis T23 übergreifende Funktionen. Die Heuristik des PDF-Imports wurde gesondert mit sieben konstruierten Referenzen im IEEE- und APA-Stil geprüft. Weil die Textextraktion stark vom einzelnen Dokument abhängt, wurden die Referenzen dabei als bereits extrahierter Text unter einer Literaturverzeichnis-Überschrift an die Analysefunktionen übergeben.
+
+\subsection{Messmethodik}
+\label{sec:messmethodik}
+\verfasser{\MK}
+
+Für die Laufzeitmessung wurden synthetische Dateien mit 100, 500, 1.000, 2.500 und 5.000 Einträgen erzeugt. Die Einträge verteilen sich gleichmäßig auf sechs Typen, enthalten sechs bis neun typgerechte Felder, darunter einen Titel mit verschachtelten Klammern, und erzeugen im Linter keine Meldungen; der Generator ist in Anhang~\ref{anh:quellcode} abgedruckt. Gemessen wurde mit \code{performance.now()}. Nach jeder Operation wurde durch Abfrage einer Layout-Eigenschaft eine synchrone Neuberechnung des Layouts erzwungen, damit auch der Aufwand des Browsers für neu erzeugte Elemente erfasst wird. Jede Messung wurde nach einem Aufwärmlauf neunmal (Parsen, Validieren, Formatieren) bzw.\ fünfmal wiederholt; angegeben ist der Median, um Ausreißer durch Speicherbereinigung und Just-in-time-Übersetzung abzumildern.
+
+\subsection{Durchführung der Tests}
+\label{sec:durchfuehrung}
+\verfasser{\AK}
+
+Die funktionalen Tests liefen in der geöffneten Anwendung: Ein Skript in der Konsole rief die Funktionen der Module mit den festgelegten Eingaben auf und verglich Rückgabewerte bzw.\ den Zustand der Oberfläche mit dem erwarteten Ergebnis. Das nutzt aus, dass alle Module als globale Objekte erreichbar sind, und kommt ohne Test-Framework aus, das sich ohne Build-Prozess und Modulsystem nur mit erheblichem Aufwand hätte einbinden lassen. Ergänzend wurden die Abläufe von Hand in der Oberfläche nachvollzogen. Für die Laufzeitmessung wurde jede Testdatei als eigener Tab geöffnet und die Messfunktion aus Anhang~\ref{anh:quellcode} mit der jeweiligen Operation aufgerufen. Getestet wurde nur in einem Chromium-basierten Browser; das Verhalten der Rückfallmechanismen in Firefox und Safari wurde anhand der Dokumentation der Schnittstellen bewertet, aber nicht praktisch erprobt. Eine Nutzerstudie mit externen Personen fand nicht statt.
+
+% =====================================================================
+\section{Ergebnisse}
+\label{sec:ergebnisse}
+% =====================================================================
+
+In diesem Kapitel werden die Ergebnisse der funktionalen Tests, des PDF-Imports, der Performanzmessung und der Sicherheitsbetrachtung beschrieben und mit den Anforderungen abgeglichen. Abschließend wird gezeigt, welche Befunde nach der Evaluation behoben wurden.
+
+\subsection{Funktionale Tests}
+\label{sec:ergebnisse-tests}
+\verfasser{\FB}
+
+Tabelle~\ref{tab:testfaelle} fasst die Testfälle und ihre Ergebnisse zusammen.
+
+\begin{longtable}{@{}l>{\raggedright\arraybackslash}p{5.0cm}>{\raggedright\arraybackslash}p{6.4cm}l@{}}
+  \caption{Funktionale Testfälle und Ergebnisse der evaluierten Fassung}
+  \label{tab:testfaelle} \\
+  \toprule
+  \textbf{Nr.} & \textbf{Testfall} & \textbf{Beobachtetes Ergebnis} & \textbf{Bewertung} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Nr.} & \textbf{Testfall} & \textbf{Beobachtetes Ergebnis} & \textbf{Bewertung} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endlastfoot
+  T01 & Fehlendes Komma nach \code{author = {A}} & Fehler in der betroffenen Zeile & bestanden \\
+  T02 & Nicht geschlossene Klammer im Titel & Fehler, aber in der letzten Zeile der Datei & teilweise \\
+  T03 & Tippfehler im Typ (\code{@artcle}) & Fehler mit Vorschlag \enquote{@article} & bestanden \\
+  T04 & Doppelt vergebener Schlüssel & Fehler beim zweiten Vorkommen & bestanden \\
+  T05 & Feld \code{journal} in einem \code{@book} & Warnung \enquote{unüblich} & bestanden \\
+  T06 & Korrekter \code{@inproceedings}-Eintrag & keine Meldung & bestanden \\
+  T07 & Feld \code{abstract} über zwei Zeilen & Fehlalarm \enquote{Fehlendes Komma} & nicht bestanden \\
+  T08 & Makrodefinition mit \code{@string} & Fehlalarm \enquote{Unbekannter Eintragstyp} & nicht bestanden \\
+  T09 & Schließende Klammer in der Zeile des letzten Felds & Fehlalarm \enquote{Fehlendes Komma} & nicht bestanden \\
+  T10 & Titel mit verschachtelten Klammern & vollständig und bereinigt in der Liste & bestanden \\
+  T11 & DOI in URL-Form, Jahr ohne Klammern & Verweis auf \code{doi.org}, Jahr erkannt & bestanden \\
+  T12 & Titel in Anführungszeichen, Jahr \enquote{in press} & Titel korrekt, Jahr \enquote{????} & bestanden \\
+  T13 & Eintrag mit runden Klammern & erscheint nicht in der Liste & nicht bestanden \\
+  T14 & Zwei Einträge in Fließtext einer \code{.txt}-Datei & beide extrahiert, übriger Text verworfen & bestanden \\
+  T15 & Formatierung uneinheitlich eingerückter Einträge & einheitlich eingerückt und ausgerichtet & bestanden \\
+  T16 & Felder entfernen bei mehrzeiligem \code{abstract} & nur die erste Zeile entfernt, Eintrag danach ungültig & nicht bestanden \\
+  T17 & Felder entfernen, alle zwölf Felder ausgewählt & \code{booktitle}, \code{keywords} und \code{month} trotzdem entfernt & nicht bestanden \\
+  T18 & Zwischenablage: IEEE-Eintrag in Fließtext & erkannt und einheitlich formatiert & bestanden \\
+  T19 & Zwischenablage: \code{@} und Klammern ohne BibTeX & kein Import & bestanden \\
+  T20 & Zwischenablage: Eintrag mit runden Klammern & in geschweifte Klammern überführt & bestanden \\
+  T21 & Eintrag löschen und mit \texttt{Strg+Z} zurückholen & entfernt und wiederhergestellt & bestanden \\
+  T22 & HTML-Markup im Titel eines Eintrags & als Text angezeigt & bestanden \\
+  T23 & \texttt{Strg+S} und \texttt{Strg+F} laut Hilfedialog & vom Browser statt von BibStream behandelt & nicht bestanden \\
+\end{longtable}
+
+Von den 23 Testfällen wurden 15 bestanden, einer teilweise und sieben nicht. Alle Fälle mit Dateien in dem Format, das BibStream selbst erzeugt, also einem Feld pro Zeile und der schließenden Klammer in eigener Zeile, wurden bestanden; der Linter erkennt dann sämtliche untersuchten Fehlerklassen. T07, T09 und T16 gehen dagegen auf die zeilenbasierte Verarbeitung zurück, und weil exportierte Einträge häufig mehrzeilige Zusammenfassungen enthalten, ist das für die Praxis relevant. T08 und T13 betreffen seltener genutzte Syntaxformen. Dass der Zwischenablage-Import runde Klammern mit seinem eigenen, zeichenweise arbeitenden Parser korrekt verarbeitet (T20), zeigt, dass ein gemeinsamer Parser für alle Module Vorteile hätte.
+
+Besonders schwer wiegt T17. Der Einstellungsdialog legt nahe, dass nur abgewählte Felder entfernt werden; tatsächlich wirkte die Auswahl als Positivliste und entfernte jedes nicht ausgewählte Feld, auch Pflichtfelder wie \code{booktitle}, die im Dialog gar nicht angeboten werden. Die Änderung ließ sich zwar rückgängig machen, verletzte aber die Erwartung der Nutzerinnen und Nutzer. T23 zeigt eine Abweichung zwischen Hilfedialog und Umsetzung: \texttt{Strg+F} öffnete die Seitensuche des Browsers, die wegen der ausschnittweisen Darstellung von CodeMirror nur den sichtbaren Teil des Editors durchsucht.
+
+\subsection{PDF-Import}
+\label{sec:ergebnisse-pdf}
+\verfasser{\MK}
+
+Tabelle~\ref{tab:pdftest} zeigt die Ergebnisse der PDF-Heuristik für die sieben konstruierten Referenzen.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Ergebnisse der PDF-Heuristik für konstruierte Referenzen}
+  \label{tab:pdftest}
+  \begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}p{3.4cm}l>{\raggedright\arraybackslash}X@{}}
+    \toprule
+    \textbf{Nr.} & \textbf{Eingabe} & \textbf{Erkannter Typ} & \textbf{Abweichungen} \\
+    \midrule
+    1 & Buch (IEEE) & \code{book} & keine \\
+    2 & Zeitschriftenartikel (IEEE) & \code{article} & Autoren mit Kommata statt \code{and} getrennt \\
+    3 & Konferenzbeitrag (IEEE) & \code{inproceedings} & Tagungsort fehlt \\
+    4 & arXiv-Preprint (IEEE) & \code{misc} & Umlaut aus dem Schlüssel entfernt \\
+    5 & Dissertation (IEEE) & \code{phdthesis} & Pflichtfeld \code{school} fehlt \\
+    6 & Technischer Bericht (IEEE) & \code{techreport} & \code{institution} und Berichtsnummer fehlen \\
+    7 & Zeitschriftenartikel (APA) & \code{article} & Autoren mit \enquote{\&}; Band, Heft, Seiten fehlen \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Der Eintragstyp wurde in allen Fällen richtig erkannt, ebenso Titel und Jahr. Vollständig und fehlerfrei war das Ergebnis aber nur beim Buch; sonst fehlten Pflichtfelder oder die Autorenangabe entsprach nicht der BibTeX-Syntax. Die regelbasierte Heuristik liefert also für den IEEE-Stil einen brauchbaren Ausgangspunkt, der nachbearbeitet werden muss. Die Entscheidung, das Ergebnis in einem eigenen Tab zur Prüfung bereitzustellen, statt es direkt in die Datei einzufügen, erweist sich damit als richtig.
+
+\subsection{Performanz}
+\label{sec:ergebnisse-performanz}
+\verfasser{\MK}
+
+Tabelle~\ref{tab:performanz} und Abbildung~\ref{fig:performanz} zeigen die gemessenen Laufzeiten.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Laufzeiten in Millisekunden (Median) in Abhängigkeit von der Dateigröße}
+  \label{tab:performanz}
+  \begin{tabular}{@{}lrrrrr@{}}
+    \toprule
+    & \multicolumn{5}{c}{\textbf{Anzahl der Einträge}} \\
+    \cmidrule(l){2-6}
+    \textbf{Operation} & \textbf{100} & \textbf{500} & \textbf{1.000} & \textbf{2.500} & \textbf{5.000} \\
+    \midrule
+    Dateigröße in KiB & 26   & 132  & 265   & 668   & 1.340 \\
+    \midrule
+    Parsen             & 0,7  & 2,8  & 5,3   & 13,2  & 23,1  \\
+    Validieren         & 0,9  & 2,0  & 4,2   & 8,2   & 16,3  \\
+    Formatieren        & 0,3  & 0,8  & 1,7   & 3,5   & 7,7   \\
+    Tab öffnen         & 21,2 & 59,9 & 110,7 & 220,3 & 421,2 \\
+    Tastendruck        & 11,8 & 55,5 & 104,8 & 238,1 & 448,6 \\
+    Suche              & 10,2 & 52,5 & 96,9  & 194,1 & 454,1 \\
+    Sortieren          & 25,1 & 86,8 & 152,1 & 375,0 & 761,4 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{loglogaxis}[
+        width=0.85\textwidth, height=6.2cm,
+        xlabel={Anzahl der Einträge}, ylabel={Laufzeit in ms (Median)},
+        xtick={100,500,1000,2500,5000}, xticklabels={100,500,1.000,2.500,5.000},
+        ytick={1,10,100,1000}, yticklabels={1,10,100,1.000},
+        xmin=80, xmax=6000, ymin=0.4, ymax=2000,
+        legend pos=north west, legend style={font=\scriptsize},
+        grid=major, grid style={black!10}
+      ]
+      \addplot[color=red!70!black, mark=*, thick] coordinates {(100,11.8) (500,55.5) (1000,104.8) (2500,238.1) (5000,448.6)};
+      \addlegendentry{Tastendruck}
+      \addplot[color=blue!70!black, mark=square*, thick] coordinates {(100,21.2) (500,59.9) (1000,110.7) (2500,220.3) (5000,421.2)};
+      \addlegendentry{Tab öffnen}
+      \addplot[color=green!50!black, mark=triangle*, thick] coordinates {(100,0.7) (500,2.8) (1000,5.3) (2500,13.2) (5000,23.1)};
+      \addlegendentry{Parsen}
+      \addplot[color=orange!80!black, mark=diamond*, thick] coordinates {(100,0.9) (500,2.0) (1000,4.2) (2500,8.2) (5000,16.3)};
+      \addlegendentry{Validieren}
+      \addplot[dashed, black, domain=80:6000, samples=2] {100};
+      \addlegendentry{Grenze 0,1\,s}
+    \end{loglogaxis}
+  \end{tikzpicture}
+  \caption{Laufzeiten ausgewählter Operationen (doppelt logarithmische Darstellung)}
+  \label{fig:performanz}
+\end{figure}
+
+Die Messungen führen zu drei Erkenntnissen. Erstens wachsen alle Laufzeiten annähernd linear mit der Zahl der Einträge, erkennbar an den nahezu parallelen Geraden. Zweitens sind die eigentlichen Algorithmen schnell: Selbst eine Datei mit 5.000 Einträgen und rund 1,3\,MiB wird in etwa 23\,ms geparst und in etwa 16\,ms validiert. Drittens dominiert der Aufbau der Eintragsliste die Antwortzeit. Eine gesonderte Messung bei 1.000 Einträgen ergab für einen Tastendruck rund 6\,ms für das Parsen, unter 1\,ms für das Sichern der Sitzung und rund 98\,ms für Filtern, Sortieren und Neuzeichnen der Liste. Ursache ist der vollständige Neuaufbau, bei dem für jeden Eintrag mehrere DOM-Elemente erzeugt werden, auch für unsichtbare. Der Editor selbst skaliert dank seiner ausschnittweisen Darstellung gut.
+
+Gemessen an NFA-03 bleibt die Antwortzeit pro Tastendruck bis etwa 500 Einträge mit rund 56\,ms deutlich unter 0,1\,s; bei 1.000 Einträgen wird die Grenze mit rund 105\,ms knapp, bei 5.000 Einträgen mit rund 450\,ms deutlich überschritten. Für die Zielgruppe ist das weitgehend unkritisch, weil eine typische Literaturdatei einer Abschlussarbeit mit einigen hundert Einträgen bei 30 bis 40\,ms liegt. Das Sortieren ist am aufwändigsten, weil es zusätzlich den Editortext neu setzt, wird aber nur gelegentlich ausgelöst. Einschränkend ist zu beachten, dass alle Werte von einem einzigen System stammen und die synthetischen Einträge mit rund 270~Byte kürzer sind als reale Exporte mit Zusammenfassungen. Für Parsen und Validieren ist bei realen Dateien daher mit höheren Werten zu rechnen; der dominierende Aufbau der Liste hängt dagegen vor allem von der Zahl der Einträge ab.
+
+\subsection{Sicherheit und Datenschutz}
+\label{sec:ergebnisse-sicherheit}
+\verfasser{\AK}
+
+Durch die clientseitige Architektur verlassen die Literaturdaten den Rechner nicht, und es gibt keinen Server, der angegriffen werden könnte. Im Code finden sich mehrere bewusst gesetzte Schutzmaßnahmen: Inhalte der Eintragsliste werden vor der Einbettung maskiert, Dateinamen als Text gesetzt, Verweise mit \code{rel="noopener noreferrer"} geöffnet und Schlüssel vor dem Einsetzen in reguläre Ausdrücke maskiert. Eine gezielte Durchsicht der evaluierten Fassung ergab dennoch fünf Befunde.
+
+\begin{enumerate}
+  \item \textbf{HTML-Injektion in Benachrichtigungen:} Das \code{ClipboardModule} setzte Benachrichtigungen über \code{innerHTML} zusammen, und die Nachricht enthielt den Schlüssel eines importierten Eintrags. Ein präparierter Eintrag konnte so Markup und damit Skriptcode einschleusen, der Zugriff auf alle im \code{localStorage} gesicherten Dateien gehabt hätte. Weil die Zwischenablage automatisch gelesen wird und Webseiten beim Kopieren bestimmen können, was in die Zwischenablage gelangt~\cite{w3c2026clipboard}, war dies der schwerwiegendste Befund. Abhilfe schafft der Aufbau mit \code{textContent}~\cite{owasp2026xss}.
+  \item \textbf{Ungeprüfte Verweisschemata:} Der Wert des Felds \code{url} wurde ohne Prüfung als Linkziel übernommen, auch mit dem Schema \code{javascript:}. Das Risiko ist geringer, weil eine präparierte Datei geöffnet und der Link angeklickt werden muss.
+  \item \textbf{Keine Integritätsprüfung externer Skripte:} Die Skripte von CodeMirror und PDF.js wurden ohne \code{integrity}-Attribut geladen; eine manipulierte Datei auf dem CDN wäre ungeprüft ausgeführt worden~\cite{w3c2016sri}.
+  \item \textbf{Datenübertragung an Drittanbieter:} Beim Laden der Schriftarten von Google Fonts und der Bibliotheken von cdnjs übermittelt der Browser die IP-Adresse an die Anbieter. Das LG München~I hat die Einbindung von Google Fonts ohne Einwilligung 2022 als Verstoß gegen die DSGVO gewertet~\cite{lgmuenchen2022}.
+  \item \textbf{Unverschlüsselte lokale Speicherung:} Sitzung und Verlauf liegen unverschlüsselt im \code{localStorage}; auf gemeinsam genutzten Rechnern können andere Personen mit demselben Browserprofil sie einsehen.
+\end{enumerate}
+
+\subsection{Abgleich mit den Anforderungen}
+\label{sec:ergebnisse-abgleich}
+\verfasser{\FB}
+
+Von den 20 funktionalen Anforderungen waren in der evaluierten Fassung 16 vollständig und vier teilweise erfüllt. FA-03 war nur eingeschränkt erfüllt, weil das direkte Überschreiben nur in Chromium-basierten Browsern funktioniert und Datei-Handles beim Neuladen verloren gehen. FA-07 litt unter den Fehlalarmen aus T07 bis T09, FA-09 unter T16 und T17, und FA-17 lieferte unvollständige Felder. Von den acht nicht-funktionalen Anforderungen waren drei vollständig erfüllt; NFA-03 (Antwortzeit über 1.000 Einträge), NFA-04 (Hilfedialog mit nicht belegten Kürzeln, keine Nutzerstudie), NFA-05 (Schließen ungespeicherter Tabs ohne Rückfrage), NFA-07 (eine Datei mit über 3.100 Zeilen, keine automatisierten Tests) und NFA-08 (Befunde~1 und~2) nur teilweise. Die Abweichungen gehen im Wesentlichen auf drei Ursachen zurück: die zeilenbasierte Verarbeitung, den vollständigen Neuaufbau der Liste und Browser-Schnittstellen, die nicht überall verfügbar sind. Keine davon stellt das Gesamtkonzept infrage.
+
+\subsection{Behebung der Befunde}
+\label{sec:behebung}
+\verfasser{\AK}
+
+Nach der Evaluation wurde BibStream im Oktober und November 2026 überarbeitet, teilweise mit Unterstützung eines KI-Assistenten (Anhang~\ref{anh:ki}). Tabelle~\ref{tab:behebung} fasst die Änderungen zusammen. Anschließend wurden alle zuvor nicht oder teilweise bestandenen Testfälle erneut ausgeführt; alle 23 Testfälle werden nun bestanden.
+
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{11.6cm}@{}}
+  \caption{Änderungen nach der Evaluation}
+  \label{tab:behebung} \\
+  \toprule
+  \textbf{Befund} & \textbf{Änderung in der aktuellen Fassung} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Befund} & \textbf{Änderung in der aktuellen Fassung} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endlastfoot
+  T02, T07--T09, T13, T16 & Gemeinsamer, zeichenweise arbeitender Parser (\code{BibTeXParser}) für Liste, Linter, Formatierung, Editor und Zwischenablage; mehrzeilige Werte, runde Klammern und \code{@string}, \code{@preamble}, \code{@comment} werden verstanden, Klammerfehler an ihrer Ursache gemeldet und unbekannte Typen mit dem ähnlichsten gültigen Typ beantwortet. \\
+  T17 & Felder entfernen wirkt als Negativliste: Nur im Dialog angebotene und abgewählte Felder werden entfernt, mehrzeilige Werte vollständig. \\
+  T23 & \texttt{Strg+S} speichert die aktive Datei, \texttt{Strg+F} springt in das Suchfeld der Liste. \\
+  Befund 1 & Alle Benachrichtigungen entstehen im \code{ToastModule} ausschließlich über \code{textContent}. \\
+  Befund 2 & Verweise werden nur für \code{http} und \code{https} erzeugt. \\
+  Befund 3 & Die CodeMirror-Dateien tragen \code{integrity}-Attribute; PDF.js wird nur noch bei Bedarf geladen, die Version steht an einer Stelle (Abschnitt~\ref{sec:lib-pdfjs}). \\
+  PDF-Import & Autoren werden mit \code{and} verbunden, \code{school}, \code{institution} und Berichtsnummern erkannt, Umlaute in Schlüsseln umschrieben. \\
+  Weitere Punkte & Rückfrage beim Schließen ungespeicherter Tabs; Aktualisierung der Liste erst nach einer Tipppause von 200\,ms; Sitzung bewahrt den Speicherzustand und die Zeilenenden; fehlerhaft kodierte Umlaute korrigiert und ungenutzter Code entfernt. \\
+\end{longtable}
+
+Parallel ergänzte das Team im Oktober 2026 den Import über Kennungen (Abschnitt~\ref{sec:impl-mk}), übersetzte die Oberfläche ins Englische, markiert beim Sprung aus der Liste nun den ganzen Eintrag zum Kopieren und entfernte einen doppelten Menüeintrag sowie den Kontaktdialog. Offen sind weiterhin die Befunde~4 und~5, der vollständige Neuaufbau der Liste nach jeder Tipppause, fehlende automatisierte Tests sowie praktische Tests in Firefox und Safari.
+
+% =====================================================================
+\section{Externe Bibliotheken und Dienste}
+\label{sec:bibliotheken}
+% =====================================================================
+
+BibStream soll über das Praktikum hinaus genutzt werden. Dieses Kapitel beschreibt deshalb alle externen Bibliotheken und Dienste, von denen der Betrieb abhängt, mit Version, Lizenz, Einbindung, Anzeichen bei einem Ausfall und dem Vorgehen bei einer Aktualisierung. Es bezieht sich auf die aktuelle Fassung (Stand November 2026). Alles Übrige ist reines HTML, CSS und JavaScript ohne weitere Abhängigkeiten.
+
+\subsection{Überblick}
+\label{sec:lib-ueberblick}
+\verfasser{\AK}
+
+Tabelle~\ref{tab:bibliotheken} führt alle externen Komponenten auf. Da es keinen Paketmanager gibt, stehen die Versionen direkt in den Adressen, unter denen die Dateien geladen werden; jede Aktualisierung ist damit eine bewusste Änderung im Code.
+
+{\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{1.9cm}>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{3.6cm}@{}}
+  \caption{Externe Bibliotheken und Dienste von BibStream}
+  \label{tab:bibliotheken} \\
+  \toprule
+  \textbf{Komponente} & \textbf{Version} & \textbf{Lizenz} & \textbf{Einbindung} & \textbf{Zweck} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Komponente} & \textbf{Version} & \textbf{Lizenz} & \textbf{Einbindung} & \textbf{Zweck} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endlastfoot
+  CodeMirror (Kern, Modus \code{stex}, Addons \code{searchcursor} und \code{lint}) & 5.65.16 & MIT & sechs Dateien von cdnjs im Kopf von \code{index.html}, mit \code{integrity}-Attribut & Editor, Hervorhebung, Anzeige der Linter-Meldungen, Suche \\
+  PDF.js (Hauptmodul und Worker) & 4.4.168 & Apache 2.0 & \code{ImportModule.PDFJS_BASE} (cdnjs), dynamischer \code{import()} & Textextraktion beim PDF-Import \\
+  Inter & ohne Angabe & SIL OFL 1.1 & Stylesheet von Google Fonts in \code{index.html} & Schrift der Oberfläche \\
+  Material Symbols Outlined & ohne Angabe & Apache 2.0 & Stylesheet von Google Fonts in \code{index.html} & Symbole in Menüs und Schaltflächen \\
+  Crossref, DataCite und \code{doi.org} & -- & Nutzungs\-bedingungen der Dienste & \code{IdentifierImportModule}: \code{fetchDoi()}, \code{fetchArxiv()} & Metadaten zu DOI und arXiv-Kennung \\
+  Open Library Books API & -- & Nutzungs\-bedingungen des Dienstes & \code{IdentifierImportModule}: \code{fetchIsbn()} & Metadaten zu einer ISBN \\
+\end{longtable}
+}
+
+Alle Bibliotheken und Schriften werden zur Laufzeit geladen; ohne Internetverbindung fehlen deshalb Editor, Schriften und der Import über Kennungen, während gespeicherte Daten erhalten bleiben. Die Lizenzen erlauben es, die Dateien zusammen mit BibStream weiterzugeben und lokal einzubinden (Abschnitt~\ref{sec:lib-aktualisierung}).
+
+\subsection{CodeMirror 5}
+\label{sec:lib-codemirror}
+\verfasser{\FB}
+
+CodeMirror wird über sechs Dateien aus dem Verzeichnis \pfad{ajax/libs/codemirror/5.65.16/} von cdnjs eingebunden: Kern und Stylesheet (\code{codemirror.min.js}, \code{codemirror.min.css}), der Modus \code{stex}, das Addon \code{searchcursor} sowie Skript und Stylesheet des Addons \code{lint}. Jedes Element trägt ein \code{integrity}-Attribut mit einer SHA-512-Prüfsumme sowie \code{crossorigin="anonymous"}; der Browser führt eine Datei nur aus, wenn ihr Inhalt zur Prüfsumme passt~\cite{w3c2016sri}.
+
+Direkt genutzt wird die Schnittstelle im \code{EditorModule} (Erzeugen des Editors, Ereignisse \code{change} und \code{cursorActivity}, Hervorhebungen, eingebettete Lösch-Symbole, programmatische Suche) und im \code{LinterModule}, das seine Prüffunktion mit \code{CodeMirror.registerHelper()} anmeldet und Positionen mit \code{CodeMirror.Pos} angibt~\cite{haverbeke2026cm5}. Alle anderen Module greifen nur über \code{EditorModule.editorInstance} auf den Editor zu. Fehlt CodeMirror, etwa ohne Internetverbindung, zeigt \code{App.init()} einen Hinweis; Menüs und Eintragsliste bleiben bedienbar, nur der Editor fehlt.
+
+Innerhalb der Version~5 genügt für eine Aktualisierung, die Versionsnummer in allen sechs Adressen zu ändern und die Prüfsummen zu ersetzen; ohne neue Prüfsumme blockiert der Browser die Dateien. Ein Wechsel auf CodeMirror~6 wäre dagegen ein eigenes Projekt: Die Schnittstelle ist eine andere, Linter und Suche sind eigene Pakete, und die Module werden üblicherweise mit einem Build-Werkzeug gebündelt. Anzupassen wären \code{EditorModule}, \code{LinterModule} und alle Stellen, die \code{editorInstance} verwenden. Ein solcher Wechsel lohnt sich erst, wenn CodeMirror~5 in aktuellen Browsern nicht mehr zuverlässig funktioniert.
+
+\subsection{PDF.js}
+\label{sec:lib-pdfjs}
+\verfasser{\MK}
+
+PDF.js besteht aus einem Hauptmodul und einem Worker, der das Dokument in einem eigenen Thread verarbeitet~\cite{mozilla2026pdfjs}. Beide Adressen leiten sich in der aktuellen Fassung von der Eigenschaft \code{ImportModule.PDFJS_BASE} ab: \code{handlePdfFile()} lädt \code{pdf.min.mjs} erst beim Import über \code{import()} und setzt \code{GlobalWorkerOptions.workerSrc} auf \code{pdf.worker.min.mjs}. Da der Worker beim Öffnen eines Dokuments prüft, ob seine Version zum Hauptmodul passt, ist wichtig, dass beide aus derselben Basisadresse stammen. Genutzt werden nur \code{getDocument()}, \code{getPage()}, \code{getViewport()}, \code{getTextContent()} und \code{destroy()}.
+
+Für Module, die per \code{import()} geladen werden, kann kein \code{integrity}-Attribut angegeben werden. Wer die Integrität absichern will, legt Hauptmodul und Worker neben \code{index.html} ab und setzt \code{PDFJS_BASE} auf den relativen Pfad. Fällt PDF.js aus, erscheint beim PDF-Import die Meldung \enquote{Error reading PDF file} mit dem Fehlertext; alle anderen Funktionen sind nicht betroffen. Neue Hauptversionen können Dateinamen oder Schnittstellen ändern; nach einer Aktualisierung sollte deshalb ein Beispiel-PDF importiert werden.
+
+\subsection{Schriftarten}
+\label{sec:lib-schriften}
+\verfasser{\AK}
+
+Die Schrift Inter und die Symbolschrift Material Symbols Outlined werden über zwei Stylesheets von \code{fonts.googleapis.com} geladen, die Schriftdateien selbst von \code{fonts.gstatic.com}. Symbole stehen im Code als Wörter wie \code{delete} in einem Element der Klasse \pfad{material-symbols-outlined}, das die Symbolschrift als Zeichen darstellt. Die Adressen enthalten keine Version, der Inhalt kann sich also ohne Zutun ändern, und beim Laden wird die IP-Adresse an Google übertragen (Abschnitt~\ref{sec:ergebnisse-sicherheit}).
+
+Ist Google Fonts nicht erreichbar, erscheinen die Symbole als gewöhnliche Wörter wie \code{folder} oder \code{delete}, und die Oberfläche fällt auf Systemschriften zurück; die Funktionen bleiben erhalten. Für einen dauerhaften oder öffentlichen Betrieb empfiehlt es sich, die Schriftdateien herunterzuladen und in \code{style.css} mit \code{@font-face} lokal einzubinden. Die Lizenzen beider Schriften erlauben das.
+
+\subsection{Metadatendienste}
+\label{sec:lib-dienste}
+\verfasser{\MK}
+
+Der Import über Kennungen fragt öffentliche Dienste ohne Registrierung oder Schlüssel ab. Für eine DOI ruft \code{fetchDoi()} zuerst die BibTeX-Darstellung über die REST API von Crossref ab (\code{api.crossref.org/works/<DOI>/transform/application/x-bibtex}). Crossref empfiehlt, sich bei regelmäßiger Nutzung über einen \code{mailto}-Parameter zu erkennen zu geben, und weist darauf hin, dass die Metadaten weitgehend nicht urheberrechtlich geschützt sind~\cite{crossref2026api}. Scheitert die Abfrage, folgen die Inhaltsaushandlung von DataCite unter \code{data.crosscite.org}, die nur DataCite-DOIs wie die von arXiv beantwortet~\cite{datacite2026cn}, und schließlich die von \code{doi.org}. ISBNs löst \code{fetchIsbn()} über die Books API von Open Library auf. Deren Dokumentation bezeichnet diesen Endpunkt als veraltet und kündigt an, dass er künftig entfallen kann; als Ersatz bietet sich die ISBN-Schnittstelle unter \code{openlibrary.org/isbn/<ISBN>.json} an~\cite{openlibrary2026books}.
+
+An die Dienste wird nur die eingegebene Kennung übertragen. Ist ein Dienst nicht erreichbar oder ändert er sein Format, zeigt der Dialog eine Fehlermeldung in der Statuszeile; der Rest der Anwendung ist nicht betroffen. Anpassungen beschränken sich auf die drei genannten Methoden des \code{IdentifierImportModule}.
+
+\subsection{Browser-Schnittstellen und gespeicherte Daten}
+\label{sec:lib-browser}
+\verfasser{\AK}
+
+Neben Bibliotheken hängt BibStream von Browser-Schnittstellen ab (Abschnitt~\ref{sec:browser}). Die File System Access API ist kein Standard und nur in Chromium-basierten Browsern verfügbar~\cite{wicg2025fsa}; das \code{FileModule} prüft vor jeder Nutzung, ob \code{showOpenFilePicker()} bzw.\ \code{showSaveFilePicker()} existieren, und fällt sonst auf Eingabeelement und Download zurück. Das automatische Lesen der Zwischenablage setzt einen sicheren Kontext voraus, und die Berechtigungsregeln legt jeder Browser selbst fest~\cite{w3c2026clipboard}; das Einfügen mit \texttt{Strg+V} funktioniert dagegen immer. Tabelle~\ref{tab:localstorage} zeigt die Schlüssel, unter denen BibStream Daten im \code{localStorage} ablegt. Die Daten sind an den Ursprung gebunden: Unter \code{file://} und unter \code{http://localhost} sieht BibStream jeweils andere Sitzungen. Wer einen Schlüssel umbenennt, verliert den Zugriff auf bereits gespeicherte Daten.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Von BibStream verwendete Schlüssel im \texttt{localStorage}}
+  \label{tab:localstorage}
+  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{5.2cm}lX@{}}
+    \toprule
+    \textbf{Schlüssel} & \textbf{Modul} & \textbf{Inhalt} \\
+    \midrule
+    \code{bibstream-session}           & \code{FileModule}      & geöffnete Dateien mit Name, Inhalt und Speicherzustand, aktive Datei \\
+    \code{bibstream-recent-files}      & \code{FileModule}      & bis zu fünf zuletzt bearbeitete Dateien \\
+    \code{bibFilterConfig}             & \code{FormatterModule} & im Einstellungsdialog ausgewählte Felder \\
+    \code{bibstream-theme}             & \code{ThemeModule}     & Farbschema (\code{dark} oder \code{light}) \\
+    \code{bibstream-layout}            & \code{LayoutModule}    & Layout (\code{default} oder \code{side-by-side}) \\
+    \code{bibstream-clipboard-watcher} & \code{ClipboardModule} & automatischer Import an oder aus \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Sitzung und Verlauf fangen Fehler beim Lesen und Schreiben ab. Ist der Speicher voll, etwa weil mehrere große Dateien geöffnet sind, zeigt BibStream einmalig den Hinweis \enquote{Session not saved} und arbeitet ohne Sicherung weiter; ist die gespeicherte Sitzung beschädigt, wird sie übergangen, und die Anwendung startet mit einer leeren Datei. Weil Sitzung und Verlauf den vollständigen Inhalt der Dateien enthalten, wächst der belegte Speicher mit der Dateigröße, bei einer geöffneten und zugleich im Verlauf geführten Datei doppelt. Zum Zurücksetzen lassen sich die Einträge in den Entwicklerwerkzeugen des Browsers im Bereich für den Web-Speicher löschen, einzeln oder alle auf einmal. Da die Sitzung ungespeicherte Änderungen enthalten kann, sollten vorher alle Dateien gespeichert werden.
+
+\subsection{Inbetriebnahme und Aktualisierung}
+\label{sec:lib-aktualisierung}
+\verfasser{\FB}
+
+BibStream benötigt keine Installation. Die Dateien \code{index.html}, \code{script.js}, \code{style.css} und \code{icon.ico} müssen im selben Ordner liegen. Empfohlen ist, den Ordner über einen beliebigen statischen Webserver unter \code{http://localhost} auszuliefern und in einem Chromium-basierten Browser zu öffnen: Dann stehen das direkte Speichern und das Lesen der Zwischenablage zuverlässig zur Verfügung, während das Öffnen über \code{file://} zu wiederholten Berechtigungsabfragen führen kann. Eine Internetverbindung ist für die Bibliotheken, die Schriften und den Import über Kennungen nötig.
+
+Für eine Aktualisierung einer Bibliothek hat sich folgende Reihenfolge bewährt:
+
+\begin{enumerate}
+  \item Versionsnummer anpassen: für CodeMirror in den sechs Adressen in \code{index.html}, für PDF.js in \code{ImportModule.PDFJS_BASE}.
+  \item Für CodeMirror die neuen SHA-512-Prüfsummen der Dateien in die \code{integrity}-Attribute eintragen, etwa von der Seite der Bibliothek bei cdnjs.
+  \item Anwendung öffnen und in den Entwicklerwerkzeugen prüfen, dass Konsole und Netzwerk-Tab keine Fehler zeigen.
+  \item Testdaten mit dem Generator aus Anhang~\ref{anh:quellcode} erzeugen: Für eine Datei mit $n$ Einträgen muss der Parser genau $n$ Einträge liefern und der Linter keine Meldung erzeugen. Danach die Testfälle aus Tabelle~\ref{tab:testfaelle} wiederholen.
+  \item PDF-Import mit einem Beispiel-PDF und Import über Kennungen mit einer bekannten DOI ausprobieren.
+\end{enumerate}
+
+Soll BibStream ohne Internetverbindung oder ohne Abhängigkeit von cdnjs und Google laufen, werden die Dateien von CodeMirror, PDF.js und den Schriften in einen Unterordner kopiert und die Adressen auf relative Pfade umgestellt. Damit entfallen auch die Übertragung der IP-Adresse und das Risiko, dass eine Adresse eines Tages nicht mehr erreichbar ist; nur der Import über Kennungen braucht dann noch das Internet.
+
+% =====================================================================
+\section{Schlussfolgerung}
+\label{sec:schluss}
+% =====================================================================
+
+\subsection{Beantwortung der Forschungsfrage}
+\label{sec:antwort}
+\verfasser{\MK}
+
+Ziel der Arbeit war es, die manuelle Pflege von BibTeX-Dateien mit einer rein clientseitigen Webanwendung ohne Build-Prozess zu unterstützen, ohne dass der Rohtext seine Rolle als maßgebliche Datenquelle verliert. Mit BibStream ist das weitgehend gelungen: Die Anwendung läuft ohne Installation und ohne Server im Browser, und alle Funktionen sind als sichtbare und umkehrbare Änderungen des Textes umgesetzt.
+
+Zur ersten Teilfrage zeigt die Evaluation, dass ein regelbasierter Linter alle untersuchten Fehlerklassen zuverlässig erkennt, solange die Datei ein Feld pro Zeile enthält. Die zeilenbasierte Umsetzung scheiterte jedoch an mehrzeiligen Werten, an \code{@string} und an Klammern in der letzten Feldzeile. Nach der Umstellung auf einen gemeinsamen, zeichenweise arbeitenden Parser werden alle 23 Testfälle bestanden. Die Grenze des Ansatzes liegt damit nicht in der Syntax, sondern im Inhalt: Ob Titel, Jahr oder Seitenzahlen einer Quelle stimmen, kann ein Linter nicht prüfen. Zur zweiten Teilfrage hat sich die verlustfreie Zerlegung bewährt. Weil jeder Eintrag den vorangehenden Text mitführt, lassen sich Einträge sortieren, löschen und importieren, ohne dass Kommentare oder unvollständige Einträge verloren gehen, und jede dieser Änderungen ist mit \texttt{Strg+Z} umkehrbar. Zur dritten Teilfrage zeigt die Messung, dass der vollständige Neuaufbau nach jeder Änderung bis etwa 500 Einträge unter 0,1\,s bleibt und bei 1.000 Einträgen die Grenze erreicht. Für typische Literaturdateien genügt das; seit der Überarbeitung wird die Liste zudem erst nach einer Tipppause aktualisiert, sodass das Tippen auch in großen Dateien flüssig bleibt.
+
+\subsection{Reflexion}
+\label{sec:reflexion}
+\verfasser{\AK}
+
+Die Aufteilung in drei klar abgegrenzte Verantwortungsbereiche hat sich bewährt. Sie ermöglichte paralleles Arbeiten, machte die Zuständigkeiten im Code sichtbar und erleichterte die Zuordnung der Einzelleistungen. Entscheidend war, die Schnittstellen zwischen den Bereichen früh gemeinsam festzulegen; wo das gelang, etwa bei \code{switchToTab()} oder \code{parseAndRefresh()}, konnten alle weitgehend unabhängig arbeiten. Die organisatorische Trennung spiegelte sich aber nicht in der technischen Struktur wider: Weil alle Module in einer Datei liegen, kamen sich parallele Änderungen häufig in die Quere. In einem Folgeprojekt würde das Team von Beginn an eine Datei pro Modul verwenden und eine einheitliche Zeichenkodierung festlegen.
+
+Das iterative Vorgehen hat sich ausgezahlt, weil mehrere wichtige Verbesserungen erst aus der Nutzung früher Versionen entstanden, etwa die Top-Bar, die Layout-Umschaltung und die Aufteilung der Pretty-Print-Funktion. Selbstkritisch ist festzuhalten, dass systematische Tests erst spät stattfanden. Schwächen wie das Verhalten des Feldfilters oder die Lücke in den Benachrichtigungen wurden deshalb erst in der Evaluation entdeckt; automatisierte Tests hätten sie früher sichtbar gemacht.
+
+\subsection{Ausblick}
+\label{sec:ausblick}
+\verfasser{\FB}
+
+Den größten Gewinn für große Dateien verspricht eine virtualisierte Eintragsliste, die wie der Editor nur die sichtbaren Elemente erzeugt; ergänzend könnte das Parsen in einen Web Worker ausgelagert werden. Für einen dauerhaften Betrieb sollten Bibliotheken und Schriften lokal mitgeliefert werden (Abschnitt~\ref{sec:lib-aktualisierung}), womit auch Befund~4 entfällt, und die Sicherung im Browser sollte sich auf Wunsch abschalten lassen. Aus den 23 Testfällen und dem Generator für Testdaten lassen sich ohne zusätzliches Framework Regressionstests schreiben, die vor jeder Änderung laufen. Eine Aufteilung von \code{script.js} in ES-Module würde Abhängigkeiten sichtbar machen und die Zusammenarbeit erleichtern. Fachlich wären ein wählbarer Modus für biblatex mit Typen wie \code{@online}, eine Prüfung der Barrierefreiheit mit vollständiger Bedienung per Tastatur und eine kleine Nutzerstudie mit Studierenden die nächsten Schritte.
+
+BibStream zeigt, dass sich mit Standard-Webtechnologien und ohne Server ein Werkzeug entwickeln lässt, das die Pflege von BibTeX-Dateien erleichtert, ohne den Nutzerinnen und Nutzern die Kontrolle über ihre Daten zu nehmen.
+
+% =====================================================================
+%  Literatur
+% =====================================================================
+\newpage
+\printbibliography[heading=bibintoc, title={Literatur}]
+
+% =====================================================================
+%  Anhang
+% =====================================================================
+\newpage
+\appendix
+
+\section{Quellcode der Testdaten}
+\label{anh:quellcode}
+\verfasser{\AK, \MK{} und \FB{} (gemeinsam)}
+
+Quellcode~\ref{lst:testdaten} zeigt den Generator für die synthetischen Testdateien und die Messfunktion aus Abschnitt~\ref{sec:messmethodik}. Beide werden in der Konsole der geöffneten Anwendung ausgeführt; das Parsen wurde etwa mit \code{measure(() => {}, () => SidebarModule.parseBibtexEntries(text), 9)} gemessen.
+
+\begin{lstlisting}[language=JavaScript, caption={Generator für synthetische Testdateien und Messfunktion}, label={lst:testdaten}]
+const spec = {
+    article:       (i) => [['journal', `Journal of Topic ${i % 37}`], ['volume', `${i % 50}`],
+                           ['number', `${i % 12}`], ['pages', `${i}--${i + 10}`]],
+    inproceedings: (i) => [['booktitle', `Proc. Conference ${i % 23}`], ['pages', `${i}--${i + 8}`]],
+    book:          (i) => [['publisher', `Publisher ${i % 11}`], ['address', 'Klagenfurt']],
+    techreport:    (i) => [['institution', `Institute ${i % 9}`], ['number', `TR-${i}`]],
+    phdthesis:     (i) => [['school', `University ${i % 13}`], ['address', 'Wien']],
+    misc:          (i) => [['howpublished', `Online ${i % 5}`]]
+};
+const types = Object.keys(spec);
+const names = ['Smith', 'Huber', 'Gruber', 'Wang', 'Garcia', 'Novak', 'Rossi', 'Kowalski',
+               'Berger', 'Schmid', 'Ivanov', 'Kim', 'Nguyen', 'Fischer', 'Weber', 'Moser',
+               'Wagner', 'Lopez', 'Svensson', 'Dubois'];
+
+function generate(n) {
+    let s = '';
+    for (let i = 0; i < n; i++) {
+        const t = types[i % 6];
+        const fields = [
+            ['author', `${names[i % 20]}, Anna and ${names[(i * 3 + 1) % 20]}, Bernd`],
+            ['title', `On the {Analysis} of Topic ${i} in Distributed Systems`],
+            ...spec[t](i),
+            ['year', `${1980 + (i * 7) % 45}`],
+            ['doi', `10.1000/test.${i}`]
+        ];
+        s += `@${t}{key${i},\n` +
+             fields.map(([k, v]) => `  ${k.padEnd(12)} = {${v}}`).join(',\n') + `\n}\n\n`;
+    }
+    return s;
+}
+
+function median(values) {
+    const a = [...values].sort((x, y) => x - y);
+    return a[Math.floor(a.length / 2)];
+}
+
+function measure(setup, operation, repetitions) {
+    setup();
+    operation();                       // Aufwärmlauf
+    const times = [];
+    for (let k = 0; k < repetitions; k++) {
+        setup();
+        const t0 = performance.now();
+        operation();
+        document.body.offsetHeight;    // synchrones Layout erzwingen
+        times.push(performance.now() - t0);
+    }
+    return median(times);
+}
+\end{lstlisting}
+
+\section{AI Usage Reflection}
+\label{anh:ki}
+\verfasser{\AK, \MK{} und \FB{} (gemeinsam)}
+
+Während des Projekts und beim Verfassen dieser Arbeit wurde generative KI eingesetzt, und zwar GitHub Copilot in Visual Studio Code, unter anderem mit dem Sprachmodell Claude Opus~5.5 \offen{weitere Werkzeuge und genaue Versionen prüfen und ergänzen}. Die KI unterstützte bei der Durchsicht des Quellcodes und bei der Behebung der in Abschnitt~\ref{sec:behebung} beschriebenen Befunde, bei Gliederung, Entwurf, sprachlicher Überarbeitung und Kürzung dieser Arbeit sowie bei LaTeX-Befehlen und Tabellen. Messungen und Testfälle wurden in der laufenden Anwendung durchgeführt; die Ergebnisse stammen aus diesen Durchläufen und nicht aus der KI.
+
+Alle durch KI erzeugten Vorschläge, Codeänderungen und Formulierungen wurden von den Verfassern geprüft, getestet und bei Bedarf überarbeitet. Die Verantwortung für die Korrektheit und Originalität sämtlicher Inhalte liegt vollständig bei den Verfassern.
+
+\end{document}
