@@ -855,7 +855,7 @@ Leitprinzip der Interaktion ist, dass alle Funktionen als sichtbare und umkehrba
 \label{sec:implementierung}
 % =====================================================================
 
-Dieses Kapitel beschreibt die Umsetzung der drei Verantwortungsbereiche. Die Quellcodeauszüge stammen aus der evaluierten Fassung vom 10.09.2026; sie sind gekürzt, Auslassungen sind mit \code{// ...} gekennzeichnet. Änderungen nach der Evaluation fasst Abschnitt~\ref{sec:behebung} zusammen. Abschnitt~\ref{sec:erweiterung} beschreibt abschließend den Aufbau des Quellcodes in der aktuellen Fassung und die Stellen, an denen sich BibStream erweitern lässt.
+Dieses Kapitel beschreibt die Umsetzung der drei Verantwortungsbereiche. Die Quellcodeauszüge stammen aus der evaluierten Fassung vom 10.09.2026; sie sind gekürzt, Auslassungen sind mit \code{// ...} gekennzeichnet. Änderungen nach der Evaluation fasst Abschnitt~\ref{sec:behebung} zusammen; wo sich die aktuelle Fassung grundlegend unterscheidet, beschreibt ein eigener Absatz ihren Stand. Abschnitt~\ref{sec:erweiterung} beschreibt abschließend den Aufbau des Quellcodes in der aktuellen Fassung und die Stellen, an denen sich BibStream erweitern lässt.
 
 \subsection{Oberfläche, Dateiverwaltung und Zwischenablage}
 \label{sec:impl-ak}
@@ -914,6 +914,8 @@ while ((headerMatch = headerRegex.exec(normalizedText)) !== null) {
 \end{lstlisting}
 
 \paragraph{Feldwerte.} \code{extractAllFields()} findet Feldnamen vor einem Gleichheitszeichen, übergeht ein vorangestelltes \code{OPT} und liest den Wert je nach erstem Zeichen per Klammerbilanzierung, bis zum nächsten nicht maskierten Anführungszeichen oder bis zum nächsten Komma. Für die Anzeige entfernt \code{cleanValueForUI()} alle geschweiften Klammern; aus \verb|{{FF}itts Law}| wird so \enquote{FFitts Law}, während der Text im Editor unverändert bleibt. Als Jahr dient die erste vierstellige Zahl des Felds \code{year}, sodass auch \enquote{2019a} erkannt wird. Für den Verweis hat die DOI als dauerhafte Kennung Vorrang vor der URL und wird einheitlich als \code{https://doi.org/...} aufgelöst.
+
+\paragraph{Parser in der aktuellen Fassung.} Seit der Überarbeitung liegt die Analyse im gemeinsamen Objekt \code{BibTeXParser}, das alle Module nutzen, die BibTeX-Text auswerten (Abschnitt~\ref{sec:behebung}). \code{findEntries()} liefert für jeden Eintrag Typ, Schlüssel und Positionen. Die Suche nach dem Ende eines Eintrags endet spätestens am nächsten Eintragskopf am Zeilenanfang, sodass ein offener Eintrag keine folgenden verschluckt. \code{scanFields()} zerlegt den Rumpf in Felder, und \code{scanValue()} liest einen Wert in jeder zulässigen Form, auch als Verkettung mit \texttt{\#}. Auf diesen Funktionen baut das \code{SidebarModule} die verlustfreie Zerlegung aus Abschnitt~\ref{sec:datenmodell} auf.
 
 \paragraph{Sortierung mit Rückübertragung.} \code{updateView()} filtert die Einträge nach dem Suchbegriff und sortiert sie nach einer von acht Varianten (Reihenfolge in der Datei, Titel, Autor und Jahr jeweils auf- und absteigend, Typ). Eine Besonderheit ist, dass die gewählte Sortierung auch die Datei selbst umordnet: \code{sortAndSyncEditor()} baut den Editortext aus den Bestandteilen der verlustfreien Zerlegung neu auf (Quellcode~\ref{lst:sortierung}). Kommentare und Leerzeilen wandern mit dem Eintrag, dem sie vorausgehen, und das Sortieren lässt sich mit \texttt{Strg+Z} rückgängig machen. Eine nur in der Liste sichtbare Sortierung hätte eine zweite, vom Text abweichende Ordnung eingeführt.
 
@@ -999,7 +1001,7 @@ Der Behandler für das Ereignis \code{change} verbindet den Editor mit den übri
 
 \paragraph{Linter.} Das \code{LinterModule} registriert seine Prüffunktion beim \code{lint}-Addon für den Modus \code{stex}; das Addon ruft sie nach einer Pause von 500\,ms auf und zeigt die Meldungen an. Die Wissensbasis besteht aus der Liste der vierzehn Standardtypen, dreizehn global zulässigen Feldern wie \code{doi}, \code{url} oder \code{note} und einer Zuordnung der üblichen Felder zu jedem Typ, die auf den Feldern nach~\cite{patashnik1988} beruht und um häufig exportierte Felder wie \code{articleno} ergänzt ist. Als Fehler gelten unbekannte Eintragstypen, doppelte Schlüssel, fehlende Kommata zwischen Feldern, Zeilen mit unerwartetem Zuweisungsformat und eine unausgeglichene Klammerbilanz; ein für den Typ unübliches Feld ergibt eine Warnung. Die evaluierte Fassung prüfte zeilenweise: Fehlt am Ende einer Feldzeile das Komma, blickt die Prüfung auf die nächste nicht leere Zeile und meldet nur dann einen Fehler, wenn diese nicht die schließende Klammer des Eintrags ist. Dieser Ansatz ist schnell und passt genau zu dem Format, das BibStream selbst erzeugt, setzt aber ein Feld pro Zeile voraus (Abschnitt~\ref{sec:ergebnisse-tests}).
 
-\paragraph{Linter in der aktuellen Fassung.} Nach der Evaluation wurde die Prüfung auf den gemeinsamen Parser umgestellt (Abschnitt~\ref{sec:behebung}). \code{validate()} sucht mit einem regulären Ausdruck die Eintragsköpfe mit geschweifter oder runder Klammer und bestimmt das Ende jedes Eintrags durch Klammerbilanzierung. Als Grenze dieser Suche gilt der nächste Eintragskopf am Zeilenanfang, sodass eine fehlende Klammer nicht die folgenden Einträge verschluckt. \code{checkEntry()} liest anschließend Schlüssel, Feldnamen und Werte Zeichen für Zeichen. Ein fehlendes Komma wird erst gemeldet, wenn auf einen vollständigen Wert ein weiteres Feld folgt, und zwar am Ende dieses Werts; mehrzeilige Werte und eine schließende Klammer in der Zeile des letzten Felds sind damit kein Sonderfall mehr. Bleibt ein Eintrag offen, sucht \code{reportUnclosed()} die Ursache: Beginnt innerhalb eines noch offenen Werts eine Zeile mit einer neuen Feldzuweisung, wird die öffnende Klammer dieses Werts markiert, sonst der Eintragskopf. \code{checkOutsideText()} meldet schließlich überzählige schließende Klammern zwischen den Einträgen, die auf einen zu früh beendeten Eintrag hindeuten.
+\paragraph{Linter in der aktuellen Fassung.} Nach der Evaluation wurde die Prüfung auf den gemeinsamen Parser umgestellt (Abschnitt~\ref{sec:behebung}). \code{validate()} findet die Eintragsköpfe mit demselben Muster und bestimmt ihr Ende mit denselben Funktionen des \code{BibTeXParser} wie die Eintragsliste (Abschnitt~\ref{sec:impl-mk}). \code{checkEntry()} liest anschließend Schlüssel, Feldnamen und Werte Zeichen für Zeichen. Ein fehlendes Komma wird erst gemeldet, wenn auf einen vollständigen Wert ein weiteres Feld folgt, und zwar am Ende dieses Werts; mehrzeilige Werte und eine schließende Klammer in der Zeile des letzten Felds sind damit kein Sonderfall mehr. Bleibt ein Eintrag offen, sucht \code{reportUnclosed()} die Ursache: Beginnt innerhalb eines noch offenen Werts eine Zeile mit einer neuen Feldzuweisung, wird die öffnende Klammer dieses Werts markiert, sonst der Eintragskopf. \code{checkOutsideText()} meldet schließlich überzählige schließende Klammern zwischen den Einträgen, die auf einen zu früh beendeten Eintrag hindeuten.
 
 \paragraph{Formatierung.} Die ursprüngliche Pretty-Print-Funktion formatierte die Datei und entfernte dabei zugleich alle im Einstellungsdialog nicht ausgewählten Felder, sodass schon das bloße Formatieren unbemerkt Inhalte löschen konnte. Im März 2026 wurde sie in drei Werkzeuge im Menü \emph{Edit} aufgeteilt. \code{formatIndentation()} rückt Feldzeilen mit zwei Leerzeichen ein, schreibt Feldnamen klein und füllt sie auf zwölf Zeichen auf, sodass die Gleichheitszeichen untereinander stehen; alle übrigen Zeilen bleiben unverändert. Das zweite Werkzeug entfernt Felder anhand der Auswahl im Einstellungsdialog, das dritte fügt eine Vorlage für einen neuen Eintrag an der Cursorposition ein. Alle drei schreiben ihr Ergebnis als gewöhnliche Änderung in den Editor.
 
@@ -1098,47 +1100,53 @@ In diesem Kapitel werden die Ergebnisse der funktionalen Tests, des PDF-Imports,
 \label{sec:ergebnisse-tests}
 \verfasser{\FB}
 
-Tabelle~\ref{tab:testfaelle} fasst die Testfälle und ihre Ergebnisse zusammen.
+Tabelle~\ref{tab:testfaelle} fasst die Testfälle und ihre Ergebnisse zusammen. Die letzte Spalte zeigt den Nachtest der aktuellen Fassung nach der Behebung der Befunde (Abschnitt~\ref{sec:behebung}).
 
-\begin{longtable}{@{}l>{\raggedright\arraybackslash}p{5.0cm}>{\raggedright\arraybackslash}p{6.4cm}l@{}}
-  \caption{Funktionale Testfälle und Ergebnisse der evaluierten Fassung}
+{\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}l>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{5.4cm}ll@{}}
+  \caption{Funktionale Testfälle: beobachtetes Ergebnis der evaluierten Fassung und Bewertung beider Fassungen}
   \label{tab:testfaelle} \\
   \toprule
-  \textbf{Nr.} & \textbf{Testfall} & \textbf{Beobachtetes Ergebnis} & \textbf{Bewertung} \\
+  & & & \multicolumn{2}{c}{\textbf{Bewertung}} \\
+  \cmidrule(l){4-5}
+  \textbf{Nr.} & \textbf{Testfall} & \textbf{Beobachtetes Ergebnis (10.09.2026)} & \textbf{10.09.2026} & \textbf{06.11.2026} \\
   \midrule
   \endfirsthead
   \toprule
-  \textbf{Nr.} & \textbf{Testfall} & \textbf{Beobachtetes Ergebnis} & \textbf{Bewertung} \\
+  & & & \multicolumn{2}{c}{\textbf{Bewertung}} \\
+  \cmidrule(l){4-5}
+  \textbf{Nr.} & \textbf{Testfall} & \textbf{Beobachtetes Ergebnis (10.09.2026)} & \textbf{10.09.2026} & \textbf{06.11.2026} \\
   \midrule
   \endhead
   \bottomrule
   \endlastfoot
-  T01 & Fehlendes Komma nach \code{author = {A}} & Fehler in der betroffenen Zeile & bestanden \\
-  T02 & Nicht geschlossene Klammer im Titel & Fehler, aber in der letzten Zeile der Datei & teilweise \\
-  T03 & Tippfehler im Typ (\code{@artcle}) & Fehler mit Vorschlag \enquote{@article} & bestanden \\
-  T04 & Doppelt vergebener Schlüssel & Fehler beim zweiten Vorkommen & bestanden \\
-  T05 & Feld \code{journal} in einem \code{@book} & Warnung \enquote{unüblich} & bestanden \\
-  T06 & Korrekter \code{@inproceedings}-Eintrag & keine Meldung & bestanden \\
-  T07 & Feld \code{abstract} über zwei Zeilen & Fehlalarm \enquote{Fehlendes Komma} & nicht bestanden \\
-  T08 & Makrodefinition mit \code{@string} & Fehlalarm \enquote{Unbekannter Eintragstyp} & nicht bestanden \\
-  T09 & Schließende Klammer in der Zeile des letzten Felds & Fehlalarm \enquote{Fehlendes Komma} & nicht bestanden \\
-  T10 & Titel mit verschachtelten Klammern & vollständig und bereinigt in der Liste & bestanden \\
-  T11 & DOI in URL-Form, Jahr ohne Klammern & Verweis auf \code{doi.org}, Jahr erkannt & bestanden \\
-  T12 & Titel in Anführungszeichen, Jahr \enquote{in press} & Titel korrekt, Jahr \enquote{????} & bestanden \\
-  T13 & Eintrag mit runden Klammern & erscheint nicht in der Liste & nicht bestanden \\
-  T14 & Zwei Einträge in Fließtext einer \code{.txt}-Datei & beide extrahiert, übriger Text verworfen & bestanden \\
-  T15 & Formatierung uneinheitlich eingerückter Einträge & einheitlich eingerückt und ausgerichtet & bestanden \\
-  T16 & Felder entfernen bei mehrzeiligem \code{abstract} & nur die erste Zeile entfernt, Eintrag danach ungültig & nicht bestanden \\
-  T17 & Felder entfernen, alle zwölf Felder ausgewählt & \code{booktitle}, \code{keywords} und \code{month} trotzdem entfernt & nicht bestanden \\
-  T18 & Zwischenablage: IEEE-Eintrag in Fließtext & erkannt und einheitlich formatiert & bestanden \\
-  T19 & Zwischenablage: \code{@} und Klammern ohne BibTeX & kein Import & bestanden \\
-  T20 & Zwischenablage: Eintrag mit runden Klammern & in geschweifte Klammern überführt & bestanden \\
-  T21 & Eintrag löschen und mit \texttt{Strg+Z} zurückholen & entfernt und wiederhergestellt & bestanden \\
-  T22 & HTML-Markup im Titel eines Eintrags & als Text angezeigt & bestanden \\
-  T23 & \texttt{Strg+S} und \texttt{Strg+F} laut Hilfedialog & vom Browser statt von BibStream behandelt & nicht bestanden \\
+  T01 & Fehlendes Komma nach \code{author = {A}} & Fehler in der betroffenen Zeile & bestanden & bestanden \\
+  T02 & Nicht geschlossene Klammer im Titel & Fehler, aber in der letzten Zeile der Datei & teilweise & bestanden \\
+  T03 & Tippfehler im Typ (\code{@artcle}) & Fehler mit Vorschlag \enquote{@article} & bestanden & bestanden \\
+  T04 & Doppelt vergebener Schlüssel & Fehler beim zweiten Vorkommen & bestanden & bestanden \\
+  T05 & Feld \code{journal} in einem \code{@book} & Warnung \enquote{unüblich} & bestanden & bestanden \\
+  T06 & Korrekter \code{@inproceedings}-Eintrag & keine Meldung & bestanden & bestanden \\
+  T07 & Feld \code{abstract} über zwei Zeilen & Fehlalarm \enquote{Fehlendes Komma} & nicht bestanden & bestanden \\
+  T08 & Makrodefinition mit \code{@string} & Fehlalarm \enquote{Unbekannter Eintragstyp} & nicht bestanden & bestanden \\
+  T09 & Schließende Klammer in der Zeile des letzten Felds & Fehlalarm \enquote{Fehlendes Komma} & nicht bestanden & bestanden \\
+  T10 & Titel mit verschachtelten Klammern & vollständig und bereinigt in der Liste & bestanden & bestanden \\
+  T11 & DOI in URL-Form, Jahr ohne Klammern & Verweis auf \code{doi.org}, Jahr erkannt & bestanden & bestanden \\
+  T12 & Titel in Anführungszeichen, Jahr \enquote{in press} & Titel korrekt, Jahr \enquote{????} & bestanden & bestanden \\
+  T13 & Eintrag mit runden Klammern & erscheint nicht in der Liste & nicht bestanden & bestanden \\
+  T14 & Zwei Einträge in Fließtext einer \code{.txt}-Datei & beide extrahiert, übriger Text verworfen & bestanden & bestanden \\
+  T15 & Formatierung uneinheitlich eingerückter Einträge & einheitlich eingerückt und ausgerichtet & bestanden & bestanden \\
+  T16 & Felder entfernen bei mehrzeiligem \code{abstract} & nur die erste Zeile entfernt, Eintrag danach ungültig & nicht bestanden & bestanden \\
+  T17 & Felder entfernen, alle zwölf Felder ausgewählt & \code{booktitle}, \code{keywords} und \code{month} trotzdem entfernt & nicht bestanden & bestanden \\
+  T18 & Zwischenablage: IEEE-Eintrag in Fließtext & erkannt und einheitlich formatiert & bestanden & bestanden \\
+  T19 & Zwischenablage: \code{@} und Klammern ohne BibTeX & kein Import & bestanden & bestanden \\
+  T20 & Zwischenablage: Eintrag mit runden Klammern & in geschweifte Klammern überführt & bestanden & bestanden \\
+  T21 & Eintrag löschen und mit \texttt{Strg+Z} zurückholen & entfernt und wiederhergestellt & bestanden & bestanden \\
+  T22 & HTML-Markup im Titel eines Eintrags & als Text angezeigt & bestanden & bestanden \\
+  T23 & \texttt{Strg+S} und \texttt{Strg+F} laut Hilfedialog & vom Browser statt von BibStream behandelt & nicht bestanden & bestanden \\
 \end{longtable}
+}
 
-Von den 23 Testfällen wurden 15 bestanden, einer teilweise und sieben nicht. Alle Fälle mit Dateien in dem Format, das BibStream selbst erzeugt, also einem Feld pro Zeile und der schließenden Klammer in eigener Zeile, wurden bestanden; der Linter erkennt dann sämtliche untersuchten Fehlerklassen. T07, T09 und T16 gehen dagegen auf die zeilenbasierte Verarbeitung zurück, und weil exportierte Einträge häufig mehrzeilige Zusammenfassungen enthalten, ist das für die Praxis relevant. T08 und T13 betreffen seltener genutzte Syntaxformen. Dass der Zwischenablage-Import runde Klammern mit seinem eigenen, zeichenweise arbeitenden Parser korrekt verarbeitet (T20), zeigt, dass ein gemeinsamer Parser für alle Module Vorteile hätte.
+In der evaluierten Fassung wurden von den 23 Testfällen 15 bestanden, einer teilweise und sieben nicht. Alle Fälle mit Dateien in dem Format, das BibStream selbst erzeugt, also einem Feld pro Zeile und der schließenden Klammer in eigener Zeile, wurden bestanden; der Linter erkennt dann sämtliche untersuchten Fehlerklassen. T07, T09 und T16 gehen dagegen auf die zeilenbasierte Verarbeitung zurück, und weil exportierte Einträge häufig mehrzeilige Zusammenfassungen enthalten, ist das für die Praxis relevant. T08 und T13 betreffen seltener genutzte Syntaxformen. Dass der Zwischenablage-Import runde Klammern mit seinem eigenen, zeichenweise arbeitenden Parser korrekt verarbeitet (T20), zeigt, dass ein gemeinsamer Parser für alle Module Vorteile hätte.
 
 Besonders schwer wiegt T17. Der Einstellungsdialog legt nahe, dass nur abgewählte Felder entfernt werden; tatsächlich wirkte die Auswahl als Positivliste und entfernte jedes nicht ausgewählte Feld, auch Pflichtfelder wie \code{booktitle}, die im Dialog gar nicht angeboten werden. Die Änderung ließ sich zwar rückgängig machen, verletzte aber die Erwartung der Nutzerinnen und Nutzer. T23 zeigt eine Abweichung zwischen Hilfedialog und Umsetzung: \texttt{Strg+F} öffnete die Seitensuche des Browsers, die wegen der ausschnittweisen Darstellung von CodeMirror nur den sichtbaren Teil des Editors durchsucht.
 
@@ -1254,7 +1262,7 @@ Von den 20 funktionalen Anforderungen waren in der evaluierten Fassung 16 vollst
 \label{sec:behebung}
 \verfasser{\AK}
 
-Nach der Evaluation wurde BibStream im Oktober und November 2026 überarbeitet, teilweise mit Unterstützung eines KI-Assistenten (Anhang~\ref{anh:ki}). Tabelle~\ref{tab:behebung} fasst die Änderungen zusammen. Anschließend wurden alle zuvor nicht oder teilweise bestandenen Testfälle erneut ausgeführt; alle 23 Testfälle werden nun bestanden.
+Nach der Evaluation wurde BibStream im Oktober und November 2026 überarbeitet, teilweise mit Unterstützung eines KI-Assistenten (Anhang~\ref{anh:ki}). Tabelle~\ref{tab:behebung} fasst die Änderungen zusammen. Am 06.11.2026 wurden alle 23 Testfälle mit der aktuellen Fassung per Skript wie in Abschnitt~\ref{sec:durchfuehrung} wiederholt; alle werden bestanden (Tabelle~\ref{tab:testfaelle}).
 
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{11.6cm}@{}}
   \caption{Änderungen nach der Evaluation}
@@ -1286,7 +1294,7 @@ Parallel ergänzte das Team im Oktober 2026 den Import über Kennungen (Abschnit
 \label{sec:bibliotheken}
 % =====================================================================
 
-BibStream soll über das Praktikum hinaus genutzt werden. Dieses Kapitel beschreibt deshalb alle externen Bibliotheken und Dienste, von denen der Betrieb abhängt, mit Version, Lizenz, Einbindung, Anzeichen bei einem Ausfall und dem Vorgehen bei einer Aktualisierung. Es bezieht sich auf die aktuelle Fassung (Stand November 2026). Alles Übrige ist reines HTML, CSS und JavaScript ohne weitere Abhängigkeiten.
+BibStream soll über das Praktikum hinaus genutzt werden. Dieses Kapitel beschreibt deshalb alle externen Bibliotheken und Dienste, von denen der Betrieb abhängt, mit Version, Lizenz, Einbindung, Anzeichen bei einem Ausfall und dem Vorgehen bei einer Aktualisierung. Es bezieht sich auf die aktuelle Fassung im Hauptzweig \code{main} des Git-Repositorys (Stand 06.11.2026). Alles Übrige ist reines HTML, CSS und JavaScript ohne weitere Abhängigkeiten.
 
 \subsection{Überblick}
 \label{sec:lib-ueberblick}
